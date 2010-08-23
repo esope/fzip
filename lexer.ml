@@ -1,4 +1,4 @@
-open Lambda_parser
+open Parsers
 open Ulexing
 
 exception Lexing_error of string * Lexing.position

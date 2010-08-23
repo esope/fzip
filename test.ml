@@ -1,6 +1,6 @@
 open Ast
 open Ast_utils
-open Parser
+open Parse_utils
 
 let run_bintests f1 f2 examples =
   let failed = ref 0 in

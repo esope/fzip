@@ -1,7 +1,7 @@
 open Ast
 open Location
 
-let string_of_token = Lambda_lexer.string_of_token
+let string_of_token = Lexer.string_of_token
 
 module Encode = struct
   open Ast.Raw
@@ -117,7 +117,7 @@ module String = struct
     | _ -> true
 
   let rec of_kind_rec term = function
-    | Base -> Printf.sprintf "%s" (string_of_token Lambda_parser.STAR)
+    | Base -> Printf.sprintf "%s" (string_of_token Parsers.STAR)
     | Arrow(t1, t2) ->
         (match (tights_more_than_arrow t1 && is_delimited t1,
                 is_arrow t2 || tights_more_than_arrow t2 || is_delimited t2) with
@@ -126,7 +126,7 @@ module String = struct
         | false, true  -> Printf.sprintf "(%a) %s %a"
         | false, false -> Printf.sprintf "(%a) %s (%a)")
           (fun _ -> of_kind_rec term) t1
-          (string_of_token Lambda_parser.DBLARROW)
+          (string_of_token Parsers.DBLARROW)
           (fun _ -> of_kind_rec term) t2
     | Prod(t1, t2) ->
         (match (tights_more_than_prod t1 && is_delimited t1,
@@ -136,25 +136,25 @@ module String = struct
         | false, true  -> Printf.sprintf "(%a) %s %a"
         | false, false -> Printf.sprintf "(%a) %s (%a)")
           (fun _ -> of_kind_rec term) t1
-          (string_of_token Lambda_parser.TIMES)
+          (string_of_token Parsers.TIMES)
           (fun _ -> of_kind_rec term) t2
     | Pi(x, t1, t2) ->
         Printf.sprintf "%s(%i%s %a) %a"
-          (string_of_token Lambda_parser.PI)
+          (string_of_token Parsers.PI)
           x
-          (string_of_token Lambda_parser.DBLCOLON)
+          (string_of_token Parsers.DBLCOLON)
           (fun _ -> of_kind_rec term) t1
           (fun _ -> of_kind_rec term) t2
     | Sigma(x, t1, t2) ->
         Printf.sprintf "%s(%i%s %a) %a"
-          (string_of_token Lambda_parser.SIGMA)
+          (string_of_token Parsers.SIGMA)
           x
-          (string_of_token Lambda_parser.DBLCOLON)
+          (string_of_token Parsers.DBLCOLON)
           (fun _ -> of_kind_rec term) t1
           (fun _ -> of_kind_rec term) t2
     | Single t ->
         Printf.sprintf "%s(%a)"
-          (string_of_token Lambda_parser.SINGLE)
+          (string_of_token Parsers.SINGLE)
           (fun _ -> term) t
 
   let is_delimited t =
@@ -175,7 +175,7 @@ module String = struct
     | _ -> false
 
   let rec pre_of_typ = function
-    | FVar x -> Printf.sprintf "%s" (string_of_token (Lambda_parser.ID x))
+    | FVar x -> Printf.sprintf "%s" (string_of_token (Parsers.ID x))
     | BVar x -> Printf.sprintf "%i" x
     | App (t, u) ->
         (match (tights_more_than_app t && is_delimited t,
@@ -185,12 +185,12 @@ module String = struct
         | false, true -> Printf.sprintf "(%a) %s%a"
         | false, false -> Printf.sprintf "(%a) %s(%a)")
           (fun _ -> of_typ) t
-          (string_of_token Lambda_parser.APP)
+          (string_of_token Parsers.APP)
           (fun _ -> of_typ) u
     | Lam (x, tau, t) -> Printf.sprintf "%s(%i %s %a) %a"
-          (string_of_token Lambda_parser.LAMBDA)
+          (string_of_token Parsers.LAMBDA)
           x
-          (string_of_token Lambda_parser.DBLCOLON)
+          (string_of_token Parsers.DBLCOLON)
           (fun _ -> of_kind_rec of_typ) tau
           (fun _ -> of_typ) t
     | Pair (t, u) ->
@@ -200,17 +200,17 @@ module String = struct
         | true, false  -> Printf.sprintf "%s%a%s (%a)%s"
         | false, true  -> Printf.sprintf "%s(%a)%s %a%s"
         | false, false -> Printf.sprintf "%s(%a)%s (%a)%s")
-          (string_of_token Lambda_parser.LANGLE)
+          (string_of_token Parsers.LANGLE)
           (fun _ -> of_typ) t
-          (string_of_token Lambda_parser.COMMA)
+          (string_of_token Parsers.COMMA)
           (fun _ -> of_typ) u
-          (string_of_token Lambda_parser.RANGLE)
+          (string_of_token Parsers.RANGLE)
     | Proj(t, lab) ->
         (if tights_more_than_proj t && is_delimited t
         then Printf.sprintf "%a%s%s"
         else Printf.sprintf "(%a)%s%s")
           (fun _ -> of_typ) t
-          (string_of_token Lambda_parser.DOT)
+          (string_of_token Parsers.DOT)
           lab
   and of_typ t = pre_of_typ t.content
   let of_kind = of_kind_rec of_typ
