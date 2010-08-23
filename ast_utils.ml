@@ -163,7 +163,7 @@ module String = struct
       | _ -> true
 
     let rec of_kind_rec term = function
-      | Base -> Printf.sprintf "%s" (string_of_token Parsers.STAR)
+      | Base -> Printf.sprintf "%s" (string_of_token Parser.STAR)
       | Arrow(t1, t2) ->
           (match (tights_more_than_arrow t1 && is_delimited t1,
                   is_arrow t2 || tights_more_than_arrow t2 || is_delimited t2) with
@@ -172,7 +172,7 @@ module String = struct
           | false, true  -> Printf.sprintf "(%a) %s %a"
           | false, false -> Printf.sprintf "(%a) %s (%a)")
             (fun _ -> of_kind_rec term) t1
-            (string_of_token Parsers.DBLARROW)
+            (string_of_token Parser.DBLARROW)
             (fun _ -> of_kind_rec term) t2
       | Prod(t1, t2) ->
           (match (tights_more_than_prod t1 && is_delimited t1,
@@ -182,25 +182,25 @@ module String = struct
           | false, true  -> Printf.sprintf "(%a) %s %a"
           | false, false -> Printf.sprintf "(%a) %s (%a)")
             (fun _ -> of_kind_rec term) t1
-            (string_of_token Parsers.TIMES)
+            (string_of_token Parser.TIMES)
             (fun _ -> of_kind_rec term) t2
       | Pi(x, t1, t2) ->
           Printf.sprintf "%s(%i%s %a) %a"
-            (string_of_token Parsers.PI)
+            (string_of_token Parser.PI)
             x
-            (string_of_token Parsers.DBLCOLON)
+            (string_of_token Parser.DBLCOLON)
             (fun _ -> of_kind_rec term) t1
             (fun _ -> of_kind_rec term) t2
       | Sigma(x, t1, t2) ->
           Printf.sprintf "%s(%i%s %a) %a"
-            (string_of_token Parsers.SIGMA)
+            (string_of_token Parser.SIGMA)
             x
-            (string_of_token Parsers.DBLCOLON)
+            (string_of_token Parser.DBLCOLON)
             (fun _ -> of_kind_rec term) t1
             (fun _ -> of_kind_rec term) t2
       | Single t ->
           Printf.sprintf "%s(%a)"
-            (string_of_token Parsers.SINGLE)
+            (string_of_token Parser.SINGLE)
             (fun _ -> term) t
 
     let is_delimited t =
@@ -236,7 +236,7 @@ module String = struct
       | _ -> false
 
     let rec pre_of_typ = function
-      | FVar x -> Printf.sprintf "%s" (string_of_token (Parsers.ID x))
+      | FVar x -> Printf.sprintf "%s" (string_of_token (Parser.ID x))
       | BVar x -> Printf.sprintf "α_%i" x
       | App (t, u) ->
           (match (tights_more_than_app t && is_delimited t,
@@ -246,12 +246,12 @@ module String = struct
           | false, true -> Printf.sprintf "(%a) %s%a"
           | false, false -> Printf.sprintf "(%a) %s(%a)")
             (fun _ -> of_typ) t
-            (string_of_token Parsers.APP)
+            (string_of_token Parser.APP)
             (fun _ -> of_typ) u
       | Lam (x, tau, t) -> Printf.sprintf "%s(α_%i %s %a) %a"
-            (string_of_token Parsers.LAMBDA)
+            (string_of_token Parser.LAMBDA)
             x
-            (string_of_token Parsers.DBLCOLON)
+            (string_of_token Parser.DBLCOLON)
             (fun _ -> of_kind_rec of_typ) tau
             (fun _ -> of_typ) t
       | Pair (t, u) ->
@@ -261,22 +261,22 @@ module String = struct
           | true, false  -> Printf.sprintf "%s%a%s (%a)%s"
           | false, true  -> Printf.sprintf "%s(%a)%s %a%s"
           | false, false -> Printf.sprintf "%s(%a)%s (%a)%s")
-            (string_of_token Parsers.LANGLE)
+            (string_of_token Parser.LANGLE)
             (fun _ -> of_typ) t
-            (string_of_token Parsers.COMMA)
+            (string_of_token Parser.COMMA)
             (fun _ -> of_typ) u
-            (string_of_token Parsers.RANGLE)
+            (string_of_token Parser.RANGLE)
       | Proj(t, lab) ->
           (if tights_more_than_proj t && is_delimited t
           then Printf.sprintf "%a%s%s"
           else Printf.sprintf "(%a)%s%s")
             (fun _ -> of_typ) t
-            (string_of_token Parsers.DOT)
+            (string_of_token Parser.DOT)
             lab
       | BaseForall (x, tau, t) -> Printf.sprintf "%s(%i %s %a) %a"
-            (string_of_token Parsers.UPLAMBDA)
+            (string_of_token Parser.UPLAMBDA)
             x
-            (string_of_token Parsers.DBLCOLON)
+            (string_of_token Parser.DBLCOLON)
             (fun _ -> of_kind_rec of_typ) tau
             (fun _ -> of_typ) t
       | BaseProd (t, u) ->
@@ -286,11 +286,11 @@ module String = struct
           | true, false  -> Printf.sprintf "%s%a%s (%a)%s"
           | false, true  -> Printf.sprintf "%s(%a)%s %a%s"
           | false, false -> Printf.sprintf "%s(%a)%s (%a)%s")
-            (string_of_token Parsers.LBRACE)
+            (string_of_token Parser.LBRACE)
             (fun _ -> of_typ) t
-            (string_of_token Parsers.SEMICOLON)
+            (string_of_token Parser.SEMICOLON)
             (fun _ -> of_typ) u
-            (string_of_token Parsers.RBRACE)
+            (string_of_token Parser.RBRACE)
       | BaseArrow(t1, t2) ->
           (match (tights_more_than_base_arrow t1 && is_delimited t1,
                   is_base_arrow t2 || tights_more_than_base_arrow t2 ||
@@ -300,7 +300,7 @@ module String = struct
           | false, true  -> Printf.sprintf "(%a) %s %a"
           | false, false -> Printf.sprintf "(%a) %s (%a)")
             (fun _ -> of_typ) t1
-            (string_of_token Parsers.ARROW)
+            (string_of_token Parser.ARROW)
             (fun _ -> of_typ) t2
 
     and of_typ t = pre_of_typ t.content

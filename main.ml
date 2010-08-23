@@ -8,6 +8,6 @@ let () =
     | k when k > 1 -> open_in Sys.argv.(1)
     | _ -> assert false
   in
-  let term = Parse_utils.Channel.parse_term input in
+  let term = Parser_utils.Channel.parse_term input in
   let typ = Wfterm.wfterm Env.empty term in
   Printf.printf "%a\n%!" (fun _ -> Print.typ) typ

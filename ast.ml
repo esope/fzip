@@ -31,6 +31,7 @@ module Raw = struct
     | TeProj of ('kind, 'typ) term * string
     | TeGen of string * 'kind * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
+
 end
 
 module Typ = struct

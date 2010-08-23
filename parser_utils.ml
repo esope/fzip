@@ -2,11 +2,11 @@ let convert_parser parser =
   MenhirLib.Convert.Simplified.traditional2revised
     parser
 
-let typ_expr_parser = convert_parser Parsers.typ_expr
+let typ_expr_parser = convert_parser Parser.typ_expr
 
-let kind_expr_parser = convert_parser Parsers.kind_expr
+let kind_expr_parser = convert_parser Parser.kind_expr
 
-let term_expr_parser = convert_parser Parsers.main_term_expr
+let term_expr_parser = convert_parser Parser.main_term_expr
 
 module String =  struct
 

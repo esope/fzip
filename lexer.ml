@@ -1,4 +1,4 @@
-open Parsers
+open Parser
 open Ulexing
 
 exception Lexing_error of string * Lexing.position
