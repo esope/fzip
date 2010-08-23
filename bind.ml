@@ -14,15 +14,14 @@ module type F_ATOM_IMPL = sig
   val fresh: unit -> sort t
 end
 
-module type PRE_ATOM = sig
+module type B_ATOM = sig
   type sort
   type 'sort t constraint 'sort = sort
   val eq: sort t -> sort t -> bool
 end
 
-module type B_ATOM = PRE_ATOM
 module type F_ATOM = sig
-  include PRE_ATOM
+  include B_ATOM
   val fresh: unit -> sort t
 end
 
@@ -30,89 +29,91 @@ module type S = sig
   type sort
   type 'sort free constraint 'sort = sort
   type 'sort bound constraint 'sort = sort
-  module F : F_ATOM with type sort = sort with type 'a t = 'a free
-  module B : B_ATOM with type sort = sort with type 'a t = 'a bound
+  module Free : F_ATOM with type sort = sort with type 'a t = 'a free
+  module Bound : B_ATOM with type sort = sort with type 'a t = 'a bound
   module Abs : sig
     type ('sort, 'a) t constraint 'sort = sort
-    val map: ('a -> 'b) -> (sort, 'a) t -> (sort, 'b) t
+    val fmap: ('a -> 'b) -> (sort, 'a) t -> (sort, 'b) t
+    val bmap: ('a -> sort bound -> 'b -> 'a) ->
+      (sort, 'a) t -> sort bound -> 'b -> (sort, 'a) t
     val hom: (sort bound -> 'a -> 'b) -> (sort, 'a) t -> 'b
-    val mk_bsubst: ('a -> sort bound -> 'a -> 'a) ->
-           (sort, 'a) t -> sort bound -> 'a -> (sort, 'a) t
-    val mk_h: ((sort free -> sort bound -> sort bound) ->
-            (sort bound -> sort bound -> sort bound) ->
-            (sort bound list -> sort bound) ->
-            (sort bound -> sort bound) -> 'a -> sort bound -> sort bound) ->
-           sort bound -> (sort, 'a) t -> sort bound
+    type 'a fsubst = 'a -> sort bound -> 'a -> 'a
+    type 'a bsubst = 'a -> sort free -> 'a -> 'a
+    val mk_instantiate: 'a fsubst -> (sort, 'a) t -> sort bound -> 'a -> 'a
+    val mk_abs: (((sort, 'a) t -> sort bound) ->
+      (sort free -> sort bound) ->
+        (sort bound -> sort bound) ->
+          (sort bound list -> sort bound) -> 'a -> sort bound) ->
+            'a bsubst ->
+              (sort bound -> 'a) -> sort free -> 'a -> (sort, 'a) t
   end
 end
 
 module Make
-    (Free: F_ATOM_IMPL) 
-    (Bound: B_ATOM_IMPL with type sort = Free.sort) :
-    S with type sort = Free.sort = struct
+    (FreeImpl: F_ATOM_IMPL) 
+    (BoundImpl: B_ATOM_IMPL with type sort = FreeImpl.sort) :
+    S with type sort = FreeImpl.sort =
+  struct
 
-      type sort = Free.sort
-      type 'sort free = 'sort Free.t constraint 'sort = sort
-      type 'sort bound = 'sort Bound.t constraint 'sort = sort
+    type sort = FreeImpl.sort
+    type 'sort free = 'sort FreeImpl.t constraint 'sort = sort
+    type 'sort bound = 'sort BoundImpl.t constraint 'sort = sort
 
-      module F = struct
-        type sort = Free.sort
-        type 'sort t = sort free constraint 'sort = sort
-        let eq = Free.eq
-        let fresh = Free.fresh
-      end
+    module Free = struct
+      type sort = FreeImpl.sort
+      type 'sort t = sort free constraint 'sort = sort
+      let eq = FreeImpl.eq
+      let fresh = FreeImpl.fresh
+    end
 
-      module B = struct
-        type sort = Bound.sort
-        type 'sort t = sort bound constraint 'sort = sort
-        let eq = Bound.eq
-      end
+    module Bound = struct
+      type sort = BoundImpl.sort
+      type 'sort t = sort bound constraint 'sort = sort
+      let eq = BoundImpl.eq
+    end
 
-      module Abs = struct
-        type ('sort, 'a) t = { var : sort bound ; body : 'a}
-        constraint 'sort = sort
+    module Abs = struct
+      type ('sort, 'a) t = { var : sort bound ; body : 'a}
+      constraint 'sort = sort
 
-        let map f { var = x ; body = b } = { var = x ; body = f b }
+      let fmap f abs = { abs with body = f abs.body }
+      let bmap f abs x u =
+        if BoundImpl.eq abs.var x then abs else { abs with body = f abs.body x u }
 
-        let hom f { var = y ; body = b } = f y b
+      let hom f { var = y ; body = b } = f y b
 
-        let list_max l = List.fold_left Bound.max Bound.zero l
+      type 'a fsubst = 'a -> sort bound -> 'a -> 'a
+      type 'a bsubst = 'a -> sort free -> 'a -> 'a
 
-        let mk_bsubst (f: 'a -> sort bound -> 'a -> 'a)
-            (abs : (sort, 'a) t) (x: sort bound) (t: 'a) =
-          if Bound.eq abs.var x
-          then abs
-          else { abs with body = f abs.body x t }
+      let mk_instantiate
+          (var_bsubst: 'term -> sort bound -> 'term -> 'term)
+          (abs: (sort, 'term) t) (x: sort bound) (u: 'term) : 'term =
+        var_bsubst abs.body abs.var u
 
-        let h_abs (f: sort bound -> 'a -> sort bound) (x: sort bound)
-            (abs : (sort, 'a) t) : sort bound =
-          let n = f x abs.body in
-          if Bound.eq n Bound.zero
-          then Bound.zero
-          else Bound.max n (Bound.succ abs.var)
-
-        let h_free (x: sort bound) (_: sort free) = Bound.zero
-        let h_bound (x: sort bound) (y: sort bound) =
-          if Bound.eq x y
-          then Bound.succ Bound.zero
-          else Bound.zero
+      let list_max l = List.fold_left BoundImpl.max BoundImpl.zero l
 
 (* height of Sato & Pollack *)
-        let rec mk_h (hom: (sort free -> 'a -> 'b) ->
-          (sort bound -> 'a -> 'b) ->
-            ('b list -> 'b) -> ('b -> 'b) -> 'term -> 'a -> 'b)
-            (x: sort bound) (abs: (sort, 'term) t) : sort bound =
-          h_abs
-            (fun x t ->
-              hom
-                (fun x y -> h_free y x)
-                h_bound
-                list_max
-                (fun y -> mk_h hom y abs)
-                t x)
-            x abs
-
-
-      end
-
+      let rec mk_h
+          (hom: ((sort, 'term) t -> 'a) ->
+            (sort free -> 'b) ->
+              (sort bound -> 'b) ->
+                ('b list -> 'b) -> 'term -> 'b)
+          (x: sort free) : 'term -> sort bound =
+            hom
+              (fun abs ->
+                let n = mk_h hom x abs.body in
+                if BoundImpl.eq n BoundImpl.zero
+                then BoundImpl.zero
+                else BoundImpl.max n (BoundImpl.succ abs.var))
+              (fun y ->
+                if FreeImpl.eq x y then BoundImpl.succ BoundImpl.zero else BoundImpl.zero)
+              (fun y -> BoundImpl.zero)
+              list_max
+              
+      let mk_abs hom_tree subst bvar =
+        let h = mk_h hom_tree in
+        fun x t ->
+          let n = h x t in
+          { var = n ; body = subst t x (bvar n) }
     end
+  end
