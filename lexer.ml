@@ -1,7 +1,41 @@
 open Parser
 open Ulexing
 
-exception Lexing_error of string * Lexing.position
+let current_bol = ref 0 (* global position *)
+let current_lnum = ref 1
+let current_file = ref "<dummy>"
+let current_start = ref Lexing.dummy_pos
+let current_end = ref Lexing.dummy_pos
+let current_token = ref (ID "dummy")
+
+let break_line lexbuf =
+  incr current_lnum ; current_bol := lexeme_start lexbuf
+let startpos lexbuf =
+  { Lexing.pos_fname = !current_file ;
+    Lexing.pos_lnum = !current_lnum ;
+    Lexing.pos_bol = !current_bol ;
+    Lexing.pos_cnum = lexeme_start lexbuf }
+let endpos lexbuf =
+  { Lexing.pos_fname = !current_file ;
+    Lexing.pos_lnum = !current_lnum ;
+    Lexing.pos_bol = !current_bol ;
+    Lexing.pos_cnum = lexeme_end lexbuf }
+let locate lexbuf token =
+  let startpos = startpos lexbuf
+  and endpos = endpos lexbuf in
+  current_start := startpos ;
+  current_end := endpos ;
+  current_token := token ;
+  (token, startpos, endpos)
+
+exception Lexing_error of Lexing.position * Lexing.position * string
+
+let lexing_error_handler f file lexbuf =
+  current_lnum := 1 ; current_bol := 0 ; current_file := file ;
+  try f lexbuf
+  with Lexing_error(startpos, endpos, s) ->
+    Error.raise_error Error.lexing startpos endpos
+      (Printf.sprintf "Unknown token: %s." s)
 
 let regexp whitespace = ['\t' ' ']+
 let regexp linebreak = ['\n']
@@ -15,62 +49,41 @@ let regexp alpha_greek = alpha | greek
 let regexp digit = ['0'-'9']
 let regexp id = alpha_greek+ (alpha_greek | digit)*
 
-let lnum = ref 0
-let bol = ref 0
-let break_line () =
-  incr lnum ; incr bol
-let skip_length lexbuf =
-  bol := lexeme_length lexbuf + !bol
-let locate file lexbuf token =
-  let startpos =
-    { Lexing.pos_fname = file ;
-      Lexing.pos_lnum = !lnum ;
-      Lexing.pos_bol = !bol ;
-      Lexing.pos_cnum = lexeme_start lexbuf }
-  and endpos =
-    { Lexing.pos_fname = file ;
-      Lexing.pos_lnum = !lnum ;
-      Lexing.pos_bol = !bol ;
-      Lexing.pos_cnum = lexeme_end lexbuf }
-  in
-  skip_length lexbuf ;
-  (token, startpos, endpos)
-let pos_at_point file lexbuf =
-    { Lexing.pos_fname = file ;
-      Lexing.pos_lnum = !lnum ;
-      Lexing.pos_bol = !bol ;
-      Lexing.pos_cnum = lexeme_start lexbuf }
+let rec token = lexer
+| whitespace -> token lexbuf
+| linebreak -> break_line lexbuf ; token lexbuf
+| "=>" | 8658 (* ⇒ *) -> locate lexbuf DBLARROW
+| "->" | 8594 (* → *) -> locate lexbuf ARROW
+| "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
+| "fun" | 955 (* λ *) -> locate lexbuf LAMBDA
+| "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
+| "forall" | 8704 (* ∀ *) -> locate lexbuf UPLAMBDA
+| "::" -> locate lexbuf DBLCOLON
+| ":" -> locate lexbuf COLON
+| ";" -> locate lexbuf SEMICOLON
+| "(" -> locate lexbuf LPAR
+| ")" -> locate lexbuf RPAR
+| "." -> locate lexbuf DOT
+| "," -> locate lexbuf COMMA
+| "<" -> locate lexbuf LANGLE
+| ">" -> locate lexbuf RANGLE
+| "{" -> locate lexbuf LBRACE
+| "}" -> locate lexbuf RBRACE
+| "[" -> locate lexbuf LBRACKET
+| "]" -> locate lexbuf RBRACKET
+| "=" -> locate lexbuf EQ
+| 215 (* × *) -> locate lexbuf TIMES
+| "Pi" | 928 (* Π *) -> locate lexbuf PI
+| "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA
+| "S" -> locate lexbuf SINGLE
+| eof -> locate lexbuf EOF
+| id -> locate lexbuf (ID (utf8_lexeme lexbuf))
+| _ ->
+    raise (Lexing_error (startpos lexbuf,
+                         endpos lexbuf,
+                         utf8_lexeme lexbuf))
 
-let rec token (file:string) = lexer
-| whitespace -> skip_length lexbuf ; token file lexbuf
-| linebreak -> break_line () ; token file lexbuf
-| "=>" | 8658 (* ⇒ *) -> locate file lexbuf DBLARROW
-| "->" | 8594 (* → *) -> locate file lexbuf ARROW
-| "*" | 8902 (* ⋆ *) -> locate file lexbuf STAR
-| "fun" | 955 (* λ *) -> locate file lexbuf LAMBDA
-| "Fun" | 923 (* Λ *) -> locate file lexbuf UPLAMBDA
-| "forall" | 8704 (* ∀ *) -> locate file lexbuf UPLAMBDA
-| "::" -> locate file lexbuf DBLCOLON
-| ":" -> locate file lexbuf COLON
-| ";" -> locate file lexbuf SEMICOLON
-| "(" -> locate file lexbuf LPAR
-| ")" -> locate file lexbuf RPAR
-| "." -> locate file lexbuf DOT
-| "," -> locate file lexbuf COMMA
-| "<" -> locate file lexbuf LANGLE
-| ">" -> locate file lexbuf RANGLE
-| "{" -> locate file lexbuf LBRACE
-| "}" -> locate file lexbuf RBRACE
-| "[" -> locate file lexbuf LBRACKET
-| "]" -> locate file lexbuf RBRACKET
-| "=" -> locate file lexbuf EQ
-| 215 (* × *) -> locate file lexbuf TIMES
-| "Pi" | 928 (* Π *) -> locate file lexbuf PI
-| "Sigma" |  931 (* Σ *) -> locate file lexbuf SIGMA
-| "S" -> locate file lexbuf SINGLE
-| eof -> locate file lexbuf EOF
-| id -> locate file lexbuf (ID (utf8_lexeme lexbuf))
-| _ -> raise (Lexing_error (utf8_lexeme lexbuf, pos_at_point file lexbuf))
+let token = lexing_error_handler token
 
 let string_of_token = function
   | ID x -> x

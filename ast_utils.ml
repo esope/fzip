@@ -185,14 +185,14 @@ module String = struct
             (string_of_token Parser.TIMES)
             (fun _ -> of_kind_rec term) t2
       | Pi(x, t1, t2) ->
-          Printf.sprintf "%s(%i%s %a) %a"
+          Printf.sprintf "%s(α%i%s %a) %a"
             (string_of_token Parser.PI)
             x
             (string_of_token Parser.DBLCOLON)
             (fun _ -> of_kind_rec term) t1
             (fun _ -> of_kind_rec term) t2
       | Sigma(x, t1, t2) ->
-          Printf.sprintf "%s(%i%s %a) %a"
+          Printf.sprintf "%s(α%i%s %a) %a"
             (string_of_token Parser.SIGMA)
             x
             (string_of_token Parser.DBLCOLON)
@@ -237,7 +237,7 @@ module String = struct
 
     let rec pre_of_typ = function
       | FVar x -> Printf.sprintf "%s" (string_of_token (Parser.ID x))
-      | BVar x -> Printf.sprintf "α_%i" x
+      | BVar x -> Printf.sprintf "α%i" x
       | App (t, u) ->
           (match (tights_more_than_app t && is_delimited t,
                   tights_more_than_app u && is_delimited u) with
@@ -248,7 +248,7 @@ module String = struct
             (fun _ -> of_typ) t
             (string_of_token Parser.APP)
             (fun _ -> of_typ) u
-      | Lam (x, tau, t) -> Printf.sprintf "%s(α_%i %s %a) %a"
+      | Lam (x, tau, t) -> Printf.sprintf "%s(α%i %s %a) %a"
             (string_of_token Parser.LAMBDA)
             x
             (string_of_token Parser.DBLCOLON)
@@ -273,7 +273,7 @@ module String = struct
             (fun _ -> of_typ) t
             (string_of_token Parser.DOT)
             lab
-      | BaseForall (x, tau, t) -> Printf.sprintf "%s(%i %s %a) %a"
+      | BaseForall (x, tau, t) -> Printf.sprintf "%s(α%i %s %a) %a"
             (string_of_token Parser.UPLAMBDA)
             x
             (string_of_token Parser.DBLCOLON)
