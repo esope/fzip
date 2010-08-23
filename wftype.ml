@@ -1,4 +1,4 @@
-open Ast
+open Ast.Typ
 open Ast_utils
 open Location
 
@@ -34,46 +34,48 @@ let rec wfsub env k1 k2 = match (k1, k2) with
     wfsub env k1' k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1')::env) (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
+    wfsub (Env.add_typ_var y k1' env)
+      (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
 | (Arrow(k1, k2), Pi(x', k1', k2')) ->
     wfsub env k1' k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1')::env) k2 (bsubst_kind k2' x' y_var)
+    wfsub (Env.add_typ_var y k1' env) k2 (bsubst_kind k2' x' y_var)
 | (Pi(x, k1, k2), Arrow(k1', k2')) ->
     wfsub env k1' k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1')::env) (bsubst_kind k2 x y_var) k2'
+    wfsub (Env.add_typ_var y k1' env) (bsubst_kind k2 x y_var) k2'
 | (Prod(k1, k2), Prod(k1', k2')) ->
     wfsub env k1 k1' && wfsub env k2 k2'
 | (Sigma(x,k1, k2), Sigma(x',k1', k2')) ->
     wfsub env k1 k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1)::env) (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
+    wfsub (Env.add_typ_var y k1 env)
+      (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
 | (Prod(k1, k2), Sigma(x',k1', k2')) ->
     wfsub env k1 k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1)::env) k2 (bsubst_kind k2' x' y_var)
+    wfsub (Env.add_typ_var y k1 env) k2 (bsubst_kind k2' x' y_var)
 | (Sigma(x,k1, k2), Prod(k1', k2')) ->
     wfsub env k1 k1 &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    wfsub ((y, k1)::env) (bsubst_kind k2 x y_var) k2
+    wfsub (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) k2
 | (Single t, Single t') ->
     let test = Normalize.equiv_typ env t t' Base in
     assert (test = Normalize.equiv_typ_simple env t t' Base) ;
     test
 | _ -> failwith
       (Printf.sprintf "Subkinding error:\n  %a\n  is not a subkind of\n  %a"
-      (fun _ -> String.of_kind) k1
-      (fun _ -> String.of_kind) k2)
+      (fun _ -> String.Typ.of_kind) k1
+      (fun _ -> String.Typ.of_kind) k2)
 
 let rec wftype env t = match t.content with
 | BVar _ -> assert false
-| FVar x -> single_ext (List.assoc x env) t
+| FVar x -> single_ext (Env.get_typ_var x env) t
 | App(t1, t2) ->
     let k1 = wftype env t1 and k2 = wftype env t2 in 
     begin
@@ -92,7 +94,7 @@ let rec wftype env t = match t.content with
     wfkind env k ;
     let x' = new_var () in
     let t' = bsubst_typ t x (dummy_locate (FVar x')) in
-    let k' = wftype ((x',k) :: env) t' in
+    let k' = wftype (Env.add_typ_var x' k env) t' in
     Arrow(k, k')
 | Pair(k1, k2) ->
     let k1 = wftype env k1 
@@ -108,6 +110,20 @@ let rec wftype env t = match t.content with
           bsubst_kind k2 x (dummy_locate (Proj(t, "1")))
       | _ -> failwith "Ill-formed projection."
     end
+| BaseForall(x, k, u) ->
+    wfkind env k ;
+    let x' = new_var () in
+    let u' = bsubst_typ u x (dummy_locate (FVar x')) in
+    let env' = Env.add_typ_var x' k env in
+    let k' = wftype env' u' in
+    if wfsub env' k' Base
+    then Single t
+    else failwith "Ill-formed universal type."
+| BaseProd(t1, t2) | BaseArrow(t1, t2) ->
+    if wfsub env (wftype env t1) Base &&
+      wfsub env (wftype env t2) Base
+    then Single t
+    else failwith "Ill-formed basic product type."
 
 and wfkind env = function
   | Base -> ()
@@ -118,7 +134,7 @@ and wfkind env = function
       wfkind env k1 ;
       let x = new_var () in
       let x_var = dummy_locate (FVar x) in
-      wfkind ((x, k1)::env) (bsubst_kind k2 y x_var)
+      wfkind (Env.add_typ_var x k1 env) (bsubst_kind k2 y x_var)
   | Single t ->
       match wftype env t with
       | Single _ | Base -> ()

@@ -45,15 +45,25 @@ let rec token (file:string) = lexer
 | whitespace -> skip_length lexbuf ; token file lexbuf
 | linebreak -> break_line () ; token file lexbuf
 | "=>" | 8658 (* ⇒ *) -> locate file lexbuf DBLARROW
+| "->" | 8594 (* → *) -> locate file lexbuf ARROW
 | "*" | 8902 (* ⋆ *) -> locate file lexbuf STAR
 | "fun" | 955 (* λ *) -> locate file lexbuf LAMBDA
+| "Fun" | 923 (* Λ *) -> locate file lexbuf UPLAMBDA
+| "forall" | 8704 (* ∀ *) -> locate file lexbuf UPLAMBDA
 | "::" -> locate file lexbuf DBLCOLON
+| ":" -> locate file lexbuf COLON
+| ";" -> locate file lexbuf SEMICOLON
 | "(" -> locate file lexbuf LPAR
 | ")" -> locate file lexbuf RPAR
 | "." -> locate file lexbuf DOT
 | "," -> locate file lexbuf COMMA
 | "<" -> locate file lexbuf LANGLE
 | ">" -> locate file lexbuf RANGLE
+| "{" -> locate file lexbuf LBRACE
+| "}" -> locate file lexbuf RBRACE
+| "[" -> locate file lexbuf LBRACKET
+| "]" -> locate file lexbuf RBRACKET
+| "=" -> locate file lexbuf EQ
 | 215 (* × *) -> locate file lexbuf TIMES
 | "Pi" | 928 (* Π *) -> locate file lexbuf PI
 | "Sigma" |  931 (* Σ *) -> locate file lexbuf SIGMA
@@ -65,6 +75,7 @@ let rec token (file:string) = lexer
 let string_of_token = function
   | ID x -> x
   | LAMBDA -> "λ"
+  | UPLAMBDA -> "Λ"
   | LPAR -> "("
   | RPAR -> ")"
   | DBLCOLON -> "::"
@@ -79,4 +90,13 @@ let string_of_token = function
   | SINGLE -> "S"
   | PI -> "Π"
   | SIGMA -> "Σ"
+  | COLON -> ":"
+  | SEMICOLON -> ";"
+  | LBRACE -> "{"
+  | RBRACE -> "}"
+  | LBRACKET -> "["
+  | RBRACKET -> "]"
+  | EQ -> "="
+  | FORALL -> "∀"
+  | ARROW -> "→"
   | EOF -> "\n"

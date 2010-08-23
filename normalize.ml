@@ -1,10 +1,12 @@
-open Ast
+open Ast.Typ
 open Location
 
 let rec head_norm env t = match t.content with
+| BaseForall(_, _, _) | BaseProd(_, _) | BaseArrow(_, _) ->
+    (t, Some Base)
 | FVar x ->
     begin
-      let k = List.assoc x env in
+      let k = Env.get_typ_var x env in
       match k with Single u -> (u, Some k)
       | _ -> (t, Some k)
     end
@@ -87,7 +89,22 @@ let rec head_norm env t = match t.content with
     end
 
 let rec path_norm env t = match t.content with
-  | FVar x -> (t, List.assoc x env)
+  | BaseProd(t1, t2) ->
+      let t1' = typ_norm env t1 Base
+      and t2' = typ_norm env t2 Base in
+      ({ t with content = BaseProd(t1', t2') }, Base)
+  | BaseArrow(t1, t2) ->
+      let t1' = typ_norm env t1 Base
+      and t2' = typ_norm env t2 Base in
+      ({ t with content = BaseArrow(t1', t2') }, Base)
+  | BaseForall (x, k1, t1) ->
+      let k1' = kind_norm env k1 in
+      let x' = new_var () in
+      let x_var' = dummy_locate (FVar x') in
+      let t1' =
+        typ_norm (Env.add_typ_var x' k1 env) (bsubst_typ t1 x x_var') Base in
+      ({ t with content = mkBaseForall x' k1' t1' }, Base)
+  | FVar x -> (t, Env.get_typ_var x env)
   | BVar _ | Lam (_,_,_) | Pair(_, _) -> assert false
   | App(p, t) ->
       begin
@@ -122,14 +139,15 @@ and typ_norm env t k = match k with
     let k1' = kind_norm env k1 in
     let x = new_var () in
     let t_ext = dummy_locate (App(t, dummy_locate (FVar x))) in
-    let t' = typ_norm ((x, k1) :: env) t_ext k2 in
+    let t' = typ_norm (Env.add_typ_var x k1 env) t_ext k2 in
     { t with content = mkLam x k1' t' }
 | Pi(y, k1, k2) ->
     let k1' = kind_norm env k1 in
     let x = new_var () in
     let x_var = dummy_locate (FVar x) in
     let t_ext = dummy_locate (App(t, x_var)) in
-    let t' = typ_norm ((x, k1) :: env) t_ext (bsubst_kind k2 y x_var) in
+    let t' =
+      typ_norm (Env.add_typ_var x k1 env) t_ext (bsubst_kind k2 y x_var) in
     { t with content = mkLam x k1' t' }
 | Prod(k1, k2) ->
     let t1 = typ_norm env (dummy_locate (Proj(t, "1"))) k1
@@ -151,7 +169,7 @@ and kind_norm env = function
       let k1' = kind_norm env k1
       and y = new_var () in
       let y_var = dummy_locate (FVar y) in
-      let k2' = kind_norm ((y,k1)::env) (bsubst_kind k2 x y_var) in
+      let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
       mkPi y k1' k2'
   | Prod(k1, k2) ->
       let k1' = kind_norm env k1
@@ -161,7 +179,7 @@ and kind_norm env = function
       let k1' = kind_norm env k1
       and y = new_var () in
       let y_var = dummy_locate (FVar y) in
-      let k2' = kind_norm ((y,k1)::env) (bsubst_kind k2 x y_var) in
+      let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
       mkSigma y k1' k2'
 
 let equiv_typ_simple env t1 t2 k =
@@ -181,14 +199,14 @@ let rec equiv_typ env t1 t2 k = match k with
 | Pi(x, k1, k2) ->
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    equiv_typ ((y,k1)::env)
+    equiv_typ (Env.add_typ_var y k1 env)
       (dummy_locate (App(t1, y_var)))
       (dummy_locate (App(t2, y_var)))
       (bsubst_kind k2 x y_var)
 | Arrow(k1, k2) ->
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    equiv_typ ((y,k1)::env)
+    equiv_typ (Env.add_typ_var y k1 env)
       (dummy_locate (App(t1, y_var)))
       (dummy_locate (App(t2, y_var)))
       k2
@@ -214,9 +232,22 @@ let rec equiv_typ env t1 t2 k = match k with
 
 and equiv_path env p1 p2 = pre_equiv_path env p1.content p2.content
 and pre_equiv_path env p1 p2 = match (p1, p2) with
+| (BaseProd(t1, t2), BaseProd(t1', t2')) ->
+    if equiv_typ env t1 t1' Base &&
+      equiv_typ env t2 t2' Base
+    then Some Base
+    else None
+| (BaseForall(x, k, t), BaseForall(x', k', t')) ->
+    if equiv_kind env k k' &&
+      let y = new_var () in
+      let y_var = dummy_locate (FVar y) in
+      equiv_typ (Env.add_typ_var y k env)
+        (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
+    then Some Base
+    else None
 | (FVar x, FVar x') ->
     if x = x'
-    then Some (List.assoc x env)
+    then Some (Env.get_typ_var x env)
     else None
 | (App(p, t), App(p', t')) ->
     begin
@@ -260,15 +291,16 @@ and equiv_kind env k1 k2 = match (k1, k2) with
     equiv_kind env k1 k1' &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    equiv_kind ((y,k1)::env) (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
+    equiv_kind (Env.add_typ_var y k1 env)
+      (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
 | (Arrow(k1, k2), Pi(x', k1', k2')) | (Prod(k1, k2), Sigma(x', k1', k2')) ->
     equiv_kind env k1 k1' &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    equiv_kind ((y,k1)::env) k2 (bsubst_kind k2' x' y_var)
+    equiv_kind (Env.add_typ_var y k1 env) k2 (bsubst_kind k2' x' y_var)
 | (Pi(x, k1, k2), Arrow(k1', k2')) | (Sigma(x, k1, k2), Prod(k1', k2')) ->
     equiv_kind env k1 k1' &&
     let y = new_var () in
     let y_var = dummy_locate (FVar y) in
-    equiv_kind ((y,k1)::env) (bsubst_kind k2 x y_var) k2'
+    equiv_kind (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) k2'
 | _ -> false

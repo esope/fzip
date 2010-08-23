@@ -1,43 +1,28 @@
 %{
 
-open Ast.Raw
-let locate = Location.locate
-
-let mkPi_binding (x,k) k' = RPi(x, k, k')
-
-let mkSigma_binding (x,k) k' = RSigma(x, k, k')
-
-let mkLam_binding (x,k) t = locate (RLam(x, k, t))
-
 %}
-
-%nonassoc LPAR ID LANGLE
-%left APP
-%right DBLARROW
-%left TIMES
-%nonassoc DOT
 
 %start <Ast.Raw.typ> typ_expr
 %start <Ast.Raw.typ Ast.Raw.kind> kind_expr
 
 %%
 
-%inline binding:
+%public %inline typ_binding(kind):
 | LPAR x=ID DBLCOLON k=kind RPAR
     { (x, k) }
 
 undelimited_kind:
-| PI b=binding k=kind { mkPi_binding b k }
-| SIGMA b=binding k=kind { mkSigma_binding b k }
+| PI b=typ_binding(kind) k=kind { mkPi_binding b k }
+| SIGMA b=typ_binding(kind) k=kind { mkSigma_binding b k }
 
 delimited_kind:
-| STAR { RBase }
-| k1=delimited_kind DBLARROW k2=delimited_kind { RArrow(k1, k2) }
-| k1=delimited_kind TIMES k2=delimited_kind { RProd(k1, k2) }
-| SINGLE LPAR t=typ RPAR { RSingle t }
+| STAR { Base }
+| k1=delimited_kind DBLARROW k2=delimited_kind { Arrow(k1, k2) }
+| k1=delimited_kind TIMES k2=delimited_kind { Prod(k1, k2) }
+| SINGLE LPAR t=typ RPAR { Single t }
 | LPAR k=kind RPAR { k }
 
-kind:
+%public kind:
 | k=undelimited_kind | k=delimited_kind
     { k }
 
@@ -45,20 +30,26 @@ kind_expr:
 | k=kind EOF { k }
 
 undelimited_typ:
-| LAMBDA b=binding t=typ
+| LAMBDA b=typ_binding(kind) t=typ
     { mkLam_binding b t $startpos $endpos }
+| FORALL b=typ_binding(kind) t=typ
+    { mkForall_binding b t $startpos $endpos }
 
 delimited_typ:
 | LPAR t=typ RPAR { t }
-| x=ID { locate (RVar x) $startpos $endpos }
+| x=ID { locate (Var x) $startpos $endpos }
 | t1=delimited_typ t2=delimited_typ                 %prec APP
-    { locate (RApp(t1, t2)) $startpos $endpos }
+    { locate (App(t1, t2)) $startpos $endpos }
 | LANGLE t1=delimited_typ COMMA t2=typ RANGLE
-    { locate (RPair(t1, t2)) $startpos $endpos }
+    { locate (Pair(t1, t2)) $startpos $endpos }
 | t=delimited_typ DOT x=ID
-    { locate (RProj(t, x)) $startpos $endpos }
+    { locate (Proj(t, x)) $startpos $endpos }
+| LBRACE t1=delimited_typ SEMICOLON t2=delimited_typ RBRACE
+    {locate (BaseProd(t1, t2)) $startpos $endpos }
+| t1=delimited_typ ARROW t2=delimited_typ
+    {locate (BaseArrow(t1, t2)) $startpos $endpos }
 
-typ:
+%public typ:
 | t=undelimited_typ | t=delimited_typ
     { t }
 

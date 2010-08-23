@@ -1,4 +1,4 @@
-open Ast
+open Ast.Typ
 open Ast_utils
 open Parse_utils
 
@@ -9,8 +9,8 @@ let run_bintests f1 f2 examples =
     List.iter (fun e ->
       incr i;
       Printf.printf "TEST #%i (n=%i, h=%i, bh=%i, b=%i): %!"
-        (!i) (Measure.size e) (Measure.height e)
-        (Measure.bheight e) (Measure.nb_binders e);
+        (!i) (Measure.Typ.size e) (Measure.Typ.height e)
+        (Measure.Typ.bheight e) (Measure.Typ.nb_binders e);
       let e1 = (Printf.printf "(1%!" ;
                 let e1 = f1 e in Printf.printf ")%!" ; e1) in
       let e2 = (Printf.printf "(2%!" ;
@@ -38,8 +38,8 @@ let run_tests f test cases =
     List.iter (fun (q,e) ->
       incr i;
       Printf.printf "TEST #%i (n=%i, h=%i, bh=%i, b=%i): %!"
-        (!i) (Measure.size q) (Measure.height q)
-        (Measure.bheight q) (Measure.nb_binders q);
+        (!i) (Measure.Typ.size q) (Measure.Typ.height q)
+        (Measure.Typ.bheight q) (Measure.Typ.nb_binders q);
       let a = (Printf.printf "(1%!" ;
                 let e1 = f q in Printf.printf ") %!" ; e1) in
       if test a e then Printf.printf "PASSED\n%!" 
@@ -67,7 +67,7 @@ module STLC = struct
 
   let () = Printf.printf "-- Tests STLC\n%!"
 
-  let () = run_tests (wftype []) (wfsub [])
+  let () = run_tests (wftype Env.empty) (wfsub Env.empty)
       [ (String.parse_typ "fun (x::*) x",
          String.parse_kind "* => *") ;
         (String.parse_typ "fun (x::*) fun (y::*=>*) y x",
@@ -77,8 +77,8 @@ module STLC = struct
   open Normalize
 
   let nf e =
-    let tau = wftype [] e in
-    typ_norm [] e tau
+    let tau = wftype Env.empty e in
+    typ_norm Env.empty e tau
 
   let print_nf e =
     Print.typ (nf e); print_newline ()
@@ -136,12 +136,12 @@ module STLC = struct
     and t2 = "λ (c :: *) λ (x :: *) x" in
     Printf.printf "⊢  %s\n≡  %s\n:: %s ?\n--> %b (false expected)\n%!"
       t1 t2 k
-      (equiv_typ []
+      (equiv_typ Env.empty
          (String.parse_typ t1) (String.parse_typ t2) (String.parse_kind k)) ;
     print_newline () ;
     Printf.printf "⊢  %s\n≡  %s\n:: %s ?\n--> %b (true expected)\n%!"
       t1 t2 k'
-      (equiv_typ []
+      (equiv_typ Env.empty
          (String.parse_typ t1) (String.parse_typ t2) (String.parse_kind k')) ;
     print_newline () ;
 
@@ -151,14 +151,37 @@ module STLC = struct
     and t2 = "f (λ (x :: *) c)" in
     Printf.printf "c:: *, f:: %s\n⊢  %s\n≡  %s\n:: %s ?\n--> %b (false expected)\n%!"
       k t1 t2 "*"
-      (equiv_typ [("c", Base); ("f", String.parse_kind k)]
+      (equiv_typ
+         (Env.add_typ_var "c" Base
+            (Env.add_typ_var "f" (String.parse_kind k)
+               Env.empty))
          (String.parse_typ t1) (String.parse_typ t2) Base) ;
     print_newline () ;
 
     Printf.printf "c:: *, f:: %s\n⊢  %s\n≡  %s\n:: %s ?\n--> %b (true expected)\n%!"
       k' t1 t2 "*"
-      (equiv_typ [("c", Base); ("f", String.parse_kind k')]
+      (equiv_typ
+         (Env.add_typ_var "c" Base
+            (Env.add_typ_var "f" (String.parse_kind k')
+               Env.empty))
          (String.parse_typ t1) (String.parse_typ t2) Base) ;
     print_newline () ;
 
+    let s = "Fun (α:: *) fun (x : α) x" in
+    Printf.printf "⊢ %s\n: %a\n%!"
+      s
+      (fun _ -> Print.typ)
+      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
+
+    let s = "Fun (α:: *) fun (x : {α ; α}) x" in
+    Printf.printf "⊢ %s\n: %a\n%!"
+      s
+      (fun _ -> Print.typ)
+      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
+
+    let s = "Fun (α:: * => *) Fun (β :: *) fun (x : {α β ; α β}) x" in
+    Printf.printf "⊢ %s\n: %a\n%!"
+      s
+      (fun _ -> Print.typ)
+      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
 end

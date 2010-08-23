@@ -1,3 +1,2 @@
-true: use_menhir, dtypes
+true: use_menhir, dtypes, pkg_menhirLib, pkg_ulex
 <lexer.*>: syntax_ulex, pkg_ulex, syntax_camlp4o
-<{parse_utils,test,main}.*>: pkg_menhirLib, pkg_ulex
