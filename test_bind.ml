@@ -1,66 +1,78 @@
-open Bind
+open Binder
 
-type te
-
-module Build = struct
-  module FAtomImpl = struct
-    type sort = te
-    type 'sort t = string constraint 'sort = sort
-    let eq (x : string) (y: string) = x = y
-    let fresh =
-      let r = ref 0 in fun () ->
-        let n = !r in
-        incr r ; Printf.sprintf "x__%i" n
-  end
-
-  module BAtomImpl = struct
-    type sort = te
-    type 'sort t = int constraint 'sort = sort
-    let zero = 0
-    let succ x = x + 1
-    let max (x : int) (y: int) = max x y
-    let eq (x : int) (y: int) = x = y
-  end
-
-  module Atom = Make(FAtomImpl)(BAtomImpl)
+module Var : F_ATOM_IMPL = struct
+  type t = string
+  let eq x y = String.compare x y = 0
+  let fresh =
+    let i = ref 0 in fun () ->
+      let n = !i in incr i; ("x_" ^ (string_of_int n))
+  let to_string x = x
 end
-open Build.Atom
+
+module TeVar = Make(Var)
 
 type term =
-  | FVar of te free
-  | BVar of te bound
+  | Var of TeVar.atom
   | App of term * term
-  | Lam of (te, term) Abs.t
+  | Lam of term TeVar.abs
 
-let rec var_fmap f = function
-  | FVar x -> f x
-  | BVar _ as t -> t
-  | App (t, u) -> App(var_fmap f t, var_fmap f u)
-  | Lam abs -> Lam (Abs.fmap (var_fmap f) abs)
+let rec subst t x u = match t with
+| Var y -> if TeVar.eq x y then u else t
+| App(t1, t2) -> App(subst t1 x u, subst t2 x u)
+| Lam abs -> Lam (TeVar.Abs.subst subst abs x u)
+
+let rec rename t x y = match t with
+| Var z -> if TeVar.eq x z then Var y else t
+| App(t1, t2) -> App(rename t1 x y, rename t2 x y)
+| Lam abs -> Lam (TeVar.Abs.rename rename abs x y)
 
 let rec bsubst t x u = match t with
-  | FVar y as t -> t
-  | BVar y as t -> if Bound.eq x y then u else t
-  | App(t1, t2) -> App(bsubst t1 x u, bsubst t2 x u)
-  | Lam abs -> Lam (Abs.bmap bsubst abs x u)
+| Var y -> if TeVar.beq x y then u else t
+| App(t1, t2) -> App(bsubst t1 x u, bsubst t2 x u)
+| Lam abs -> Lam (TeVar.Abs.bsubst bsubst abs x u)
 
-let rec hom_rec f_abs f_free f_bound f_app f_lam t = match t with
-| FVar x -> f_free x
-| BVar x -> f_bound x
-| App(t, u) ->
-    f_app
-      (hom_rec f_abs f_free f_bound f_app f_lam t)
-      (hom_rec f_abs f_free f_bound f_app f_lam u)
-| Lam abs ->
-    f_lam (f_abs abs)
+let rec brename t x y = match t with
+| Var z -> if TeVar.beq x z then Var y else t
+| App(t1, t2) -> App(brename t1 x y, brename t2 x y)
+| Lam abs -> Lam (TeVar.Abs.brename brename abs x y)
 
-let rec hom_tree_rec f_abs f_free f_bound f_node =
-  hom_rec f_abs f_free f_bound
-    (fun t u -> f_node [t ; u])
-    (fun abs -> f_node [abs])
+let rec h x = function
+  | Var y -> TeVar.h x y
+  | App(t1, t2) -> TeVar.max (h x t1) (h x t2)
+  | Lam abs -> TeVar.Abs.h h x abs
 
-let fsubst t x u =
-  var_fmap (fun y -> if Free.eq x y then u else FVar y) t
-let instantiate =
-  Abs.mk_instantiate bsubst
+let make_abs = TeVar.Abs.make h rename
+let mkLam x t = Lam (make_abs x t)
 
+let destruct_abs = TeVar.Abs.destruct brename
+
+let rec eq t t' = match (t, t') with
+| (Var x, Var x') -> TeVar.eq x x'
+| (App(t1, t2), App(t1', t2')) -> eq t1 t1' && eq t2 t2'
+| (Lam abs, Lam abs') -> TeVar.Abs.eq eq abs abs'
+| _ -> false
+
+let is_lam = function
+  | Lam _ -> true
+  | _ -> false
+
+(* weak head normal form *)
+let rec whnf = function
+  | Var _ | Lam _ as t -> t
+  | App(t, u) ->
+      begin
+        match whnf t with
+        | Lam abs -> whnf (inst abs u)
+        | t' -> App(t', u)
+      end
+
+(* normal form *)
+let rec nf t =
+  match whnf t with
+  | Var _ as t -> t
+  | App(t, u) ->
+      assert (not (is_lam t)) ;
+      App(t, nf u)
+  | Lam abs ->
+      let (x, t) = destruct_abs abs in
+      mkLam x (nf t)
