@@ -44,6 +44,8 @@ let rec h x = function
 let make_abs = TeVar.Abs.make h rename
 let mkLam x t = Lam (make_abs x t)
 
+let inst = TeVar.Abs.inst bsubst
+
 let destruct_abs = TeVar.Abs.destruct brename
 
 let rec eq t t' = match (t, t') with
