@@ -41,6 +41,16 @@ let rec var_map f = function
   | App(t, u) -> App(var_map f t, var_map f u)
   | Lam abs -> Lam (TeVar.Abs.var_map var_map f abs)
 
+(* This function is unsafe: on must ensure that [var] never returns
+   bound variables. Use in combination with TeVar.is_free *)
+let rec hom ~var ~app ~lam t = match t with
+| Var x -> var x
+| App(t, u) ->
+    app
+      (hom ~var ~app ~lam t) 
+      (hom ~var ~app ~lam u)
+| Lam abs -> lam (TeVar.Abs.hom (hom ~var ~app ~lam) abs)
+
 let rec h x = function
   | Var y -> TeVar.h x y
   | App(t1, t2) -> TeVar.max (h x t1) (h x t2)
@@ -59,6 +69,24 @@ let rec eq t t' = match (t, t') with
 | (Lam abs, Lam abs') -> TeVar.Abs.eq eq abs abs'
 | _ -> false
 
+let fv =
+  hom
+    ~var:(fun x -> if TeVar.is_free x then [x] else [])
+    ~app:List.append
+    ~lam:(fun e -> e)
+
+let size =
+  hom
+    ~var:(fun _ -> 1)
+    ~app:(fun x y -> x + y + 1)
+    ~lam:(fun x -> x + 1)
+
+let height =
+  hom
+    ~var:(fun _ -> 1)
+    ~app:(fun x y -> 1 + (max x y))
+    ~lam:(fun x -> x + 1)
+
 let is_lam = function
   | Lam _ -> true
   | _ -> false
@@ -74,21 +102,32 @@ let rec whnf = function
       end
 
 (* normal form *)
-let rec nf strong t =
+let rec nf t =
   match whnf t with
   | Var _ as t -> t
   | App(t, u) ->
       assert (not (is_lam t)) ;
-      App(t, nf strong u)
-  | Lam abs as t ->
-      if strong
-      then
-        let (x, t) = destruct_abs abs in
-        mkLam x (nf strong t)
-      else t
+      App(t, nf u)
+  | Lam abs ->
+      let (x, t) = destruct_abs abs in
+      mkLam x (nf t)
 
-let weak_nf = nf false
-let nf = nf true
+let rec cbv strong = function
+  | Var _ as t -> t
+  | App(t, u) ->
+      let t' = cbv strong t
+      and u' = cbv strong u in
+      begin
+        match t' with
+        | Lam a -> cbv strong (inst a u')
+        | _ -> App(t', u')
+      end
+  | Lam a as t ->
+      if strong 
+      then
+        let (x, t) = destruct_abs a in
+        mkLam x (cbv strong t)
+      else t
 
 (* Church's encodings *)
 (* Taken from http://en.wikipedia.org/wiki/Church_encoding *)
@@ -357,48 +396,3 @@ let time f x =
   let stop = (Unix.times ()).Unix.tms_utime in
   Printf.printf "Time: %fs.\n%!" (stop -. start) ;
   result
-
-(* SECD abstract machine *)
-type stack_elem = Cl of env * term
-and env = (TeVar.atom * stack_elem) list
-type stack = stack_elem list
-type control_elem = CTe of term | CApp
-type control = control_elem list
-type dump = DNil | DState of secd
-and secd = stack * env * control * dump
-
-let rec secd = function
-  | (s, e, CTe (Var x) :: c, d) ->
-      secd (List.assoc x e :: s, e, c, d)
-  | (s, e, CTe (Lam _ as t) :: c, d) ->
-      secd (Cl (e, t) :: s, e, c, d)
-  | (s, e, CTe (App(t, u)) :: c, d) ->
-      secd (s, e, CTe t :: CTe u :: CApp :: c, d)
-  | (Cl (e', Lam a) :: clos :: s, e, CApp :: c, d) ->
-      let (x, t) = destruct_abs a in
-      secd ([], (x, clos) :: e', [CTe t], DState (s, e, c, d))
-  | (clos :: s, e, [], DState(s',e',c',d')) ->
-      secd (clos :: s', e', c', d')
-  | s -> s
-
-let term_to_dump t = ([], [], [CTe t], DNil)
-let rec readback e =
-  var_map (fun x ->
-    try
-      let Cl (e', t') = List.assoc x e in
-      readback e' t'
-    with Not_found -> Var x)
-
-let eval t =
-  match secd (term_to_dump t) with
-  | ([Cl (e', t)], [], [], DNil)  -> readback e' t
-  | _ -> assert false
-(* secd is fast, but readback is very slow *)  
-
-let () =
-  Printf.printf "Computing (weak_nf (fact 170000))... \n%!" ;
-  ignore (time weak_nf (App(fact, int 170000))) ;
-  Printf.printf "Done.\n%!" ;
-  Printf.printf "Computing (eval (fact 170000))... \n%!" ;
-  ignore (time eval (App(fact, int 170000))) ;
-  Printf.printf "Done.\n%!"
