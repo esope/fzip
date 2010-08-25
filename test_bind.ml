@@ -352,9 +352,9 @@ let () =
     (eq (nf (App(pair_snd, App(App(pair, int 0), int 1)))) (nf (int 1)))
 
 let time f x =
-  let start = Unix.gettimeofday () in
+  let start = (Unix.times ()).Unix.tms_utime in
   let result = f x in
-  let stop = Unix.gettimeofday () in
+  let stop = (Unix.times ()).Unix.tms_utime in
   Printf.printf "Time: %fs.\n%!" (stop -. start) ;
   result
 
