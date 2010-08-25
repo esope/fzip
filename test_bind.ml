@@ -87,6 +87,12 @@ let height =
     ~app:(fun x y -> 1 + (max x y))
     ~lam:(fun x -> x + 1)
 
+let print =
+  hom
+    ~var:(fun a -> fun () -> Printf.printf "%s" (TeVar.to_string a))
+    ~app:(fun p1 p2 -> fun () -> p1 (); print_string " "; p2 ())
+    ~lam:(fun p -> fun () -> print_string "(λ " ; p () ; print_string ")")
+
 let is_lam = function
   | Lam _ -> true
   | _ -> false
@@ -396,3 +402,4 @@ let time f x =
   let stop = (Unix.times ()).Unix.tms_utime in
   Printf.printf "Time: %fs.\n%!" (stop -. start) ;
   result
+
