@@ -20,6 +20,7 @@ module type ATOM = sig
   type 'a abs
   val eq: atom -> atom -> bool
   val beq: bvar -> atom -> bool
+  val is_free: atom -> bool
   val fresh: unit -> atom
   val to_string: atom -> string
 
@@ -44,6 +45,9 @@ module type ATOM = sig
     val brename: 'a brename -> ('a abs) brename
 
     val var_map: ((atom -> 'a) -> 'a -> 'a) -> (atom -> 'a) -> 'a abs -> 'a abs
+
+(* this function is unsafe, but is provided for efficiency reasons *)
+    val hom: ('a -> 'b) -> 'a abs -> 'b
 
     val inst: ('a, 'a) bsubst -> 'a abs -> 'a -> 'a
 
@@ -83,6 +87,10 @@ module MakeGen(Bound: B_ATOM_IMPL)(Free: F_ATOM_IMPL) : ATOM =
       | Bound y -> Bound.eq x y
       | _ -> false
 
+    let is_free = function
+      | Free _ -> true
+      | Bound _ -> false
+
     let zero = Bound.zero
     let one = Bound.succ Bound.zero
     let h a b = match (a, b) with
@@ -117,6 +125,9 @@ module MakeGen(Bound: B_ATOM_IMPL)(Free: F_ATOM_IMPL) : ATOM =
 
       let var_map body_map f (Abs (z, body)) =
         Abs(z, body_map f body)
+
+      let hom body_hom (Abs (_, body)) =
+        body_hom body
 
       type 'a inst = 'a abs -> 'a -> 'a
       let inst body_bsubst (Abs (y, body)) u =
