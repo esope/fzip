@@ -43,6 +43,8 @@ module type ATOM = sig
     val bsubst: ('a, 'b) bsubst -> ('a abs, 'b) bsubst
     val brename: 'a brename -> ('a abs) brename
 
+    val var_map: ((atom -> 'a) -> 'a -> 'a) -> (atom -> 'a) -> 'a abs -> 'a abs
+
     val inst: ('a, 'a) bsubst -> 'a abs -> 'a -> 'a
 
     type 'a h = atom -> 'a -> bvar
@@ -113,6 +115,9 @@ module MakeGen(Bound: B_ATOM_IMPL)(Free: F_ATOM_IMPL) : ATOM =
         if Bound.eq x z then abs
         else Abs (z, body_brename body x y)
 
+      let var_map body_map f (Abs (z, body)) =
+        Abs(z, body_map f body)
+
       type 'a inst = 'a abs -> 'a -> 'a
       let inst body_bsubst (Abs (y, body)) u =
         body_bsubst body y u
@@ -129,7 +134,10 @@ module MakeGen(Bound: B_ATOM_IMPL)(Free: F_ATOM_IMPL) : ATOM =
           
       let destruct body_brename (Abs (x, t)) =
         let y = fresh () in
-        (y, body_brename t x y)
+        (* using the "zero" property of h *)
+        if Bound.eq x Bound.zero
+        then (y, t)
+        else (y, body_brename t x y)
 
       type 'a eq = 'a -> 'a -> bool
       let eq body_eq (Abs (x, t)) (Abs (x', t')) =

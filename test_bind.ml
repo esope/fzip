@@ -36,6 +36,11 @@ let rec brename t x y = match t with
 | App(t1, t2) -> App(brename t1 x y, brename t2 x y)
 | Lam abs -> Lam (TeVar.Abs.brename brename abs x y)
 
+let rec var_map f = function
+  | Var x -> f x
+  | App(t, u) -> App(var_map f t, var_map f u)
+  | Lam abs -> Lam (TeVar.Abs.var_map var_map f abs)
+
 let rec h x = function
   | Var y -> TeVar.h x y
   | App(t1, t2) -> TeVar.max (h x t1) (h x t2)
@@ -353,7 +358,47 @@ let time f x =
   Printf.printf "Time: %fs.\n%!" (stop -. start) ;
   result
 
+(* SECD abstract machine *)
+type stack_elem = Cl of env * term
+and env = (TeVar.atom * stack_elem) list
+type stack = stack_elem list
+type control_elem = CTe of term | CApp
+type control = control_elem list
+type dump = DNil | DState of secd
+and secd = stack * env * control * dump
+
+let rec secd = function
+  | (s, e, CTe (Var x) :: c, d) ->
+      secd (List.assoc x e :: s, e, c, d)
+  | (s, e, CTe (Lam _ as t) :: c, d) ->
+      secd (Cl (e, t) :: s, e, c, d)
+  | (s, e, CTe (App(t, u)) :: c, d) ->
+      secd (s, e, CTe t :: CTe u :: CApp :: c, d)
+  | (Cl (e', Lam a) :: clos :: s, e, CApp :: c, d) ->
+      let (x, t) = destruct_abs a in
+      secd ([], (x, clos) :: e', [CTe t], DState (s, e, c, d))
+  | (clos :: s, e, [], DState(s',e',c',d')) ->
+      secd (clos :: s', e', c', d')
+  | s -> s
+
+let term_to_dump t = ([], [], [CTe t], DNil)
+let rec readback e =
+  var_map (fun x ->
+    try
+      let Cl (e', t') = List.assoc x e in
+      readback e' t'
+    with Not_found -> Var x)
+
+let eval t =
+  match secd (term_to_dump t) with
+  | ([Cl (e', t)], [], [], DNil)  -> readback e' t
+  | _ -> assert false
+(* secd is fast, but readback is very slow *)  
+
 let () =
-  Printf.printf "Computing (fact 170000)... \n%!" ;
+  Printf.printf "Computing (weak_nf (fact 170000))... \n%!" ;
   ignore (time weak_nf (App(fact, int 170000))) ;
+  Printf.printf "Done.\n%!" ;
+  Printf.printf "Computing (eval (fact 170000))... \n%!" ;
+  ignore (time eval (App(fact, int 170000))) ;
   Printf.printf "Done.\n%!"
