@@ -118,23 +118,6 @@ let rec nf t =
       let (x, t) = destruct_abs abs in
       mkLam x (nf t)
 
-let rec cbv strong = function
-  | Var _ as t -> t
-  | App(t, u) ->
-      let t' = cbv strong t
-      and u' = cbv strong u in
-      begin
-        match t' with
-        | Lam a -> cbv strong (inst a u')
-        | _ -> App(t', u')
-      end
-  | Lam a as t ->
-      if strong 
-      then
-        let (x, t) = destruct_abs a in
-        mkLam x (cbv strong t)
-      else t
-
 (* Church's encodings *)
 (* Taken from http://en.wikipedia.org/wiki/Church_encoding *)
 
@@ -375,6 +358,10 @@ let () =
 let () =
   Printf.printf "fact 8 = 40320? %b\n%!"
     (eq (nf (App(fact, int 8))) (nf (int 40320)))
+
+let () =
+  Printf.printf "fact 9 = 362880? %b\n%!"
+    (eq (nf (App(fact, int 9))) (nf (int 362880)))
 
 let () =
   Printf.printf "and true false = false? %b\n%!"
