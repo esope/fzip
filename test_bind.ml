@@ -327,66 +327,44 @@ let list_tail =
 
 
 (* some tests *)
-let () =
-  Printf.printf "42 + 12 = 54? %b\n%!"
-    (eq (nf (App(App(plus, int 42), (int 12)))) (nf (int 54)))
+let eq_nf a b = eq (nf a) (nf b)
+
+open OUnit
+
+let tests = "λ-calculus" >:::
+[
+ "42 + 12 = 54" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(App(plus, int 42), (int 12))) (int 54));
+ "42 * 12 = 504" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(App(mult, int 42), (int 12))) (int 504));
+ "2 ^ 12 = 4096" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(App(exp, int 2), (int 12))) (int 4096));
+ "2 ^ 16 = 65536" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(App(exp, int 2), (int 16))) (int 65536));
+ "is_zero 0 = true" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(is_zero, int 0)) (bool_true));
+ "is_zero 43 = false" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(is_zero, int 42)) (bool_false));
+ "fact 0 = 1" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(fact, int 0)) (int 1));
+ "fact 8 = 40320" >:: (fun () ->
+   assert_equal ~cmp:eq_nf (App(fact, int 8)) (int 40320));
+ "and true false = false" >:: (fun () ->
+   assert_equal ~cmp:eq_nf
+     (App(App(bool_and, bool_true), bool_false)) bool_false);
+ "or true false = true" >:: (fun () ->
+   assert_equal ~cmp:eq_nf
+     (App(App(bool_or, bool_true), bool_false)) bool_true);
+ "not true = false" >:: (fun () ->
+   assert_equal ~cmp:eq_nf
+     (App(bool_not, bool_true)) bool_false);
+ "fst (pair 0 1) = 0" >:: (fun () ->
+   assert_equal ~cmp:eq_nf
+     (App(pair_fst, App(App(pair, int 0), int 1))) (int 0));
+ "snd (pair 0 1) = 1" >:: (fun () ->
+   assert_equal ~cmp:eq_nf
+     (App(pair_snd, App(App(pair, int 0), int 1))) (int 1));
+]
 
 let () =
-  Printf.printf "42 * 12 = 504? %b\n%!"
-    (eq (nf (App(App(mult, int 42), (int 12)))) (nf (int 504)))
-
-let () =
-  Printf.printf "2 ^ 12 = 4096? %b\n%!"
-    (eq (nf (App(App(exp, int 2), (int 12)))) (nf (int 4096)))
-
-let () =
-  Printf.printf "2 ^ 16 = 65536? %b\n%!"
-    (eq (nf (App(App(exp, int 2), (int 16)))) (nf (int 65536)))
-
-let () =
-  Printf.printf "is_zero 0 = true? %b\n%!"
-    (eq (nf (App(is_zero, int 0))) (nf bool_true))
-
-let () =
-  Printf.printf "is_zero 42 = false? %b\n%!"
-    (eq (nf (App(is_zero, int 42))) (nf bool_false))
-
-let () =
-  Printf.printf "fact 0 = 1? %b\n%!"
-    (eq (nf (App(fact, int 0))) (nf (int 1)))
-
-let () =
-  Printf.printf "fact 8 = 40320? %b\n%!"
-    (eq (nf (App(fact, int 8))) (nf (int 40320)))
-
-let () =
-  Printf.printf "fact 9 = 362880? %b\n%!"
-    (eq (nf (App(fact, int 9))) (nf (int 362880)))
-
-let () =
-  Printf.printf "and true false = false? %b\n%!"
-    (eq (nf (App(App(bool_and, bool_true), bool_false))) (nf bool_false))
-
-let () =
-  Printf.printf "or true false = true? %b\n%!"
-    (eq (nf (App(App(bool_or, bool_true), bool_false))) (nf bool_true))
-
-let () =
-  Printf.printf "not true = false? %b\n%!"
-    (eq (nf (App(bool_not, bool_true))) (nf bool_false))
-
-let () =
-  Printf.printf "fst (pair 0 1) = 0? %b\n%!"
-    (eq (nf (App(pair_fst, App(App(pair, int 0), int 1)))) (nf (int 0)))
-
-let () =
-  Printf.printf "snd (pair 0 1) = 0? %b\n%!"
-    (eq (nf (App(pair_snd, App(App(pair, int 0), int 1)))) (nf (int 1)))
-
-let time f x =
-  let start = (Unix.times ()).Unix.tms_utime in
-  let result = f x in
-  let stop = (Unix.times ()).Unix.tms_utime in
-  Printf.printf "Time: %fs.\n%!" (stop -. start) ;
-  result
-
+  ignore (run_test_tt tests)

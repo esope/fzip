@@ -1,4 +1,4 @@
-OCB=ocamlbuild -j 0
+OCB=ocamlbuild -use-ocamlfind -j 0
 
 bin:
 	$(OCB) main.native
