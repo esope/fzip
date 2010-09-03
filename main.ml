@@ -10,4 +10,4 @@ let () =
   in
   let term = Parser_utils.Channel.parse_term input name in
   let typ = Wfterm.wfterm Env.empty term in
-  Printf.printf "%a\n%!" (fun _ -> Print.typ) typ
+  PPrint.Typ.channel stdout typ ; print_newline ()
