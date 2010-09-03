@@ -298,7 +298,12 @@ module PPrint = struct
           then typ_rec kind t2
           else parens (typ_rec kind t2))
     | Pair(t1, t2) ->
-        angles (infix_com "," (typ_rec kind t1) (typ_rec kind t2))
+        seq2 "<" ", " ">"
+          [ if is_delimited t1
+             then typ_rec kind t1
+             else parens (typ_rec kind t1) ;
+            typ_rec kind t2
+          ]
     | Proj(t, lab) ->
         infix_dot "."
           (if is_proj t || (tights_more_than_proj t && is_delimited t)
@@ -315,10 +320,12 @@ module PPrint = struct
           then typ_rec kind t2
           else parens (typ_rec kind t2))
     | BaseProd(t1,t2) ->
-        braces
-          (infix_com ";"
-             (parens (typ_rec kind t1))
-             (parens (typ_rec kind t2)))
+        seq2 "{" "; " "}"
+          [ if is_delimited t1
+             then typ_rec kind t1
+             else parens (typ_rec kind t1) ;
+            typ_rec kind t2
+          ]
     | BaseForall(x, k, t) ->
         text "∀" ^^
         infix_com ""
