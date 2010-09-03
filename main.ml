@@ -1,6 +1,3 @@
-open Ast
-open Ast_utils
-
 let () =
   let (input, name) =
     match Array.length Sys.argv with
@@ -10,4 +7,4 @@ let () =
   in
   let term = Parser_utils.Channel.parse_term input name in
   let typ = Wfterm.wfterm Env.empty term in
-  PPrint.Typ.channel stdout typ ; print_newline ()
+  Ast_utils.PPrint.Typ.channel stdout typ ; print_newline ()

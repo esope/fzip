@@ -4,6 +4,59 @@ open Parser_utils
 open OUnit
 open Wftype
 
+(* tests about parsing *)
+let test_kind_parser k1 k2 =
+  ("Parsing " ^ k1) >:: (fun () ->
+    let k1 = String.parse_kind k1
+    and k2 = String.parse_kind k2 in
+    assert_equal ~cmp:eq_kind k1 k2)
+
+let test_typ_parser t1 t2 =
+  ("Parsing " ^ t1) >:: (fun () ->
+    let t1 = String.parse_typ t1
+    and t2 = String.parse_typ t2 in
+    assert_equal ~cmp:eq_typ t1 t2)
+
+let test_term_parser t1 t2 =
+  ("Parsing " ^ t1) >:: (fun () ->
+    let t1 = String.parse_term t1
+    and t2 = String.parse_term t2 in
+    assert_equal ~cmp:Ast.Term.eq t1 t2)
+
+let tests_parsing = "Tests about parsing" >:::
+  [
+   test_kind_parser "⋆" "*" ;
+   test_kind_parser "* => *" "* ⇒ *" ;
+   test_kind_parser "* => * => *" "* => (* => *)" ;
+   test_kind_parser "Π (x :: *) * => *" "Π (x :: *) (* => *)" ;
+   test_kind_parser "* × * × *" "(* × *) × *" ;
+   test_kind_parser "Σ (x :: *) * × *" "Σ (x :: *) (* × *)" ;
+   test_kind_parser "Σ (x :: *) * => *" "Σ (x :: *) (* => *)" ;
+   test_kind_parser "Π (x :: *) * × *" "Π (x :: *) (* × *)" ;
+   test_kind_parser "* × * => *" "(* × *) => *" ;
+   test_kind_parser "* => * × *" "* => (* × *)" ;
+   test_kind_parser "* => * × * => *" "* => ((* × *) => *)" ;
+   test_typ_parser "a -> a" "a → a" ;
+   test_typ_parser "a -> a -> a" "a -> (a -> a)" ;
+   test_typ_parser "{ a ; a }" "{ a ; a }" ;
+   test_typ_parser "< a , a >" "< a , a >" ;
+   test_typ_parser "λ (a :: *) a b" "fun (a :: *) (a b)" ;
+   test_typ_parser "λ (a :: *) a . b" "λ (a :: *) (a . b)" ;
+   test_typ_parser "λ (a :: *) a <b,c>" "λ (a :: *) (a <b,c>)" ;
+   test_typ_parser "λ (a :: *) a {b;c}" "λ (a :: *) (a {b;c})" ;
+   test_typ_parser "∀ (a :: *) a b" "forall (a :: *) (a b)" ;
+   test_typ_parser "∀ (a :: *) a . b" "∀ (a :: *) (a . b)" ;
+   test_typ_parser "∀ (a :: *) a <b,c>" "∀ (a :: *) (a <b,c>)" ;
+   test_typ_parser "∀ (a :: *) a {b;c}" "∀ (a :: *) (a {b;c})" ;
+
+   test_term_parser "Λ(a::*)λ(x:a) x" "Fun(a::*)fun(x:a)x" ;
+   test_term_parser "λ(x:a) x y" "λ(x:a) (x y)" ;
+   test_term_parser "λ(x:a) x . y" "λ(x:a) (x . y)" ;
+   test_term_parser "Λ(a::*) x y" "Λ(a::*) (x y)" ;
+   test_term_parser "Λ(a::*) x . y" "Λ(a::*) (x . y)" ;
+   
+ ]
+
 (* tests about wftype *)
 let test_wftype ~t ~k =
   (Printf.sprintf "⊢ %s :: %s ?" t k) >:: (fun () ->
@@ -11,7 +64,7 @@ let test_wftype ~t ~k =
     and k = String.parse_kind k in
     assert_equal
       ~printer:PPrint.Kind.string
-      ~cmp:(wfsub Env.empty) (wftype Env.empty t) k)
+      ~cmp:(wfsubkind Env.empty) (wftype Env.empty t) k)
 
 let tests_wftype = "Tests about wftype" >:::
   [
@@ -116,7 +169,7 @@ let test_wfterm ~e ~t =
     and t = String.parse_typ t in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(Wfterm.wfsub Env.empty) (Wfterm.wfterm Env.empty e) t)
+      ~cmp:(Wfterm.wfsubtype Env.empty) (Wfterm.wfterm Env.empty e) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [
@@ -131,7 +184,8 @@ let tests_wfterm = "Tests about wfterm" >:::
  ]
 
 (* all tests *)
-let tests = TestList [ tests_wftype ; tests_nf ; tests_wfterm ]
+let tests = TestList
+    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm ]
 
 (* running tests *)
 let () =

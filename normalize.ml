@@ -1,6 +1,8 @@
 open Ast.Typ
 open Location
 
+type env = (typ, typ kind) Env.t
+
 let rec head_norm env t = match t.content with
 | BaseForall(_, _, _) | BaseProd(_, _) | BaseArrow(_, _) ->
     (t, Some Base)
