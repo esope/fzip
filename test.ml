@@ -1,188 +1,138 @@
 open Ast.Typ
 open Ast_utils
 open Parser_utils
+open OUnit
+open Wftype
+
+(* tests about wftype *)
+let test_wftype ~t ~k =
+  (Printf.sprintf "⊢ %s :: %s ?" t k) >:: (fun () ->
+    let t = String.parse_typ t
+    and k = String.parse_kind k in
+    assert_equal
+      ~printer:PPrint.Kind.string
+      ~cmp:(wfsub Env.empty) (wftype Env.empty t) k)
+
+let tests_wftype = "Tests about wftype" >:::
+  [
+   test_wftype ~t:"fun (x::*) x" ~k:"* => *" ;
+   test_wftype ~t:"fun (x::*) fun (y::*=>*) y x" ~k:"* => (* => *) => *"
+ ]
+
+(* tests about normal forms and equivalence *)
+let test_nf ~t ~nf () =
+  let t = String.parse_typ t
+  and nf = String.parse_typ nf in
+  let nf_e =
+    let k = wftype Env.empty t in
+    Normalize.typ_norm Env.empty t k in
+  assert_equal ~printer:PPrint.Typ.string ~cmp:eq_typ nf_e nf
+
+let test_equiv ?(neg=false) ~env ~t ~u ~k () =
+  TestCase (fun () ->
+    assert_bool (Printf.sprintf "env ⊢ %s ≡ %s :: %s?" t u k)
+      (let t = String.parse_typ t
+      and u = String.parse_typ u
+      and k = String.parse_kind k in
+      let b = Normalize.equiv_typ env t u k in
+      if neg then not b else b))
+
+let mknum_string n =
+  let rec mkapp_n t1 t2 = function
+    | 0 -> Printf.sprintf "%s" t2
+    | n -> Printf.sprintf "((%s) (%s))" t1 (mkapp_n t1 t2 (n-1))
+  in
+  Printf.sprintf "(λ(f :: ⋆ ⇒ ⋆) λ(x :: ⋆) %s)" (mkapp_n "f" "x" n)
+
+let nat_string = "(* => *) => * => *"
+
+let add_string = 
+  ("(λ (n :: " ^ nat_string ^ ")" ^
+   " λ (m :: " ^ nat_string ^ ")" ^
+   " λ (f :: ⋆ ⇒ ⋆) λ (x :: ⋆) n f (m f x))")
 
 
-let run_bintests f1 f2 examples =
-  let failed = ref 0 in
-  let i = ref 0 in
-  let () =
-    List.iter (fun e ->
-      incr i;
-      Printf.printf "TEST #%i (n=%i, h=%i, bh=%i, b=%i): %!"
-        (!i) (Measure.Typ.size e) (Measure.Typ.height e)
-        (Measure.Typ.bheight e) (Measure.Typ.nb_binders e);
-      let e1 = (Printf.printf "(1%!" ;
-                let e1 = f1 e in Printf.printf ")%!" ; e1) in
-      let e2 = (Printf.printf "(2%!" ;
-                let e2 = f2 e in Printf.printf ")%! " ; e2) in
-      if e1 = e2 then Printf.printf "PASSED\n%!" 
-      else
-        begin
-          incr failed;
-          Printf.printf
-            "FAILED:\n  Input:   %a\n  Output1: %a\n  Output2: %a\n%!"
-            PPrint.Typ.channel e
-            PPrint.Typ.channel e1
-            PPrint.Typ.channel e2
-        end)
-      examples in
-  if !failed = 0 then
-    Printf.printf "All tests passed.\n%!"
-  else
-    Printf.printf "%i test(s) failed.\n%!" (!failed)
+let tests_nf = "Tests about normal forms and equivalence" >:::
+  [
+   (let f = "fun (x::*) fun (y:: * => *) y x" in
+   ("nf of " ^ f) >:: test_nf ~t:f ~nf:f) ;
 
-let run_tests f test cases =
-  let failed = ref 0 in
-  let i = ref 0 in
-  let () =
-    List.iter (fun (q,e) ->
-      incr i;
-      Printf.printf "TEST #%i (n=%i, h=%i, bh=%i, b=%i): %!"
-        (!i) (Measure.Typ.size q) (Measure.Typ.height q)
-        (Measure.Typ.bheight q) (Measure.Typ.nb_binders q);
-      let a = (Printf.printf "(1%!" ;
-                let e1 = f q in Printf.printf ") %!" ; e1) in
-      if test a e then Printf.printf "PASSED\n%!" 
-      else
-        begin
-          incr failed;
-          Printf.printf
-            "FAILED:\n  Input:    %a\n  Output:   %a\n  Expected: %a\n%!"
-            PPrint.Typ.channel q
-            PPrint.Kind.channel a
-            PPrint.Kind.channel e
-        end)
-      cases in
-  if !failed = 0 then
-    Printf.printf "All tests passed.\n%!"
-  else
-    Printf.printf "%i test(s) failed.\n%!" (!failed)
+   "3 + 4 = 7?" >::
+   test_nf ~t:(add_string ^ (mknum_string 3) ^ (mknum_string 4))
+     ~nf:(mknum_string 7) ;
 
-let rec init f = function
-  | 0 -> []
-  | n -> (f ()) :: init f (n-1)
+   "42 + 96 = 138?" >::
+   test_nf ~t:(add_string ^ (mknum_string 42) ^ (mknum_string 96))
+     ~nf:(mknum_string 138) ;
 
-module STLC = struct
-  open Wftype
+   "nf of fun (x::*) fun (y:: * => *) y x" >::
+   test_nf ~t:"fun (x::*) fun (y:: * => *) y x"
+     ~nf:"fun (x::*) fun (y:: * => *) y x" ;
+   (let f = "λ(x :: ⋆ × ⋆ × (⋆ × ⋆ ⇒ ⋆ × ⋆)) x"
+   and g =
+     "λ(x :: ⋆ × ⋆ × (⋆ × ⋆ ⇒ ⋆ × ⋆))\
+       < <x.fst.fst, x.fst.snd>,\
+       λ(y:: ⋆×⋆) < (x.snd <y.fst,y.snd>).fst , (x.snd <y.fst,y.snd>).snd >>"
+   in
+   ("nf of " ^ f) >:: test_nf ~t:f ~nf:g) ;
 
-  let () = Printf.printf "-- Tests STLC\n%!"
+   test_equiv
+     ~neg:true
+     ~env:(Env.empty)
+     ~t:"λ (c :: *) λ (x :: *) c"
+     ~u:"λ (c :: *) λ (x :: *) x"
+     ~k:"* => * => *" () ;
 
-  let () = run_tests (wftype Env.empty) (wfsub Env.empty)
-      [ (String.parse_typ "fun (x::*) x",
-         String.parse_kind "* => *") ;
-        (String.parse_typ "fun (x::*) fun (y::*=>*) y x",
-         String.parse_kind "* => (* => *) => *") ;
-      ]
+   test_equiv
+     ~env:(Env.empty)
+     ~t:"λ (c :: *) λ (x :: *) c"
+     ~u:"λ (c :: *) λ (x :: *) x"
+     ~k:"Π(c :: *) S(c) => *" () ;
 
-  open Normalize
+   (let env =
+     Env.add_typ_var "f" (String.parse_kind "(* => *) => *")
+       (Env.add_typ_var "c" (String.parse_kind "*") Env.empty) in
+   test_equiv
+     ~neg:true
+     ~env
+     ~t:"f (λ (x :: *) c)"
+     ~u:"f (λ (x :: *) x)"
+     ~k:"*" ()) ;
 
-  let nf e =
-    let tau = wftype Env.empty e in
-    typ_norm Env.empty e tau
+   (let env =
+     Env.add_typ_var "f" (String.parse_kind "(S(c) => *) => *")
+       (Env.add_typ_var "c" (String.parse_kind "*") Env.empty) in
+   test_equiv
+     ~env
+     ~t:"f (λ (x :: *) c)"
+     ~u:"f (λ (x :: *) x)"
+     ~k:"*" ()) ;
+ ]
 
-  let print_nf e =
-    PPrint.Typ.channel stdout (nf e); print_newline ()
+(* tests about wfterm *)
+let test_wfterm ~e ~t =
+  (Printf.sprintf "⊢ %s : %s?" e t) >:: (fun () ->
+    let e = String.parse_term e
+    and t = String.parse_typ t in
+    assert_equal
+      ~printer:PPrint.Typ.string
+      ~cmp:(Wfterm.wfsub Env.empty) (Wfterm.wfterm Env.empty e) t)
 
-  let () =
-    let s = "fun (x::*) fun (y::* => *) y x" in
-    Printf.printf "--- NF of %s:\n%!" s ;
-    let e = String.parse_typ s in
-    print_nf e ;
-    print_newline ()
+let tests_wfterm = "Tests about wfterm" >:::
+  [
+   test_wfterm ~e:"Fun (α:: *) fun (x : α) x"
+     ~t:"∀ (a:: *) a -> a" ;
 
-  let mknum_string n =
-    let rec mkapp_n t1 t2 = function
-      | 0 -> Printf.sprintf "%s" t2
-      | n -> Printf.sprintf "((%s) (%s))" t1 (mkapp_n t1 t2 (n-1))
-    in
-    Printf.sprintf "(λ(f :: ⋆ ⇒ ⋆) λ(x :: ⋆) %s)" (mkapp_n "f" "x" n)
+   test_wfterm ~e:"Fun (α:: *) fun (x : {α ; α}) x"
+     ~t:"∀ (a:: *) {a;a} -> {a;a}" ;
 
-  let mknum n = String.parse_typ (mknum_string n)
+   test_wfterm ~e:"Fun (α:: * => *) Fun (β :: *) fun (x : {α β ; α β}) x"
+     ~t:"∀ (α:: *=>*) ∀ (β::*) {α β ; α β} -> {α β ; α β}" ;
+ ]
 
-  let nat_string = "(* => *) => * => *"
-  let nat = String.parse_kind nat_string
+(* all tests *)
+let tests = TestList [ tests_wftype ; tests_nf ; tests_wfterm ]
 
-  let add_string = 
-    ("(λ (n :: " ^ nat_string ^ ")" ^
-     " λ (m :: " ^ nat_string ^ ")" ^
-     " λ (f :: ⋆ ⇒ ⋆) λ (x :: ⋆) n f (m f x))")
-  let add = String.parse_typ add_string
-
-  let () =
-    Printf.printf "--- NF of %s\n%!" add_string ;
-    print_nf add ;
-    print_newline () ;
-
-    let s = add_string ^ (mknum_string 3) ^ (mknum_string 4) in
-    Printf.printf "--- NF of %s\n%!" s ;
-    print_nf (String.parse_typ s) ;
-    print_newline () ;
-
-    Printf.printf "--- 42 + 96 = 138? %b\n%!"
-      (eq_typ
-         (nf (String.parse_typ
-                (add_string ^ (mknum_string 42) ^ (mknum_string 96))))
-         (nf (String.parse_typ (mknum_string 138)))) ;
-    print_newline () ;
-
-    let s = "λ(x :: ⋆ × ⋆ × (⋆ × ⋆ ⇒ ⋆ × ⋆)) x" in
-    Printf.printf "--- NF of %s:\n%!" s ;
-    print_nf (String.parse_typ s) ;
-    print_newline () ;
-
-    let k = "* => * => *"
-    and k' = "Π(c :: *) S(c) => *"
-    and t1 = "λ (c :: *) λ (x :: *) c"
-    and t2 = "λ (c :: *) λ (x :: *) x" in
-    Printf.printf "⊢  %s\n≡  %s\n:: %s ?\n--> %b (false expected)\n%!"
-      t1 t2 k
-      (equiv_typ Env.empty
-         (String.parse_typ t1) (String.parse_typ t2) (String.parse_kind k)) ;
-    print_newline () ;
-    Printf.printf "⊢  %s\n≡  %s\n:: %s ?\n--> %b (true expected)\n%!"
-      t1 t2 k'
-      (equiv_typ Env.empty
-         (String.parse_typ t1) (String.parse_typ t2) (String.parse_kind k')) ;
-    print_newline () ;
-
-    let k = "(* => *) => *"
-    and k' = "(S(c) => *) => *"
-    and t1 = "f (λ (x :: *) x)"
-    and t2 = "f (λ (x :: *) c)" in
-    Printf.printf "c:: *, f:: %s\n⊢  %s\n≡  %s\n:: %s ?\n--> %b (false expected)\n%!"
-      k t1 t2 "*"
-      (equiv_typ
-         (Env.add_typ_var "c" Base
-            (Env.add_typ_var "f" (String.parse_kind k)
-               Env.empty))
-         (String.parse_typ t1) (String.parse_typ t2) Base) ;
-    print_newline () ;
-
-    Printf.printf "c:: *, f:: %s\n⊢  %s\n≡  %s\n:: %s ?\n--> %b (true expected)\n%!"
-      k' t1 t2 "*"
-      (equiv_typ
-         (Env.add_typ_var "c" Base
-            (Env.add_typ_var "f" (String.parse_kind k')
-               Env.empty))
-         (String.parse_typ t1) (String.parse_typ t2) Base) ;
-    print_newline () ;
-
-    let s = "Fun (α:: *) fun (x : α) x" in
-    Printf.printf "⊢ %s\n: %a\n%!"
-      s
-      PPrint.Typ.channel
-      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
-
-    let s = "Fun (α:: *) fun (x : {α ; α}) x" in
-    Printf.printf "⊢ %s\n: %a\n%!"
-      s
-      PPrint.Typ.channel
-      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
-
-    let s = "Fun (α:: * => *) Fun (β :: *) fun (x : {α β ; α β}) x" in
-    Printf.printf "⊢ %s\n: %a\n%!"
-      s
-      PPrint.Typ.channel
-      (Wfterm.wfterm Env.empty (String.parse_term s)) ;
-end
+(* running tests *)
+let () =
+  ignore (run_test_tt tests)

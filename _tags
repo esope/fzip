@@ -1,4 +1,4 @@
 true: dtypes, warn_error_A, use_menhir, package(menhirLib), package(ulex)
 <lexer.*>: syntax(ulex), package(ulex), syntax(camlp4o)
-<test_bind.*>: package(oUnit)
+<test*.*>: package(oUnit)
 <libs/pprint>: include
