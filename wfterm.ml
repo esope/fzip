@@ -59,8 +59,8 @@ and pre_wfterm env = function
       begin
         match (wfterm env e).content with
         | Typ.BaseProd(t1, t2) ->
-            if lab = "1" then t1.content
-            else if lab = "2" then t2.content
+            if lab = "fst" then t1.content
+            else if lab = "snd" then t2.content
             else failwith ("Unknown label " ^ lab ^ ".")
         | _ ->
             failwith "Ill-formed projection"
