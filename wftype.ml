@@ -144,3 +144,5 @@ and wfkind env = function
       match wftype env t with
       | Single _ | Base -> true
       | _ -> failwith "Ill-formed singleton."
+
+let wfsubtype env tau1 tau2 = Normalize.equiv_typ env tau1 tau2 Base

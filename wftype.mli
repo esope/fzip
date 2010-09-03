@@ -1,12 +1,16 @@
+(** Checking types. *)
 open Ast.Typ
 
 type env = (typ, typ kind) Env.t
 
-(* decides subkinding *)
+(** Decides subkinding. *)
 val wfsubkind: env -> typ kind -> typ kind -> bool
 
-(* decides kind wellformedness *)
+(** Decides kind wellformedness. *)
 val wfkind: env -> typ kind -> bool
 
-(* computes the minimal kind *)
+(** Computes the minimal kind. *)
 val wftype: env -> typ -> typ kind
+
+(** Decides subtyping. *)
+val wfsubtype: env -> typ -> typ -> bool

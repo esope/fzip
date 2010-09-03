@@ -8,6 +8,11 @@ let current_start = ref Lexing.dummy_pos
 let current_end = ref Lexing.dummy_pos
 let current_token = ref (ID "dummy")
 
+(* accessors *)
+let get_current_start () = !current_start
+let get_current_end () = !current_end
+let get_current_token () = !current_token
+
 let break_line lexbuf =
   incr current_lnum ; current_bol := lexeme_start lexbuf
 let startpos lexbuf =

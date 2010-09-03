@@ -169,7 +169,7 @@ let test_wfterm ~e ~t =
     and t = String.parse_typ t in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(Wfterm.wfsubtype Env.empty) (Wfterm.wfterm Env.empty e) t)
+      ~cmp:(Wftype.wfsubtype Env.empty) (Wfterm.wfterm Env.empty e) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [

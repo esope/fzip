@@ -7,7 +7,6 @@ type env = (Typ.typ, Typ.typ Typ.kind) Env.t
 
 let dummy_locate = dummy_locate
 let wfsubkind = Wftype.wfsubkind
-let wfsubtype env tau1 tau2 = Normalize.equiv_typ env tau1 tau2 Typ.Base
 let wfbasetype env t =
   wfsubkind env (wftype env t) Typ.Base
 

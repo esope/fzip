@@ -1,10 +1,13 @@
 let parser_error_handle parser next_token file =
     try parser next_token
     with Parser.Error ->
+      let current_start = Lexer.get_current_start ()
+      and current_end = Lexer.get_current_end ()
+      and current_token = Lexer.get_current_token () in
       Error.raise_error Error.parsing
-        !Lexer.current_start !Lexer.current_end
+        current_start current_end
         (Printf.sprintf "Unexpected token: '%s'."
-           (Lexer.string_of_token !Lexer.current_token))
+           (Lexer.string_of_token current_token))
 
 let convert_parser parser =
   MenhirLib.Convert.Simplified.traditional2revised
