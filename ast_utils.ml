@@ -136,7 +136,7 @@ module Gen = struct
           if Random.float 1. < 0.9
           then Lam (letter (), Base, gen (n-1))
           else begin match Random.int 3 with
-          | 0 -> Proj(gen (n-1), "1")
+          | 0 -> Proj(gen (n-1), "fst")
           | 1 -> let m = Random.int n in
             App(gen m, gen (n - 1 - m))
           | 2 -> let m = Random.int n in

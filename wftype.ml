@@ -17,13 +17,13 @@ let rec single_ext k t = match k with
       single_ext (bsubst_kind k2 y x_var) (dummy_locate (App(t, x_var))) in
     mkPi x k1 k2'
 | Prod(k1, k2) ->
-    let k1' = single_ext k1 (dummy_locate (Proj(t, "1")))
-    and k2' = single_ext k2 (dummy_locate (Proj(t, "2"))) in
+    let k1' = single_ext k1 (dummy_locate (Proj(t, "fst")))
+    and k2' = single_ext k2 (dummy_locate (Proj(t, "snd"))) in
     Prod(k1', k2')
 | Sigma(y, k1, k2) ->
-    let t1 = dummy_locate (Proj(t, "1")) in
+    let t1 = dummy_locate (Proj(t, "fst")) in
     let k1' = single_ext k1 t1
-    and k2' = single_ext (bsubst_kind k2 y t1) (dummy_locate (Proj(t, "2"))) in
+    and k2' = single_ext (bsubst_kind k2 y t1) (dummy_locate (Proj(t, "snd"))) in
     Prod(k1', k2')
 
 let rec wfsub env k1 k2 = match (k1, k2) with
@@ -104,10 +104,10 @@ let rec wftype env t = match t.content with
     let k = wftype env t in
     begin
       match k with
-      | Prod(k1, _) | Sigma(_, k1, _) when lab = "1" -> k1
-      | Prod(_, k2) when lab = "2" -> k2
-      | Sigma(x, _, k2) when lab = "2" ->
-          bsubst_kind k2 x (dummy_locate (Proj(t, "1")))
+      | Prod(k1, _) | Sigma(_, k1, _) when lab = "fst" -> k1
+      | Prod(_, k2) when lab = "snd" -> k2
+      | Sigma(x, _, k2) when lab = "snd" ->
+          bsubst_kind k2 x (dummy_locate (Proj(t, "fst")))
       | _ -> failwith "Ill-formed projection."
     end
 | BaseForall(x, k, u) ->
