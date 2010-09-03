@@ -3,6 +3,9 @@ OCB=ocamlbuild -use-ocamlfind -j 0
 bin:
 	$(OCB) main.native
 
+test:
+	$(OCB) -no-links test.native --
+
 doc:
 	$(OCB) project.docdir/index.html
 
