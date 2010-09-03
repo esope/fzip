@@ -44,7 +44,7 @@ delimited_typ:
     { locate (Pair(t1, t2)) $startpos $endpos }
 | t=delimited_typ DOT x=ID
     { locate (Proj(t, x)) $startpos $endpos }
-| LBRACE t1=delimited_typ SEMICOLON t2=delimited_typ RBRACE
+| LBRACE t1=delimited_typ SEMICOLON t2=typ RBRACE
     {locate (BaseProd(t1, t2)) $startpos $endpos }
 | t1=delimited_typ ARROW t2=delimited_typ
     {locate (BaseArrow(t1, t2)) $startpos $endpos }

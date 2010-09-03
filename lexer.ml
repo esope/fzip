@@ -57,7 +57,7 @@ let rec token = lexer
 | "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
 | "fun" | 955 (* λ *) -> locate lexbuf LAMBDA
 | "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
-| "forall" | 8704 (* ∀ *) -> locate lexbuf UPLAMBDA
+| "forall" | 8704 (* ∀ *) -> locate lexbuf FORALL
 | "::" -> locate lexbuf DBLCOLON
 | ":" -> locate lexbuf COLON
 | ";" -> locate lexbuf SEMICOLON
