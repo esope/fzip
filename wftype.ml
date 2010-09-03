@@ -70,8 +70,8 @@ let rec wfsub env k1 k2 = match (k1, k2) with
     test
 | _ -> failwith
       (Printf.sprintf "Subkinding error:\n  %a\n  is not a subkind of\n  %a"
-      (fun _ -> String.Typ.of_kind) k1
-      (fun _ -> String.Typ.of_kind) k2)
+      (fun () -> PPrint.Kind.string) k1
+      (fun () -> PPrint.Kind.string) k2)
 
 let rec wftype env t = match t.content with
 | BVar _ -> assert false

@@ -2,6 +2,7 @@ open Ast.Typ
 open Ast_utils
 open Parser_utils
 
+
 let run_bintests f1 f2 examples =
   let failed = ref 0 in
   let i = ref 0 in
@@ -21,9 +22,9 @@ let run_bintests f1 f2 examples =
           incr failed;
           Printf.printf
             "FAILED:\n  Input:   %a\n  Output1: %a\n  Output2: %a\n%!"
-            (fun _ -> Print.typ) e
-            (fun _ -> Print.typ) e1
-            (fun _ -> Print.typ) e2
+            PPrint.Typ.channel e
+            PPrint.Typ.channel e1
+            PPrint.Typ.channel e2
         end)
       examples in
   if !failed = 0 then
@@ -48,9 +49,9 @@ let run_tests f test cases =
           incr failed;
           Printf.printf
             "FAILED:\n  Input:    %a\n  Output:   %a\n  Expected: %a\n%!"
-            (fun _ -> Print.typ) q
-            (fun _ -> Print.kind) a
-            (fun _ -> Print.kind) e
+            PPrint.Typ.channel q
+            PPrint.Kind.channel a
+            PPrint.Kind.channel e
         end)
       cases in
   if !failed = 0 then
@@ -81,7 +82,7 @@ module STLC = struct
     typ_norm Env.empty e tau
 
   let print_nf e =
-    Print.typ (nf e); print_newline ()
+    PPrint.Typ.channel stdout (nf e); print_newline ()
 
   let () =
     let s = "fun (x::*) fun (y::* => *) y x" in
@@ -170,18 +171,18 @@ module STLC = struct
     let s = "Fun (α:: *) fun (x : α) x" in
     Printf.printf "⊢ %s\n: %a\n%!"
       s
-      (fun _ -> Print.typ)
+      PPrint.Typ.channel
       (Wfterm.wfterm Env.empty (String.parse_term s)) ;
 
     let s = "Fun (α:: *) fun (x : {α ; α}) x" in
     Printf.printf "⊢ %s\n: %a\n%!"
       s
-      (fun _ -> Print.typ)
+      PPrint.Typ.channel
       (Wfterm.wfterm Env.empty (String.parse_term s)) ;
 
     let s = "Fun (α:: * => *) Fun (β :: *) fun (x : {α β ; α β}) x" in
     Printf.printf "⊢ %s\n: %a\n%!"
       s
-      (fun _ -> Print.typ)
+      PPrint.Typ.channel
       (Wfterm.wfterm Env.empty (String.parse_term s)) ;
 end

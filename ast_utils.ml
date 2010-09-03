@@ -71,6 +71,55 @@ module Encode = struct
   end
 end
 
+module Decode = struct
+  open Ast
+
+  module Typ = struct
+    open Raw
+
+    let rec kind_rec typ = function
+      | Typ.Base -> Base
+      | Typ.Arrow(k1, k2) ->
+          Arrow(kind_rec typ k1, kind_rec typ k2)
+      | Typ.Prod(k1, k2) ->
+          Prod(kind_rec typ k1, kind_rec typ k2)
+      | Typ.Pi(x, k1, k2) ->
+          let k1' = kind_rec typ k1
+          and k2' = kind_rec typ k2 in
+          Pi("α__" ^ string_of_int x, k1', k2')
+      | Typ.Sigma(x, k1, k2) ->
+          let k1' = kind_rec typ k1
+          and k2' = kind_rec typ k2 in
+          Sigma("α__" ^ string_of_int x, k1', k2')
+      | Typ.Single t -> Single (typ t)
+
+    let rec typ_rec kind t =
+      { t with content = pre_typ_rec kind t.content }
+    and pre_typ_rec kind = function
+      | Typ.FVar x -> Var x
+      | Typ.BVar x -> Var ("α__" ^ string_of_int x)
+      | Typ.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
+      | Typ.Lam (x, k, t) ->
+          let k' = kind k
+          and t' = typ_rec kind t in
+          Lam("α__" ^ string_of_int x, k', t')
+      | Typ.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
+      | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
+      | Typ.BaseForall (x, k, t) ->
+          let k' = kind k
+          and t' = typ_rec kind t in
+          BaseForall("α__" ^ string_of_int x, k', t')
+      | Typ.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
+      | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
+
+(* closing recursion *)
+    let rec typ t = typ_rec kind t
+    and kind k = kind_rec typ k
+
+  end
+
+end
+
 module Gen = struct
   let () = Random.self_init ()
   let letter () = Char.escaped (Char.chr (Random.int 10))
@@ -141,175 +190,170 @@ module Measure = struct
   end
 end
 
-module String = struct
+module PPrint = struct
+  open Ast.Raw
+
+  let tights_more_than_arrow = function
+    | Arrow(_,_) -> false
+    | _ -> true
+  let tights_more_than_prod = function
+    | Prod(_,_) | Arrow(_, _) -> false
+    | _ -> true
+  let is_arrow = function
+    | Arrow(_,_) -> true
+    | _ -> false
+  let is_prod = function
+    | Prod(_,_) -> true
+    | _ -> false
+  let is_delimited = function
+    | Sigma(_,_,_) | Pi(_,_,_) -> false
+    | _ -> true
+
+  let ident = Pprint.text
+
+  let rec kind_rec typ = let open Pprint in function
+    | Base -> text "⋆"
+    | Arrow(k1, k2) ->
+        infix "⇒"
+          (if is_delimited k1 && tights_more_than_arrow k1
+          then kind_rec typ k1
+          else parens (kind_rec typ k1))
+          (if is_arrow k2 || (tights_more_than_arrow k2 && is_delimited k2)
+          then kind_rec typ k2
+          else parens (kind_rec typ k2))
+    | Pi(x, k1, k2) ->
+        prefix "Π"
+          ((parens (infix_com "::" (ident x) (kind_rec typ k2))) ^^
+           break1 ^^
+           (kind_rec typ k2))
+    | Prod(k1, k2) ->
+        infix "×"
+          (if is_delimited k1 && tights_more_than_prod k1
+          then kind_rec typ k1
+          else parens (kind_rec typ k1))
+          (if is_prod k2 || (tights_more_than_prod k2 && is_delimited k2)
+          then kind_rec typ k2
+          else parens (kind_rec typ k2))
+    | Sigma(x, k1, k2) ->
+        prefix "Σ"
+          ((parens (infix_com "::" (ident x) (kind_rec typ k2))) ^^
+           break1 ^^
+           (kind_rec typ k2))
+    | Single t ->
+        prefix "S"
+          (parens (typ t))
+
+  let is_delimited t =
+    match t.content with
+    | Lam(_,_,_) -> false
+    | _ -> true
+  let is_app t = match t.content with
+  | App(_,_) -> true
+  | _ -> false
+  let is_proj t = match t.content with
+  | Proj(_,_) -> true
+  | _ -> false
+  let is_base_arrow t = match t.content with
+  | BaseArrow(_,_) -> true
+  | _ -> false
+  let is_base_prod t = match t.content with
+  | BaseProd(_,_) -> true
+  | _ -> false
+  let tights_more_than_app x =
+    match x.content with
+    | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
+    | _ -> false
+  let tights_more_than_pair x =
+    match x.content with
+    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
+    | _ -> false
+  let tights_more_than_proj x =
+    match x.content with
+    | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
+    | _ -> false
+  let tights_more_than_base_prod x =
+    match x.content with
+    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
+    | _ -> false
+  let tights_more_than_base_arrow x =
+    match x.content with
+    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _)
+    | BaseArrow(_,_) -> true
+    | _ -> false
+
+
+  let rec pre_typ_rec kind = let open Pprint in function
+    | Var x -> ident x
+    | Lam(x, k, t) ->
+        text "λ" ^^
+        infix_com ""
+          (parens (infix_com "::" (ident x) (kind k)))
+          (typ_rec kind t)
+    | App(t1, t2) ->
+        infix_dot " "
+          (if (tights_more_than_app t1 && is_delimited t1) || is_app t1
+          then typ_rec kind t1
+          else parens (typ_rec kind t1))
+          (if tights_more_than_app t2 && is_delimited t2
+          then typ_rec kind t2
+          else parens (typ_rec kind t2))
+    | Pair(t1, t2) ->
+        angles (infix_com "," (typ_rec kind t1) (typ_rec kind t2))
+    | Proj(t, lab) ->
+        infix_dot "."
+          (if is_proj t || (tights_more_than_proj t && is_delimited t)
+          then typ_rec kind t
+          else parens (typ_rec kind t))
+          (text lab)
+    | BaseArrow(t1,t2) ->
+        infix "→"
+          (if is_delimited t1 && tights_more_than_base_arrow t1
+          then typ_rec kind t1
+          else parens (typ_rec kind t1))
+          (if is_base_arrow t2
+         || (is_delimited t2 && tights_more_than_base_arrow t2)
+          then typ_rec kind t2
+          else parens (typ_rec kind t2))
+    | BaseProd(t1,t2) ->
+        braces
+          (infix_com ";"
+             (parens (typ_rec kind t1))
+             (parens (typ_rec kind t2)))
+    | BaseForall(x, k, t) ->
+        text "∀" ^^
+        infix_com ""
+          (parens (infix_com "::" (ident x) (kind k)))
+          (typ_rec kind t)
+  and typ_rec kind { content ; _ } = Pprint.group1 (pre_typ_rec kind content)
+
+  let rec typ t = typ_rec kind t
+  and kind k = kind_rec typ k
+
+  let string_from_buffer buffer t =
+    let buff = Buffer.create 80 in
+    let () = buffer buff t in
+    Buffer.contents buff
 
   module Typ = struct
-    open Typ
-
-    let tights_more_than_arrow = function
-      | Arrow(_,_) -> false
-      | _ -> true
-    let tights_more_than_prod = function
-      | Prod(_,_) | Arrow(_, _) -> false
-      | _ -> true
-    let is_arrow = function
-      | Arrow(_,_) -> true
-      | _ -> false
-    let is_prod = function
-      | Prod(_,_) -> true
-      | _ -> false
-    let is_delimited = function
-      | Sigma(_,_,_) | Pi(_,_,_) -> false
-      | _ -> true
-
-    let rec of_kind_rec term = function
-      | Base -> Printf.sprintf "%s" (string_of_token Parser.STAR)
-      | Arrow(t1, t2) ->
-          (match (tights_more_than_arrow t1 && is_delimited t1,
-                  is_arrow t2 || tights_more_than_arrow t2 || is_delimited t2) with
-          | true, true   -> Printf.sprintf "%a %s %a"
-          | true, false  -> Printf.sprintf "%a %s (%a)"
-          | false, true  -> Printf.sprintf "(%a) %s %a"
-          | false, false -> Printf.sprintf "(%a) %s (%a)")
-            (fun _ -> of_kind_rec term) t1
-            (string_of_token Parser.DBLARROW)
-            (fun _ -> of_kind_rec term) t2
-      | Prod(t1, t2) ->
-          (match (tights_more_than_prod t1 && is_delimited t1,
-                  is_prod t2 || tights_more_than_prod t2 || is_delimited t2) with
-          | true, true   -> Printf.sprintf "%a %s %a"
-          | true, false  -> Printf.sprintf "%a %s (%a)"
-          | false, true  -> Printf.sprintf "(%a) %s %a"
-          | false, false -> Printf.sprintf "(%a) %s (%a)")
-            (fun _ -> of_kind_rec term) t1
-            (string_of_token Parser.TIMES)
-            (fun _ -> of_kind_rec term) t2
-      | Pi(x, t1, t2) ->
-          Printf.sprintf "%s(α%i%s %a) %a"
-            (string_of_token Parser.PI)
-            x
-            (string_of_token Parser.DBLCOLON)
-            (fun _ -> of_kind_rec term) t1
-            (fun _ -> of_kind_rec term) t2
-      | Sigma(x, t1, t2) ->
-          Printf.sprintf "%s(α%i%s %a) %a"
-            (string_of_token Parser.SIGMA)
-            x
-            (string_of_token Parser.DBLCOLON)
-            (fun _ -> of_kind_rec term) t1
-            (fun _ -> of_kind_rec term) t2
-      | Single t ->
-          Printf.sprintf "%s(%a)"
-            (string_of_token Parser.SINGLE)
-            (fun _ -> term) t
-
-    let is_delimited t =
-      match t.content with
-      | Lam(_,_,_) -> false
-      | _ -> true
-    let is_base_arrow t = match t.content with
-      | BaseArrow(_,_) -> true
-      | _ -> false
-    let is_base_prod = function
-      | BaseProd(_,_) -> true
-      | _ -> false
-    let tights_more_than_app x =
-      match x.content with
-      | BVar _ | FVar _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
-      | _ -> false
-    let tights_more_than_pair x =
-      match x.content with
-      | BVar _ | FVar _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
-      | _ -> false
-    let tights_more_than_proj x =
-      match x.content with
-      | BVar _ | FVar _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
-      | _ -> false
-    let tights_more_than_base_prod x =
-      match x.content with
-      | BVar _ | FVar _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
-      | _ -> false
-    let tights_more_than_base_arrow x =
-      match x.content with
-      | BVar _ | FVar _ | Pair (_,_) | Proj _ | BaseProd(_, _)
-      | BaseArrow(_,_) -> true
-      | _ -> false
-
-    let rec pre_of_typ = function
-      | FVar x -> Printf.sprintf "%s" (string_of_token (Parser.ID x))
-      | BVar x -> Printf.sprintf "α%i" x
-      | App (t, u) ->
-          (match (tights_more_than_app t && is_delimited t,
-                  tights_more_than_app u && is_delimited u) with
-          | true, true -> Printf.sprintf "%a %s%a"
-          | true, false -> Printf.sprintf "%a %s(%a)"
-          | false, true -> Printf.sprintf "(%a) %s%a"
-          | false, false -> Printf.sprintf "(%a) %s(%a)")
-            (fun _ -> of_typ) t
-            (string_of_token Parser.APP)
-            (fun _ -> of_typ) u
-      | Lam (x, tau, t) -> Printf.sprintf "%s(α%i %s %a) %a"
-            (string_of_token Parser.LAMBDA)
-            x
-            (string_of_token Parser.DBLCOLON)
-            (fun _ -> of_kind_rec of_typ) tau
-            (fun _ -> of_typ) t
-      | Pair (t, u) ->
-          (match (tights_more_than_pair t && is_delimited t,
-                  tights_more_than_pair u) with
-          | true, true   -> Printf.sprintf "%s%a%s %a%s"
-          | true, false  -> Printf.sprintf "%s%a%s (%a)%s"
-          | false, true  -> Printf.sprintf "%s(%a)%s %a%s"
-          | false, false -> Printf.sprintf "%s(%a)%s (%a)%s")
-            (string_of_token Parser.LANGLE)
-            (fun _ -> of_typ) t
-            (string_of_token Parser.COMMA)
-            (fun _ -> of_typ) u
-            (string_of_token Parser.RANGLE)
-      | Proj(t, lab) ->
-          (if tights_more_than_proj t && is_delimited t
-          then Printf.sprintf "%a%s%s"
-          else Printf.sprintf "(%a)%s%s")
-            (fun _ -> of_typ) t
-            (string_of_token Parser.DOT)
-            lab
-      | BaseForall (x, tau, t) -> Printf.sprintf "%s(α%i %s %a) %a"
-            (string_of_token Parser.UPLAMBDA)
-            x
-            (string_of_token Parser.DBLCOLON)
-            (fun _ -> of_kind_rec of_typ) tau
-            (fun _ -> of_typ) t
-      | BaseProd (t, u) ->
-          (match (tights_more_than_base_prod t && is_delimited t,
-                  tights_more_than_base_prod u) with
-          | true, true   -> Printf.sprintf "%s%a%s %a%s"
-          | true, false  -> Printf.sprintf "%s%a%s (%a)%s"
-          | false, true  -> Printf.sprintf "%s(%a)%s %a%s"
-          | false, false -> Printf.sprintf "%s(%a)%s (%a)%s")
-            (string_of_token Parser.LBRACE)
-            (fun _ -> of_typ) t
-            (string_of_token Parser.SEMICOLON)
-            (fun _ -> of_typ) u
-            (string_of_token Parser.RBRACE)
-      | BaseArrow(t1, t2) ->
-          (match (tights_more_than_base_arrow t1 && is_delimited t1,
-                  is_base_arrow t2 || tights_more_than_base_arrow t2 ||
-                  is_delimited t2) with
-          | true, true   -> Printf.sprintf "%a %s %a"
-          | true, false  -> Printf.sprintf "%a %s (%a)"
-          | false, true  -> Printf.sprintf "(%a) %s %a"
-          | false, false -> Printf.sprintf "(%a) %s (%a)")
-            (fun _ -> of_typ) t1
-            (string_of_token Parser.ARROW)
-            (fun _ -> of_typ) t2
-
-    and of_typ t = pre_of_typ t.content
-    let of_kind = of_kind_rec of_typ
-
+    module Raw = struct
+      let channel chan t = Pprint.Channel.pretty 100.0 80 chan (typ t)
+      let buffer buff t = Pprint.Buffer.pretty 100.0 80 buff (typ t)
+      let string = string_from_buffer buffer
+    end
+    let channel chan t = Raw.channel chan (Decode.Typ.typ t)
+    let buffer buff t = Raw.buffer buff (Decode.Typ.typ t)
+    let string t = Raw.string (Decode.Typ.typ t)
   end
-end
 
-module Print = struct
-  let typ t = Printf.printf "%s" (String.Typ.of_typ t)
-  let kind k = Printf.printf "%s" (String.Typ.of_kind k)
+  module Kind = struct
+    module Raw = struct
+      let channel chan k = Pprint.Channel.pretty 100.0 80 chan (kind k)
+      let buffer buff k = Pprint.Buffer.pretty 100.0 80 buff (kind k)
+      let string = string_from_buffer buffer
+    end
+    let channel chan k = Raw.channel chan (Decode.Typ.kind k)
+    let buffer buff k = Raw.buffer buff (Decode.Typ.kind k)
+    let string k = Raw.string (Decode.Typ.kind k)
+  end
+
 end
