@@ -23,7 +23,7 @@ dot:	ocamldot bin
 	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.native -fullgraph > _build/$(DOTFILE)
 
 view_dot:	dot
-	dotty _build/$(DOTFILE) &
+	dot -T xlib _build/$(DOTFILE) &
 
 all:	bin doc dot
 
