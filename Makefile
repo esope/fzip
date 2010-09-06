@@ -1,4 +1,5 @@
 OCB=ocamlbuild -use-ocamlfind -j 0
+DOTFILE=_project.dot
 
 bin:
 	$(OCB) main.native
@@ -18,11 +19,11 @@ doc:
 view_doc:	doc
 	xdg-open _build/project.docdir/index.html
 
-dot:
-	$(OCB) project.docdir/main.dot
+dot:	ocamldot bin
+	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.native -fullgraph > _build/$(DOTFILE)
 
 view_dot:	dot
-	dotty _build/project.docdir/main.dot &
+	dotty _build/$(DOTFILE) &
 
 all:	bin doc dot
 
@@ -34,3 +35,6 @@ distclean:	clean
 
 archive:
 	hg archive --type tbz2 ../fzip.tar.bz2
+
+ocamldot:
+	$(OCB) tools/ocamldot/ocamldot.native
