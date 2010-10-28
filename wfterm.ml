@@ -6,9 +6,10 @@ open Location
 type env = (Typ.typ, Typ.typ Typ.kind) Env.t
 
 let dummy_locate = dummy_locate
-let wfsubkind = Wftype.wfsubkind
+let wfsubkind = Wftype.wfsubkind_b
 let wfbasetype env t =
   wfsubkind env (wftype env t) Typ.Base
+let wfsubtype = wfsubtype_b
 
 let rec wfterm env t = dummy_locate (pre_wfterm env t.content)
 and pre_wfterm env = function
@@ -36,12 +37,12 @@ and pre_wfterm env = function
             failwith "Non functional application."
       end
   | Gen (x, k, e) ->
-      if wfkind env k
+      if wfkind env k.content
       then
         let x' = Typ.new_var () in
         let x_var' = dummy_locate (Typ.FVar x') in
         let t' =
-          wfterm (Env.add_typ_var x' k env) (bsubst_typ_var e x x_var') in
+          wfterm (Env.add_typ_var x' k.content env) (bsubst_typ_var e x x_var') in
         Typ.mkBaseForall x' k t'
       else
         failwith "Ill-formed kind at the bound of a generalization."
@@ -50,7 +51,7 @@ and pre_wfterm env = function
         match (wfterm env e).content with
         | Typ.BaseForall(x, k', tau') ->
             let k = wftype env tau in
-            if wfsubkind env k k'
+            if wfsubkind env k k'.content
             then (Typ.bsubst_typ tau' x tau).content
             else failwith "Ill-formed instantiation (subkinding error)."
         | _ ->

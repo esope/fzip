@@ -9,7 +9,7 @@
 
 %public %inline typ_binding(kind):
 | LPAR x=ID DBLCOLON k=kind RPAR
-    { (x, k) }
+    { (x, Location.locate k $startpos(k) $endpos(k)) }
 
 undelimited_kind:
 | PI b=typ_binding(kind) k=kind { mkPi_binding b k }

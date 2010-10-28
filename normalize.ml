@@ -34,16 +34,17 @@ let rec head_norm env t = match t.content with
           end
       | _ -> assert false
     end
-| Proj(t, lab) ->
+| Proj(t', lab) ->
     begin
-      let (t', k) = head_norm env t in
+      let (t', k) = head_norm env t' in
       match (t'.content, k) with
       | (Pair(t1, t2), None) ->
           begin
             match lab with
             | "fst" -> head_norm env t1
             | "snd" -> head_norm env t2
-            | _ -> failwith "Illegal label projection."
+            | _ -> Error.raise_error Error.syntax t.startpos t.endpos
+                  ("Illegal label projection: " ^ lab ^ ".")
           end
       | (_, Some (Prod (k1, k2))) ->
           begin
@@ -64,7 +65,8 @@ let rec head_norm env t = match t.content with
                   | _ ->
                       ({ t with content = Proj(t', lab) }, Some k2)
                 end
-            | _ -> failwith "Illegal label projection."
+            | _ -> Error.raise_error Error.syntax t.startpos t.endpos
+                  ("Illegal label projection: " ^ lab ^ ".")
           end
       | (_, Some (Sigma (x, k1, k2))) ->
           begin
@@ -85,7 +87,8 @@ let rec head_norm env t = match t.content with
                   | _ ->
                       ({ t with content = Proj(t', lab) }, Some k2)
                 end
-            | _ -> failwith "Illegal label projection."
+            | _ -> Error.raise_error Error.syntax t.startpos t.endpos
+                  ("Illegal label projection: " ^ lab ^ ".")
           end
       | _ -> assert false
     end
@@ -100,11 +103,12 @@ let rec path_norm env t = match t.content with
       and t2' = typ_norm env t2 Base in
       ({ t with content = BaseArrow(t1', t2') }, Base)
   | BaseForall (x, k1, t1) ->
-      let k1' = kind_norm env k1 in
+      let k1' = { k1 with content = kind_norm env k1.content } in
       let x' = new_var () in
       let x_var' = dummy_locate (FVar x') in
       let t1' =
-        typ_norm (Env.add_typ_var x' k1 env) (bsubst_typ t1 x x_var') Base in
+        typ_norm (Env.add_typ_var x' k1.content env)
+          (bsubst_typ t1 x x_var') Base in
       ({ t with content = mkBaseForall x' k1' t1' }, Base)
   | FVar x -> (t, Env.get_typ_var x env)
   | BVar _ | Lam (_,_,_) | Pair(_, _) -> assert false
@@ -126,7 +130,8 @@ let rec path_norm env t = match t.content with
               match lab with
               | "fst" -> ({ t with content = Proj(p', lab) }, k1)
               | "snd" -> ({ t with content = Proj(p', lab) }, k2)
-              | _ -> failwith "Illegal label projection."
+              | _ -> Error.raise_error Error.syntax t.startpos t.endpos
+                    ("Illegal label projection: " ^ lab ^ ".")
             end
         | _ -> assert false
       end
@@ -138,13 +143,13 @@ and typ_norm env t k = match k with
     assert (tau = Base) ;
     t''
 | Arrow(k1, k2) ->
-    let k1' = kind_norm env k1 in
+    let k1' = dummy_locate (kind_norm env k1) in
     let x = new_var () in
     let t_ext = dummy_locate (App(t, dummy_locate (FVar x))) in
     let t' = typ_norm (Env.add_typ_var x k1 env) t_ext k2 in
     { t with content = mkLam x k1' t' }
 | Pi(y, k1, k2) ->
-    let k1' = kind_norm env k1 in
+    let k1' = dummy_locate (kind_norm env k1) in
     let x = new_var () in
     let x_var = dummy_locate (FVar x) in
     let t_ext = dummy_locate (App(t, x_var)) in
@@ -241,10 +246,10 @@ and pre_equiv_path env p1 p2 = match (p1, p2) with
     then Some Base
     else None
 | (BaseForall(x, k, t), BaseForall(x', k', t')) ->
-    if equiv_kind env k k' &&
+    if equiv_kind env k.content k'.content &&
       let y = new_var () in
       let y_var = dummy_locate (FVar y) in
-      equiv_typ (Env.add_typ_var y k env)
+      equiv_typ (Env.add_typ_var y k.content env)
         (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
     then Some Base
     else None

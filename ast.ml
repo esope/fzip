@@ -14,11 +14,11 @@ module Raw = struct
   and pre_typ =
     | Var of string
     | App of typ * typ
-    | Lam of string * typ kind * typ
+    | Lam of string * (typ kind) located * typ
     | Pair of typ * typ
     | Proj of typ * string
 (* base types *)
-    | BaseForall of string * typ kind * typ
+    | BaseForall of string * (typ kind) located * typ
     | BaseProd of typ * typ
     | BaseArrow of typ * typ
 
@@ -29,7 +29,7 @@ module Raw = struct
     | TeLam of string * 'typ * ('kind, 'typ) term
     | TePair of ('kind, 'typ) term * ('kind, 'typ) term
     | TeProj of ('kind, 'typ) term * string
-    | TeGen of string * 'kind * ('kind, 'typ) term
+    | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
 
 end
@@ -54,10 +54,10 @@ module Typ = struct
     | FVar of fvar
     | BVar of bvar
     | App of typ * typ
-    | Lam of bvar * typ kind * typ
+    | Lam of bvar * (typ kind) located * typ
     | Pair of typ * typ
     | Proj of typ * string
-    | BaseForall of bvar * typ kind * typ
+    | BaseForall of bvar * (typ kind) located * typ
     | BaseProd of typ * typ
     | BaseArrow of typ * typ
 
@@ -76,7 +76,7 @@ module Typ = struct
     | App (t,u) | Pair(t, u) | BaseProd(t, u) | BaseArrow(t, u) ->
         max (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) ->
-        let n = max (h_kind x k) (h_typ_rec h_kind x t) in
+        let n = max (h_kind x k.content) (h_typ_rec h_kind x t) in
         if n = 0 || n > y then n else y+1
     | Proj(t, _) -> h_typ_rec h_kind x t
   and h_typ_rec h_kind (x : fvar) t =
@@ -111,7 +111,7 @@ module Typ = struct
             var_map_typ_rec var_map_kind f_free t2)
     | Lam (x, k, t) ->
         Lam (x,
-             var_map_kind f_free k,
+             { k with content = var_map_kind f_free k.content },
              var_map_typ_rec var_map_kind f_free t)
     | Pair (t1, t2) ->
         Pair(var_map_typ_rec var_map_kind f_free t1,
@@ -120,7 +120,7 @@ module Typ = struct
         Proj(var_map_typ_rec var_map_kind f_free t, lab)
     | BaseForall (x, k, t) ->
         BaseForall (x,
-                    var_map_kind f_free k,
+                    {k with content = var_map_kind f_free k.content },
                     var_map_typ_rec var_map_kind f_free t)
     | BaseProd (t1, t2) ->
         BaseProd(var_map_typ_rec var_map_kind f_free t1,
@@ -174,7 +174,7 @@ module Typ = struct
       App(bsubst_typ_rec bsubst_kind t1 x u,
           bsubst_typ_rec bsubst_kind t2 x u)
   | Lam (y, k, t) ->
-      let k' = bsubst_kind k x u in
+      let k' = { k with content = bsubst_kind k.content x u } in
       if x = y
       then Lam(y, k', t)
       else Lam (y, k', bsubst_typ_rec bsubst_kind t x u)
@@ -184,7 +184,7 @@ module Typ = struct
   | Proj (t, lab) ->
       Proj(bsubst_typ_rec bsubst_kind t x u, lab)
   | BaseForall (y, k, t) ->
-      let k' = bsubst_kind k x u in
+      let k' = { k with content = bsubst_kind k.content x u } in
       if x = y
       then BaseForall (y, k', t)
       else BaseForall (y, k', bsubst_typ_rec bsubst_kind t x u)
@@ -218,7 +218,7 @@ module Typ = struct
   | (FVar x, FVar x') -> x = x'
   | (BVar x, BVar x') -> x = x'
   | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t')) ->
-      x = x' && eq_kind k k' && eq_typ_rec eq_kind t t'
+      x = x' && eq_kind k.content k'.content && eq_typ_rec eq_kind t t'
   | (Pair(t1,t2), Pair(t1',t2')) | (App(t1,t2), App(t1',t2'))
   | (BaseProd(t1,t2), BaseProd(t1',t2'))
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
@@ -264,7 +264,7 @@ module Term = struct
     | Lam of bvar * Typ.typ * term
     | Pair of term * term
     | Proj of term * string
-    | Gen of bvar * Typ.typ Typ.kind * term
+    | Gen of bvar * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
 
   let rec pre_h_term_var (x : fvar) = function
@@ -286,7 +286,7 @@ module Term = struct
     | Lam (_, tau, t) ->
         max (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) ->
-        let n = max (Typ.h_kind x k) (h_typ_var x t) in
+        let n = max (Typ.h_kind x k.content) (h_typ_var x t) in
         if n = 0 || n > y then n else y+1
     | Proj(t, _) | Inst(t, _) -> h_typ_var x t
   and h_typ_var (x : fvar) t =
@@ -336,7 +336,7 @@ module Term = struct
         Proj(var_map_typ_var f_free t, lab)
     | Gen (x, k, t) ->
         Gen (x,
-             Typ.var_map_kind f_free k,
+             {k with content = Typ.var_map_kind f_free k.content },
              var_map_typ_var f_free t)
     | Inst(t, tau) ->
         Inst (var_map_typ_var f_free t,
@@ -388,7 +388,7 @@ module Term = struct
   | Proj (t, lab) ->
       Proj(bsubst_typ_var t x u, lab)
   | Gen(y, k, t) ->
-      let k' = Typ.bsubst_kind k x u in
+      let k' = { k with content = Typ.bsubst_kind k.content x u } in
       if x = y
       then Gen(y, k', t)
       else Gen (y, k', bsubst_typ_var t x u)
@@ -410,7 +410,7 @@ module Term = struct
   | (Proj(t,lab), Proj(t',lab')) ->
       eq t t' && lab = lab'
   | (Gen(x,k,t), Gen(x',k',t')) ->
-      x = x' && Typ.eq_kind k k' && eq t t'
+      x = x' && Typ.eq_kind k.content k'.content && eq t t'
   | (Inst(t,tau), Inst(t',tau')) ->
       eq t t' && Typ.eq_typ tau tau'
   | _ -> false

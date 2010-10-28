@@ -64,7 +64,7 @@ let test_wftype ~t ~k =
     and k = String.parse_kind k in
     assert_equal
       ~printer:PPrint.Kind.string
-      ~cmp:(wfsubkind Env.empty) (wftype Env.empty t) k)
+      ~cmp:(wfsubkind_b Env.empty) (wftype Env.empty t) k)
 
 let tests_wftype = "Tests about wftype" >:::
   [
@@ -169,7 +169,7 @@ let test_wfterm ~e ~t =
     and t = String.parse_typ t in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(Wftype.wfsubtype Env.empty) (Wfterm.wfterm Env.empty e) t)
+      ~cmp:(Wftype.wfsubtype_b Env.empty) (Wfterm.wfterm Env.empty e) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [

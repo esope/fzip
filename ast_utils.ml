@@ -31,13 +31,13 @@ module Encode = struct
       | Raw.Var x -> FVar x
       | Raw.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
       | Raw.Lam (x, k, t) ->
-          let k' = kind k
+          let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkLam x k' t'
       | Raw.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
       | Raw.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Raw.BaseForall (x, k, t) ->
-          let k' = kind k
+          let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkBaseForall x k' t'
       | Raw.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
@@ -64,7 +64,7 @@ module Encode = struct
       | Raw.TePair (t, u) -> Pair (term t, term u)
       | Raw.TeProj (t, lab) -> Proj (term t, lab)
       | Raw.TeGen (x, k, t) ->
-          let k' = Typ.kind k
+          let k' = { k with content = Typ.kind k.content }
           and t' = term t in
           mkGen x k' t'
       | Raw.TeInst (t, tau) -> Inst(term t, Typ.typ tau)
@@ -100,13 +100,13 @@ module Decode = struct
       | Typ.BVar x -> Var ("α__" ^ string_of_int x)
       | Typ.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
       | Typ.Lam (x, k, t) ->
-          let k' = kind k
+          let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           Lam("α__" ^ string_of_int x, k', t')
       | Typ.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
       | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Typ.BaseForall (x, k, t) ->
-          let k' = kind k
+          let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           BaseForall("α__" ^ string_of_int x, k', t')
       | Typ.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
@@ -131,10 +131,10 @@ module Gen = struct
       Location.locate (pre_gen n) Lexing.dummy_pos Lexing.dummy_pos
     and pre_gen = function
       | 0 -> Var (letter ())
-      | 1 -> Lam (letter (), Base, gen 0)
+      | 1 -> Lam (letter (), dummy_locate Base, gen 0)
       | n ->
           if Random.float 1. < 0.9
-          then Lam (letter (), Base, gen (n-1))
+          then Lam (letter (), dummy_locate Base, gen (n-1))
           else begin match Random.int 3 with
           | 0 -> Proj(gen (n-1), "fst")
           | 1 -> let m = Random.int n in
@@ -287,7 +287,7 @@ module PPrint = struct
     | Lam(x, k, t) ->
         text "λ" ^^
         infix_com ""
-          (parens (infix_com "::" (ident x) (kind k)))
+          (parens (infix_com "::" (ident x) (kind k.content)))
           (typ_rec kind t)
     | App(t1, t2) ->
         infix_dot " "
@@ -329,7 +329,7 @@ module PPrint = struct
     | BaseForall(x, k, t) ->
         text "∀" ^^
         infix_com ""
-          (parens (infix_com "::" (ident x) (kind k)))
+          (parens (infix_com "::" (ident x) (kind k.content)))
           (typ_rec kind t)
   and typ_rec kind { content ; _ } = Pprint.group1 (pre_typ_rec kind content)
 
