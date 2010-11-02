@@ -20,12 +20,6 @@ let rec head_norm env t = match t.content with
       match (t1'.content, k) with
       | (Lam (x, tau, t), None) ->
           head_norm env (bsubst_typ t x t2)
-      | (_, Some (Arrow(_, k1))) ->
-          begin
-            match k1 with
-            | Single u -> (u , Some k1)
-            | _ -> ({ t with content = App(t1', t2) } , Some k1)
-          end
       | (_, Some (Pi(x, _, k1))) ->
           begin
             match bsubst_kind k1 x t2 with
@@ -43,28 +37,6 @@ let rec head_norm env t = match t.content with
             match lab.content with
             | "fst" -> head_norm env t1
             | "snd" -> head_norm env t2
-            | _ -> Error.raise_error Error.syntax t.startpos t.endpos
-                  ("Illegal label projection: " ^ lab.content ^ ".")
-          end
-      | (_, Some (Prod (k1, k2))) ->
-          begin
-            match lab.content with
-            | "fst" ->
-                begin
-                  match k1 with
-                  | Single u ->
-                      (u, Some k1)
-                  | _ ->
-                      ({ t with content = Proj(t', lab) }, Some k1)
-                end
-            | "snd" ->
-                begin
-                  match k2 with
-                  | Single u ->
-                      (u, Some k2)
-                  | _ ->
-                      ({ t with content = Proj(t', lab) }, Some k2)
-                end
             | _ -> Error.raise_error Error.syntax t.startpos t.endpos
                   ("Illegal label projection: " ^ lab.content ^ ".")
           end
@@ -117,20 +89,22 @@ let rec path_norm env t = match t.content with
       begin
         let (p', k) = path_norm env p in
         match k with
-        | Arrow(k1, k2) ->
+        | Pi(x, k1, k2) ->
             let t' = typ_norm env t k1 in
-            ({ t with content = App(p', t') }, k2)
+            ({ t with content = App(p', t') }, bsubst_kind k2 x t)
         | _ -> assert false
       end
   | Proj(p, lab) ->
       begin
         let (p', k) = path_norm env p in
         match k with
-        | Prod(k1, k2) ->
+        | Sigma(x, k1, k2) ->
             begin
               match lab.content with
               | "fst" -> ({ t with content = Proj(p', lab) }, k1)
-              | "snd" -> ({ t with content = Proj(p', lab) }, k2)
+              | "snd" -> ({ t with content = Proj(p', lab) },
+                          bsubst_kind k2 x
+                            (dummy_locate (Proj(p, dummy_locate "fst"))))
               | _ -> Error.raise_error Error.syntax t.startpos t.endpos
                     ("Illegal label projection: " ^ lab.content ^ ".")
             end
@@ -143,12 +117,6 @@ and typ_norm env t k = match k with
     let (t'', tau) = path_norm env t' in
     assert (tau = Base) ;
     t''
-| Arrow(k1, k2) ->
-    let k1' = dummy_locate (kind_norm env k1) in
-    let x = new_var () in
-    let t_ext = dummy_locate (App(t, dummy_locate (FVar x))) in
-    let t' = typ_norm (Env.add_typ_var x k1 env) t_ext k2 in
-    { t with content = mkLam x k1' t' }
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm env k1) in
     let x = new_var () in
@@ -157,10 +125,6 @@ and typ_norm env t k = match k with
     let t' =
       typ_norm (Env.add_typ_var x k1 env) t_ext (bsubst_kind k2 y x_var) in
     { t with content = mkLam x k1' t' }
-| Prod(k1, k2) ->
-    let t1 = typ_norm env (dummy_locate (Proj(t, dummy_locate "fst"))) k1
-    and t2 = typ_norm env (dummy_locate (Proj(t, dummy_locate "snd"))) k2 in
-    { t with content = Pair(t1, t2) }
 | Sigma(y, k1, k2) ->
     let t1 = typ_norm env (dummy_locate (Proj(t, dummy_locate "fst"))) k1 in
     let t2 =
@@ -171,20 +135,12 @@ and typ_norm env t k = match k with
 and kind_norm env = function
   | Base -> Base
   | Single t -> Single (typ_norm env t Base)
-  | Arrow(k1, k2) ->
-      let k1' = kind_norm env k1
-      and k2' = kind_norm env k2 in
-      Arrow(k1', k2')
   | Pi(x, k1, k2) ->
       let k1' = kind_norm env k1
       and y = new_var () in
       let y_var = dummy_locate (FVar y) in
       let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
       mkPi y k1' k2'
-  | Prod(k1, k2) ->
-      let k1' = kind_norm env k1
-      and k2' = kind_norm env k2 in
-      Prod(k1', k2')
   | Sigma(x, k1, k2) ->
       let k1' = kind_norm env k1
       and y = new_var () in
@@ -218,13 +174,6 @@ let rec try_equiv_typ env t1 t2 k =
         (dummy_locate (App(t1, y_var)))
         (dummy_locate (App(t2, y_var)))
         (bsubst_kind k2 x y_var)
-  | Arrow(k1, k2) ->
-      let y = new_var () in
-      let y_var = dummy_locate (FVar y) in
-      equiv_typ (Env.add_typ_var y k1 env)
-        (dummy_locate (App(t1, y_var)))
-        (dummy_locate (App(t2, y_var)))
-        k2
   | Sigma(x, k1, k2) ->
       let t1_1 = dummy_locate (Proj(t1, dummy_locate "fst")) in
       equiv_typ env
@@ -235,15 +184,6 @@ let rec try_equiv_typ env t1 t2 k =
         (dummy_locate (Proj(t1, dummy_locate "snd")))
         (dummy_locate (Proj(t2, dummy_locate "snd")))
         (bsubst_kind k2 x t1_1)
-  | Prod(k1, k2) ->
-      equiv_typ env
-        (dummy_locate (Proj(t1, dummy_locate "fst")))
-        (dummy_locate (Proj(t2, dummy_locate "fst")))
-        k1 &*&
-      equiv_typ env
-        (dummy_locate (Proj(t1, dummy_locate "snd")))
-        (dummy_locate (Proj(t2, dummy_locate "snd")))
-        k2
 
 and equiv_typ env t1 t2 k =
   let open Binrel in
@@ -282,12 +222,6 @@ and equiv_path env p1 p2 =
   | (App(p, t), App(p', t')) ->
       begin
         match equiv_path env p p' with
-        | WithValue.Yes (Arrow(k1, k2)) ->
-            begin
-              match equiv_typ env t t' k1 with
-              | Yes -> WithValue.Yes k2
-              | No reasons -> WithValue.No reasons
-            end
         | WithValue.Yes (Pi(x, k1, k2)) ->
             begin
               match equiv_typ env t t' k1 with
@@ -301,7 +235,7 @@ and equiv_path env p1 p2 =
     when lab.content = "fst" && lab.content = lab'.content ->
       begin
         match equiv_path env t t' with
-        | WithValue.Yes (Prod(k, _) | Sigma(_, k, _)) -> WithValue.Yes k
+        | WithValue.Yes (Sigma(_, k, _)) -> WithValue.Yes k
         | WithValue.Yes _ -> assert false
         | WithValue.No reasons -> WithValue.No reasons
       end
@@ -309,7 +243,6 @@ and equiv_path env p1 p2 =
     when lab.content = "snd" && lab.content = lab'.content ->
       begin
         match equiv_path env t t' with
-        | WithValue.Yes (Prod(_, k)) -> WithValue.Yes k
         | WithValue.Yes (Sigma(x, _, k)) ->
             let t_1 = dummy_locate (Proj(t, dummy_locate "fst")) in
             WithValue.Yes (bsubst_kind k x t_1)
@@ -323,24 +256,12 @@ and try_equiv_kind env k1 k2 =
   match (k1, k2) with
   | (Base, Base) -> Yes
   | (Single t, Single t') -> equiv_typ env t t' Base
-  | (Arrow(k1, k2), Arrow(k1', k2')) ->
-      equiv_kind env k1 k1' &*& equiv_kind env k2 k2'
   | (Pi(x, k1, k2), Pi(x', k1', k2')) | (Sigma(x, k1, k2), Sigma(x', k1', k2')) ->
       equiv_kind env k1 k1' &*&
       let y = new_var () in
       let y_var = dummy_locate (FVar y) in
       equiv_kind (Env.add_typ_var y k1 env)
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
-  | (Arrow(k1, k2), Pi(x', k1', k2')) | (Prod(k1, k2), Sigma(x', k1', k2')) ->
-      equiv_kind env k1 k1' &*&
-      let y = new_var () in
-      let y_var = dummy_locate (FVar y) in
-      equiv_kind (Env.add_typ_var y k1 env) k2 (bsubst_kind k2' x' y_var)
-  | (Pi(x, k1, k2), Arrow(k1', k2')) | (Sigma(x, k1, k2), Prod(k1', k2')) ->
-      equiv_kind env k1 k1' &*&
-      let y = new_var () in
-      let y_var = dummy_locate (FVar y) in
-      equiv_kind (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) k2'
   | _ -> No []
 
 and equiv_kind env k1 k2 =

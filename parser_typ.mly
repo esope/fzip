@@ -17,8 +17,8 @@ undelimited_kind:
 
 delimited_kind:
 | STAR { Base }
-| k1=delimited_kind DBLARROW k2=delimited_kind { Arrow(k1, k2) }
-| k1=delimited_kind TIMES k2=delimited_kind { Prod(k1, k2) }
+| k1=delimited_kind DBLARROW k2=delimited_kind { mkArrow k1 k2 }
+| k1=delimited_kind TIMES k2=delimited_kind { mkProd k1 k2 }
 | SINGLE LPAR t=typ RPAR { Single t }
 | LPAR k=kind RPAR { k }
 

@@ -6,9 +6,7 @@ module Raw = struct
 
   type 'a kind =
     | Base
-    | Arrow of 'a kind * 'a kind
     | Pi of string * 'a kind * 'a kind
-    | Prod of 'a kind * 'a kind
     | Sigma of string * 'a kind * 'a kind
     | Single of 'a
 
@@ -42,9 +40,7 @@ module Typ = struct
 
   type 'a kind =
     | Base
-    | Arrow of 'a kind * 'a kind
     | Pi of int * 'a kind * 'a kind
-    | Prod of 'a kind * 'a kind
     | Sigma of int * 'a kind * 'a kind
     | Single of 'a
 
@@ -65,8 +61,6 @@ module Typ = struct
 
   let rec h_kind_rec h_typ (x : fvar) = function
     | Base -> 0
-    | Arrow(k1, k2) | Prod(k1, k2) ->
-        max (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2)
     | Pi(y, k1, k2) | Sigma(y, k1, k2) ->
         let n = max (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
         if n = 0 || n > y then n else y+1
@@ -90,12 +84,6 @@ module Typ = struct
 
   let rec var_map_kind_rec var_map_typ f_free = function
     | Base as k -> k
-    | Arrow(k1, k2) ->
-        Arrow(var_map_kind_rec var_map_typ f_free k1,
-              var_map_kind_rec var_map_typ f_free k2)
-    | Prod(k1, k2) ->
-        Prod(var_map_kind_rec var_map_typ f_free k1,
-             var_map_kind_rec var_map_typ f_free k2)
     | Pi(x, k1, k2) ->
         Pi(x, var_map_kind_rec var_map_typ f_free k1,
            var_map_kind_rec var_map_typ f_free k2)
@@ -150,12 +138,6 @@ module Typ = struct
 
   let rec bsubst_kind_rec bsubst_typ k x u = match k with
   | Base as k -> k
-  | Arrow(k1, k2) ->
-      Arrow(bsubst_kind_rec bsubst_typ k1 x u,
-            bsubst_kind_rec bsubst_typ k2 x u)
-  | Prod(k1, k2) ->
-      Prod(bsubst_kind_rec bsubst_typ k1 x u,
-           bsubst_kind_rec bsubst_typ k2 x u)
   | Pi(y, k1, k2) ->
       let k1' = bsubst_kind_rec bsubst_typ k1 x u in
       if x = y
@@ -206,8 +188,6 @@ module Typ = struct
 
   let rec eq_kind_rec eq_typ k1 k2 = match (k1, k2) with
   | (Base, Base) -> true
-  | (Prod(k1,k2), Prod(k1',k2')) | (Arrow(k1,k2), Arrow(k1',k2')) ->
-      eq_kind_rec eq_typ k1 k1' && eq_kind_rec eq_typ k2 k2'
   | (Pi(x,k1,k2), Pi(x',k1',k2')) | (Sigma(x,k1,k2), Sigma(x',k1',k2')) ->
       x = x' && eq_kind_rec eq_typ k1 k1' && eq_kind_rec eq_typ k2 k2'
   | (Single t, Single t') ->
@@ -242,9 +222,17 @@ module Typ = struct
     let y = h_kind x k2 in
     Pi (y, k1, subst_kind k2 x (BVar y))
 
+  let mkArrow k1 k2 = 
+    let x = new_var () in
+    mkPi x k1 k2
+
   let mkSigma x k1 k2 =
     let y = h_kind x k2 in
     Sigma (y, k1, subst_kind k2 x (BVar y))
+
+  let mkProd k1 k2 = 
+    let x = new_var () in
+    mkSigma x k1 k2
 
   let mkBaseForall x k t =
     let y = h_typ x t in

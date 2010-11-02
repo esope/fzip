@@ -11,10 +11,6 @@ module Encode = struct
 
     let rec kind_rec typ = function
       | Raw.Base -> Base
-      | Raw.Arrow(k1, k2) ->
-          Arrow(kind_rec typ k1, kind_rec typ k2)
-      | Raw.Prod(k1, k2) ->
-          Prod(kind_rec typ k1, kind_rec typ k2)
       | Raw.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
@@ -79,10 +75,6 @@ module Decode = struct
 
     let rec kind_rec typ = function
       | Typ.Base -> Base
-      | Typ.Arrow(k1, k2) ->
-          Arrow(kind_rec typ k1, kind_rec typ k2)
-      | Typ.Prod(k1, k2) ->
-          Prod(kind_rec typ k1, kind_rec typ k2)
       | Typ.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
@@ -193,18 +185,6 @@ end
 module PPrint = struct
   open Ast.Raw
 
-  let tights_more_than_arrow = function
-    | Arrow(_,_) -> false
-    | _ -> true
-  let tights_more_than_prod = function
-    | Prod(_,_) | Arrow(_, _) -> false
-    | _ -> true
-  let is_arrow = function
-    | Arrow(_,_) -> true
-    | _ -> false
-  let is_prod = function
-    | Prod(_,_) -> true
-    | _ -> false
   let is_delimited = function
     | Sigma(_,_,_) | Pi(_,_,_) -> false
     | _ -> true
@@ -213,27 +193,11 @@ module PPrint = struct
 
   let rec kind_rec typ = let open Pprint in function
     | Base -> text "⋆"
-    | Arrow(k1, k2) ->
-        infix "⇒"
-          (if is_delimited k1 && tights_more_than_arrow k1
-          then kind_rec typ k1
-          else parens (kind_rec typ k1))
-          (if is_arrow k2 || (tights_more_than_arrow k2 && is_delimited k2)
-          then kind_rec typ k2
-          else parens (kind_rec typ k2))
     | Pi(x, k1, k2) ->
         prefix "Π"
           ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
            break1 ^^
            (kind_rec typ k2))
-    | Prod(k1, k2) ->
-        infix "×"
-          (if is_delimited k1 && tights_more_than_prod k1
-          then kind_rec typ k1
-          else parens (kind_rec typ k1))
-          (if is_prod k2 || (tights_more_than_prod k2 && is_delimited k2)
-          then kind_rec typ k2
-          else parens (kind_rec typ k2))
     | Sigma(x, k1, k2) ->
         prefix "Σ"
           ((parens (infix_com "::" (ident x) (kind_rec typ k2))) ^^
