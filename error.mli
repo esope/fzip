@@ -18,6 +18,12 @@ val type_wf: t
 (** Kind wellformedness error. *)
 val kind_wf: t
 
+(** Term wellformedness error. *)
+val term_wf: t
+
+(** Gets the list of errors (error_id, error_msg) *)
+val list_errors: unit -> (int * string) list
+
 (** [raise_error cat startpos endpos msg] prints a message on the
     error channel, beginning at position [startpos], ending at
     position [endpos], containing the message [msg]. The program exits
