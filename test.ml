@@ -143,8 +143,9 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"Π(c :: *) S(c) => *" () ;
 
    (let env =
-     Env.add_typ_var "f" (String.parse_kind "(* => *) => *")
-       (Env.add_typ_var "c" (String.parse_kind "*") Env.empty) in
+     Env.add_typ_var (Ast.Typ.Var.make "f") (String.parse_kind "(* => *) => *")
+       (Env.add_typ_var (Ast.Typ.Var.make "c")
+          (String.parse_kind "*") Env.empty) in
    test_equiv
      ~neg:true
      ~env
@@ -153,8 +154,10 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"*" ()) ;
 
    (let env =
-     Env.add_typ_var "f" (String.parse_kind "(S(c) => *) => *")
-       (Env.add_typ_var "c" (String.parse_kind "*") Env.empty) in
+     Env.add_typ_var (Ast.Typ.Var.make "f")
+       (String.parse_kind "(S(c) => *) => *")
+       (Env.add_typ_var (Ast.Typ.Var.make "c")
+          (String.parse_kind "*") Env.empty) in
    test_equiv
      ~env
      ~t:"f (λ (x :: *) c)"

@@ -77,7 +77,7 @@ let rec path_norm env t = match t.content with
       ({ t with content = BaseArrow(t1', t2') }, Base)
   | BaseForall (x, k1, t1) ->
       let k1' = { k1 with content = kind_norm env k1.content } in
-      let x' = new_var () in
+      let x' = Var.bfresh x in
       let x_var' = dummy_locate (FVar x') in
       let t1' =
         typ_norm (Env.add_typ_var x' k1.content env)
@@ -119,7 +119,7 @@ and typ_norm env t k = match k with
     t''
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm env k1) in
-    let x = new_var () in
+    let x = Var.bfresh y in
     let x_var = dummy_locate (FVar x) in
     let t_ext = dummy_locate (App(t, x_var)) in
     let t' =
@@ -137,13 +137,13 @@ and kind_norm env = function
   | Single t -> Single (typ_norm env t Base)
   | Pi(x, k1, k2) ->
       let k1' = kind_norm env k1
-      and y = new_var () in
+      and y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
       mkPi y k1' k2'
   | Sigma(x, k1, k2) ->
       let k1' = kind_norm env k1
-      and y = new_var () in
+      and y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
       mkSigma y k1' k2'
@@ -168,7 +168,7 @@ let rec try_equiv_typ env t1 t2 k =
       end
   | Single _ -> Yes
   | Pi(x, k1, k2) ->
-      let y = new_var () in
+      let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       equiv_typ (Env.add_typ_var y k1 env)
         (dummy_locate (App(t1, y_var)))
@@ -207,7 +207,7 @@ and equiv_path env p1 p2 =
       begin
         match
           equiv_kind env k.content k'.content &*&
-          let y = new_var () in
+          let y = Var.bfresh x in
           let y_var = dummy_locate (FVar y) in
           equiv_typ (Env.add_typ_var y k.content env)
             (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
@@ -258,7 +258,7 @@ and try_equiv_kind env k1 k2 =
   | (Single t, Single t') -> equiv_typ env t t' Base
   | (Pi(x, k1, k2), Pi(x', k1', k2')) | (Sigma(x, k1, k2), Sigma(x', k1', k2')) ->
       equiv_kind env k1 k1' &*&
-      let y = new_var () in
+      let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       equiv_kind (Env.add_typ_var y k1 env)
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)

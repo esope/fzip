@@ -1,7 +1,7 @@
 (* categories of errors *)
 type t = int * string
 
-module Tbl = Hashtbl.Make(Int)
+module Tbl = Hashtbl.Make(MyInt)
 let tbl = Tbl.create 16
 let register_id: int -> string -> unit = Tbl.add tbl
 

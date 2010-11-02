@@ -35,47 +35,43 @@ module Raw = struct
 end
 
 module Typ = struct
-  let new_var =
-    let r = ref 0 in fun () -> let i = string_of_int (!r) in incr r; "α__"^i
+  module Var : Var.S = Var.Make(struct let fbase = "α" let bbase = "α__" end)
 
   type 'a kind =
     | Base
-    | Pi of int * 'a kind * 'a kind
-    | Sigma of int * 'a kind * 'a kind
+    | Pi of Var.bound * 'a kind * 'a kind
+    | Sigma of Var.bound * 'a kind * 'a kind
     | Single of 'a
-
-  type fvar = string
-  type bvar = int
 
   type typ = pre_typ located
   and pre_typ =
-    | FVar of fvar
-    | BVar of bvar
+    | FVar of Var.free
+    | BVar of Var.bound
     | App of typ * typ
-    | Lam of bvar * (typ kind) located * typ
+    | Lam of Var.bound * (typ kind) located * typ
     | Pair of typ * typ
     | Proj of typ * label
-    | BaseForall of bvar * (typ kind) located * typ
+    | BaseForall of Var.bound * (typ kind) located * typ
     | BaseProd of typ * typ
     | BaseArrow of typ * typ
 
-  let rec h_kind_rec h_typ (x : fvar) = function
-    | Base -> 0
+  let rec h_kind_rec h_typ (x : Var.free) = function
+    | Base -> Var.bzero
     | Pi(y, k1, k2) | Sigma(y, k1, k2) ->
-        let n = max (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
-        if n = 0 || n > y then n else y+1
+        let n = Var.bmax (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
+        if n = Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Single t -> h_typ x t
 
-  let rec pre_h_typ_rec h_kind (x : fvar) = function
-    | FVar y -> if x = y then 1 else 0
-    | BVar _ -> 0
+  let rec pre_h_typ_rec h_kind (x : Var.free) = function
+    | FVar y -> if Var.equal x y then Var.bone else Var.bzero
+    | BVar _ -> Var.bzero
     | App (t,u) | Pair(t, u) | BaseProd(t, u) | BaseArrow(t, u) ->
-        max (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
+        Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) ->
-        let n = max (h_kind x k.content) (h_typ_rec h_kind x t) in
-        if n = 0 || n > y then n else y+1
+        let n = Var.bmax (h_kind x k.content) (h_typ_rec h_kind x t) in
+        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) -> h_typ_rec h_kind x t
-  and h_typ_rec h_kind (x : fvar) t =
+  and h_typ_rec h_kind (x : Var.free) t =
     pre_h_typ_rec h_kind x t.content
 
 (* closing recursion *)
@@ -223,7 +219,7 @@ module Typ = struct
     Pi (y, k1, subst_kind k2 x (BVar y))
 
   let mkArrow k1 k2 = 
-    let x = new_var () in
+    let x = Var.fresh () in
     mkPi x k1 k2
 
   let mkSigma x k1 k2 =
@@ -231,7 +227,7 @@ module Typ = struct
     Sigma (y, k1, subst_kind k2 x (BVar y))
 
   let mkProd k1 k2 = 
-    let x = new_var () in
+    let x = Var.fresh () in
     mkSigma x k1 k2
 
   let mkBaseForall x k t =
@@ -240,46 +236,43 @@ module Typ = struct
 end
 
 module Term = struct
-  let new_var =
-    let r = ref 0 in fun () -> let i = string_of_int (!r) in incr r; "x__"^i
-
-  type fvar = string
-  type bvar = int
+  module Var : Var.S = Var.Make(struct let fbase = "x" let bbase = "x__" end)
 
   type term = pre_term located
   and pre_term =
-    | FVar of fvar
-    | BVar of bvar
+    | FVar of Var.free
+    | BVar of Var.bound
     | App of term * term
-    | Lam of bvar * Typ.typ * term
+    | Lam of Var.bound * Typ.typ * term
     | Pair of term * term
     | Proj of term * label
-    | Gen of bvar * (Typ.typ Typ.kind) located * term
+    | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
 
-  let rec pre_h_term_var (x : fvar) = function
-    | FVar y -> if x = y then 1 else 0
-    | BVar _ -> 0
+  let rec pre_h_term_var (x : Var.free) = function
+    | FVar y -> if Var.equal x y then Var.bone else Var.bzero
+    | BVar _ -> Var.bzero
     | App (t,u) | Pair(t, u) ->
-        max (h_term_var x t) (h_term_var x u)
+        Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, tau, t) ->
         let n = h_term_var x t in
-        if n = 0 || n > y then n else y+1
+        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) -> h_term_var x t
-  and h_term_var (x : fvar) t =
+  and h_term_var (x : Var.free) t =
     pre_h_term_var x t.content
 
-  let rec pre_h_typ_var (x : fvar) = function
-    | FVar _ | BVar _ -> 0
+  let rec pre_h_typ_var (x : Typ.Var.free) = function
+    | FVar _ | BVar _ -> Typ.Var.bzero
     | App (t,u) | Pair(t, u) ->
-        max (h_typ_var x t) (h_typ_var x u)
+        Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
     | Lam (_, tau, t) ->
-        max (Typ.h_typ x tau) (h_typ_var x t)
+        Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) ->
-        let n = max (Typ.h_kind x k.content) (h_typ_var x t) in
-        if n = 0 || n > y then n else y+1
+        let n = Typ.Var.bmax (Typ.h_kind x k.content) (h_typ_var x t) in
+        if Typ.Var.bequal n Typ.Var.bzero then n
+        else Typ.Var.bmax n (Typ.Var.bsucc y)
     | Proj(t, _) | Inst(t, _) -> h_typ_var x t
-  and h_typ_var (x : fvar) t =
+  and h_typ_var (x : Typ.Var.free) t =
     pre_h_typ_var x t.content
 
   let rec pre_var_map_term_var f_free = function

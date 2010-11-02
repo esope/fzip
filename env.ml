@@ -1,6 +1,9 @@
+type typ_var = Ast.Typ.Var.free
+type term_var = Ast.Term.Var.free
+
 type ('a, 'b) t =
-    { term_vars: (string * 'a) list ;
-      typ_vars: (string * 'b) list }
+    { term_vars: (term_var * 'a) list ;
+      typ_vars: (typ_var * 'b) list }
 
 let empty = { term_vars = [] ; typ_vars = [] }
 

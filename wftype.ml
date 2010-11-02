@@ -8,7 +8,7 @@ let rec single_ext k t = match k with
 | Base -> Single t
 | Single u as k -> k
 | Pi(y, k1, k2) ->
-    let x = new_var () in
+    let x = Var.bfresh y in
     let x_var = dummy_locate (FVar x) in
     let k2' =
       single_ext (bsubst_kind k2 y x_var) (dummy_locate (App(t, x_var))) in
@@ -26,13 +26,13 @@ let rec wfsubkind env k1 k2 =
   | (Base, Base) | (Single _, Base) -> Yes
   | (Pi(x,k1, k2), Pi(x',k1', k2')) ->
       wfsubkind env k1' k1 &*&
-      let y = new_var () in
+      let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       wfsubkind (Env.add_typ_var y k1' env)
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
   | (Sigma(x,k1, k2), Sigma(x',k1', k2')) ->
       wfsubkind env k1 k1 &*&
-      let y = new_var () in
+      let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       wfsubkind (Env.add_typ_var y k1 env)
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
@@ -66,7 +66,7 @@ let rec wftype env t =
   | Lam(x, k, t) ->
       if wfkind env k.content
       then
-        let x' = new_var () in
+        let x' = Var.bfresh x in
         let t' = bsubst_typ t x (dummy_locate (FVar x')) in
         let k' = wftype (Env.add_typ_var x' k.content env) t' in
         mkPi x' k.content k'
@@ -89,7 +89,7 @@ let rec wftype env t =
   | BaseForall(x, k, u) ->
       if wfkind env k.content
       then
-        let x' = new_var () in
+        let x' = Var.bfresh x in
         let u' = bsubst_typ u x (dummy_locate (FVar x')) in
         let env' = Env.add_typ_var x' k.content env in
         let k' = wftype env' u' in
@@ -114,7 +114,7 @@ and wfkind env = function
   | Base -> true
   | Pi(y, k1, k2) | Sigma(y, k1, k2) ->
       wfkind env k1 &&
-      let x = new_var () in
+      let x = Var.bfresh y in
       let x_var = dummy_locate (FVar x) in
       wfkind (Env.add_typ_var x k1 env) (bsubst_kind k2 y x_var)
   | Single t ->

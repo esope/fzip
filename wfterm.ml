@@ -21,7 +21,7 @@ and pre_wfterm env = function
       begin
         match wfbasetype env t with
         | OK ->
-            let x' = new_var () in
+            let x' = Var.bfresh x in
             let x_var' = dummy_locate (FVar x') in
             let t' =
               wfterm (Env.add_term_var x' t env) (bsubst_term_var e x x_var') in
@@ -54,7 +54,7 @@ and pre_wfterm env = function
   | Gen (x, k, e) ->
       if wfkind env k.content
       then
-        let x' = Typ.new_var () in
+        let x' = Typ.Var.bfresh x in
         let x_var' = dummy_locate (Typ.FVar x') in
         let t' =
           wfterm (Env.add_typ_var x' k.content env) (bsubst_typ_var e x x_var') in

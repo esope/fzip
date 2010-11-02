@@ -14,28 +14,28 @@ module Encode = struct
       | Raw.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          mkPi x k1' k2'
+          mkPi (Var.make x) k1' k2'
       | Raw.Sigma(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          mkSigma x k1' k2'
+          mkSigma (Var.make x) k1' k2'
       | Raw.Single t -> Single (typ t)
 
     let rec typ_rec kind t =
       { t with content = pre_typ_rec kind t.content }
     and pre_typ_rec kind = function
-      | Raw.Var x -> FVar x
+      | Raw.Var x -> FVar (Var.make x)
       | Raw.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
       | Raw.Lam (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          mkLam x k' t'
+          mkLam (Var.make x) k' t'
       | Raw.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
       | Raw.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Raw.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          mkBaseForall x k' t'
+          mkBaseForall (Var.make x) k' t'
       | Raw.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
       | Raw.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
@@ -51,18 +51,18 @@ module Encode = struct
     let rec term t =
       { t with content = pre_term t.content }
     and pre_term = function
-      | Raw.TeVar x -> FVar x
+      | Raw.TeVar x -> FVar (Var.make x)
       | Raw.TeApp (t, u) -> App (term t, term u)
       | Raw.TeLam (x, tau, t) ->
           let tau' = Typ.typ tau
           and t' = term t in
-          mkLam x tau' t'
+          mkLam (Var.make x)tau' t'
       | Raw.TePair (t, u) -> Pair (term t, term u)
       | Raw.TeProj (t, lab) -> Proj (term t, lab)
       | Raw.TeGen (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
           and t' = term t in
-          mkGen x k' t'
+          mkGen (Ast.Typ.Var.make x) k' t'
       | Raw.TeInst (t, tau) -> Inst(term t, Typ.typ tau)
   end
 end
@@ -78,29 +78,29 @@ module Decode = struct
       | Typ.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          Pi("α__" ^ string_of_int x, k1', k2')
+          Pi(Typ.Var.bto_string x, k1', k2')
       | Typ.Sigma(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          Sigma("α__" ^ string_of_int x, k1', k2')
+          Sigma(Typ.Var.bto_string x, k1', k2')
       | Typ.Single t -> Single (typ t)
 
     let rec typ_rec kind t =
       { t with content = pre_typ_rec kind t.content }
     and pre_typ_rec kind = function
-      | Typ.FVar x -> Var x
-      | Typ.BVar x -> Var ("α__" ^ string_of_int x)
+      | Typ.FVar x -> Var (Typ.Var.to_string x)
+      | Typ.BVar x -> Var (Typ.Var.bto_string x)
       | Typ.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
       | Typ.Lam (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          Lam("α__" ^ string_of_int x, k', t')
+          Lam(Typ.Var.bto_string x, k', t')
       | Typ.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
       | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Typ.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          BaseForall("α__" ^ string_of_int x, k', t')
+          BaseForall(Typ.Var.bto_string x, k', t')
       | Typ.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
       | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
