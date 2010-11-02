@@ -15,9 +15,11 @@ let make_id s =
 let lexing  = make_id "Lexing"
 let parsing = make_id "Parsing"
 let syntax  = make_id "Syntax"
-let type_wf  = make_id "Type wellformedness"
-let kind_wf  = make_id "Kind wellformedness"
-let term_wf  = make_id "Kind wellformedness"
+let type_wf = make_id "Type wellformedness"
+let kind_wf = make_id "Kind wellformedness"
+let term_wf = make_id "Term wellformedness"
+let subtype = make_id "Subtyping"
+let subkind = make_id "Subkinding"
 
 let list_errors () =
   Tbl.fold (fun i s l -> (i,s) :: l) tbl []

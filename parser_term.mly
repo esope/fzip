@@ -30,7 +30,7 @@ delimited_term(kind,typ):
 | LBRACE t1=delimited_term(kind,typ) COMMA t2=term(kind,typ) RBRACE
     { locate (TePair(t1, t2)) $startpos $endpos }
 | t=delimited_term(kind,typ) DOT x=ID
-    { locate (TeProj(t, x)) $startpos $endpos }
+    { locate (TeProj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
 | t=delimited_term(kind,typ) LBRACKET tau=typ RBRACKET
     { locate (TeInst(t, tau)) $startpos $endpos }
 

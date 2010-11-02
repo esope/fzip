@@ -136,7 +136,7 @@ module Gen = struct
           if Random.float 1. < 0.9
           then Lam (letter (), dummy_locate Base, gen (n-1))
           else begin match Random.int 3 with
-          | 0 -> Proj(gen (n-1), "fst")
+          | 0 -> Proj(gen (n-1), dummy_locate "fst")
           | 1 -> let m = Random.int n in
             App(gen m, gen (n - 1 - m))
           | 2 -> let m = Random.int n in
@@ -223,7 +223,7 @@ module PPrint = struct
           else parens (kind_rec typ k2))
     | Pi(x, k1, k2) ->
         prefix "Π"
-          ((parens (infix_com "::" (ident x) (kind_rec typ k2))) ^^
+          ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
            break1 ^^
            (kind_rec typ k2))
     | Prod(k1, k2) ->
@@ -309,7 +309,7 @@ module PPrint = struct
           (if is_proj t || (tights_more_than_proj t && is_delimited t)
           then typ_rec kind t
           else parens (typ_rec kind t))
-          (text lab)
+          (text lab.content)
     | BaseArrow(t1,t2) ->
         infix "→"
           (if is_delimited t1 && tights_more_than_base_arrow t1

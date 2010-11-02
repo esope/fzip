@@ -21,6 +21,12 @@ val kind_wf: t
 (** Term wellformedness error. *)
 val term_wf: t
 
+(** Type wellformedness error. *)
+val subtype: t
+
+(** Kind wellformedness error. *)
+val subkind: t
+
 (** Gets the list of errors (error_id, error_msg) *)
 val list_errors: unit -> (int * string) list
 

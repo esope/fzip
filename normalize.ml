@@ -40,15 +40,15 @@ let rec head_norm env t = match t.content with
       match (t'.content, k) with
       | (Pair(t1, t2), None) ->
           begin
-            match lab with
+            match lab.content with
             | "fst" -> head_norm env t1
             | "snd" -> head_norm env t2
             | _ -> Error.raise_error Error.syntax t.startpos t.endpos
-                  ("Illegal label projection: " ^ lab ^ ".")
+                  ("Illegal label projection: " ^ lab.content ^ ".")
           end
       | (_, Some (Prod (k1, k2))) ->
           begin
-            match lab with
+            match lab.content with
             | "fst" ->
                 begin
                   match k1 with
@@ -66,11 +66,11 @@ let rec head_norm env t = match t.content with
                       ({ t with content = Proj(t', lab) }, Some k2)
                 end
             | _ -> Error.raise_error Error.syntax t.startpos t.endpos
-                  ("Illegal label projection: " ^ lab ^ ".")
+                  ("Illegal label projection: " ^ lab.content ^ ".")
           end
       | (_, Some (Sigma (x, k1, k2))) ->
           begin
-            match lab with
+            match lab.content with
             | "fst" ->
                 begin
                   match k1 with
@@ -81,14 +81,15 @@ let rec head_norm env t = match t.content with
                 end
             | "snd" ->
                 begin
-                  match bsubst_kind k2 x (dummy_locate (Proj(t, "fst"))) with
+                  match bsubst_kind k2 x
+                      (dummy_locate (Proj(t, dummy_locate "fst"))) with
                   | Single u ->
                       (u, Some k2)
                   | _ ->
                       ({ t with content = Proj(t', lab) }, Some k2)
                 end
             | _ -> Error.raise_error Error.syntax t.startpos t.endpos
-                  ("Illegal label projection: " ^ lab ^ ".")
+                  ("Illegal label projection: " ^ lab.content ^ ".")
           end
       | _ -> assert false
     end
@@ -127,11 +128,11 @@ let rec path_norm env t = match t.content with
         match k with
         | Prod(k1, k2) ->
             begin
-              match lab with
+              match lab.content with
               | "fst" -> ({ t with content = Proj(p', lab) }, k1)
               | "snd" -> ({ t with content = Proj(p', lab) }, k2)
               | _ -> Error.raise_error Error.syntax t.startpos t.endpos
-                    ("Illegal label projection: " ^ lab ^ ".")
+                    ("Illegal label projection: " ^ lab.content ^ ".")
             end
         | _ -> assert false
       end
@@ -157,12 +158,14 @@ and typ_norm env t k = match k with
       typ_norm (Env.add_typ_var x k1 env) t_ext (bsubst_kind k2 y x_var) in
     { t with content = mkLam x k1' t' }
 | Prod(k1, k2) ->
-    let t1 = typ_norm env (dummy_locate (Proj(t, "fst"))) k1
-    and t2 = typ_norm env (dummy_locate (Proj(t, "snd"))) k2 in
+    let t1 = typ_norm env (dummy_locate (Proj(t, dummy_locate "fst"))) k1
+    and t2 = typ_norm env (dummy_locate (Proj(t, dummy_locate "snd"))) k2 in
     { t with content = Pair(t1, t2) }
 | Sigma(y, k1, k2) ->
-    let t1 = typ_norm env (dummy_locate (Proj(t, "fst"))) k1 in
-    let t2 = typ_norm env (dummy_locate (Proj(t, "snd"))) (bsubst_kind k2 y t1) in
+    let t1 = typ_norm env (dummy_locate (Proj(t, dummy_locate "fst"))) k1 in
+    let t2 =
+      typ_norm env (dummy_locate (Proj(t, dummy_locate "snd")))
+        (bsubst_kind k2 y t1) in
     { t with content = Pair(t1, t2) }
 
 and kind_norm env = function
@@ -190,125 +193,165 @@ and kind_norm env = function
       mkSigma y k1' k2'
 
 let equiv_typ_simple env t1 t2 k =
-  eq_typ (typ_norm env t1 k) (typ_norm env t2 k)
+  let open Binrel in
+  if eq_typ (typ_norm env t1 k) (typ_norm env t2 k)
+  then Yes
+  else No [TYPES (t1, t2)]
 
-let rec equiv_typ env t1 t2 k = match k with
-| Base ->
-    let (p1, _) = head_norm env t1
-    and (p2, _) = head_norm env t2 in
-    begin
-      match equiv_path env p1 p2 with
-      | Some Base -> true
-      | Some _ -> assert false
-      | None -> false
-    end
-| Single _ -> true
-| Pi(x, k1, k2) ->
-    let y = new_var () in
-    let y_var = dummy_locate (FVar y) in
-    equiv_typ (Env.add_typ_var y k1 env)
-      (dummy_locate (App(t1, y_var)))
-      (dummy_locate (App(t2, y_var)))
-      (bsubst_kind k2 x y_var)
-| Arrow(k1, k2) ->
-    let y = new_var () in
-    let y_var = dummy_locate (FVar y) in
-    equiv_typ (Env.add_typ_var y k1 env)
-      (dummy_locate (App(t1, y_var)))
-      (dummy_locate (App(t2, y_var)))
-      k2
-| Sigma(x, k1, k2) ->
-    let t1_1 = dummy_locate (Proj(t1,"fst")) in
-    equiv_typ env
-      t1_1
-      (dummy_locate (Proj(t2,"fst")))
-      k1 &&
-    equiv_typ env
-      (dummy_locate (Proj(t1,"snd")))
-      (dummy_locate (Proj(t2,"snd")))
-      (bsubst_kind k2 x t1_1)
-| Prod(k1, k2) ->
-    equiv_typ env
-      (dummy_locate (Proj(t1,"fst")))
-      (dummy_locate (Proj(t2,"fst")))
-      k1 &&
-    equiv_typ env
-      (dummy_locate (Proj(t1,"snd")))
-      (dummy_locate (Proj(t2,"snd")))
-      k2
-
-and equiv_path env p1 p2 = pre_equiv_path env p1.content p2.content
-and pre_equiv_path env p1 p2 = match (p1, p2) with
-| (BaseProd(t1, t2), BaseProd(t1', t2'))
-| (BaseArrow(t1, t2), BaseArrow(t1', t2')) ->
-    if equiv_typ env t1 t1' Base &&
-      equiv_typ env t2 t2' Base
-    then Some Base
-    else None
-| (BaseForall(x, k, t), BaseForall(x', k', t')) ->
-    if equiv_kind env k.content k'.content &&
+let rec try_equiv_typ env t1 t2 k =
+  let open Binrel in
+  match k with
+  | Base ->
+      let (p1, _) = head_norm env t1
+      and (p2, _) = head_norm env t2 in
+      begin
+        match equiv_path env p1 p2 with
+        | WithValue.Yes Base -> Yes
+        | WithValue.Yes _ -> assert false
+        | WithValue.No reasons -> No reasons
+      end
+  | Single _ -> Yes
+  | Pi(x, k1, k2) ->
       let y = new_var () in
       let y_var = dummy_locate (FVar y) in
-      equiv_typ (Env.add_typ_var y k.content env)
-        (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
-    then Some Base
-    else None
-| (FVar x, FVar x') ->
-    if x = x'
-    then Some (Env.get_typ_var x env)
-    else None
-| (App(p, t), App(p', t')) ->
-    begin
-      match equiv_path env p p' with
-      | Some (Arrow(k1, k2)) ->
-          if equiv_typ env t t' k1
-          then Some k2
-          else None
-      | Some (Pi(x, k1, k2)) ->
-          if equiv_typ env t t' k1
-          then Some (bsubst_kind k2 x t)
-          else None
-      | Some _ -> assert false
-      | None -> None
-    end
-| (Proj(t, lab), Proj(t', lab')) when lab = "fst" && lab = lab' ->
-    begin
-      match equiv_path env t t' with
-      | Some (Prod(k, _) | Sigma(_, k, _)) -> Some k
-      | Some _ -> assert false
-      | None -> None
-    end
-| (Proj(t, lab), Proj(t', lab')) when lab = "snd" && lab = lab' ->
-    begin
-      match equiv_path env t t' with
-      | Some (Prod(_, k)) -> Some k
-      | Some (Sigma(x, _, k)) ->
-          let t_1 = dummy_locate (Proj(t,"fst")) in
-          Some (bsubst_kind k x t_1)
-      | Some _ -> assert false
-      | None -> None
-    end
-| _ -> assert false
+      equiv_typ (Env.add_typ_var y k1 env)
+        (dummy_locate (App(t1, y_var)))
+        (dummy_locate (App(t2, y_var)))
+        (bsubst_kind k2 x y_var)
+  | Arrow(k1, k2) ->
+      let y = new_var () in
+      let y_var = dummy_locate (FVar y) in
+      equiv_typ (Env.add_typ_var y k1 env)
+        (dummy_locate (App(t1, y_var)))
+        (dummy_locate (App(t2, y_var)))
+        k2
+  | Sigma(x, k1, k2) ->
+      let t1_1 = dummy_locate (Proj(t1, dummy_locate "fst")) in
+      equiv_typ env
+        t1_1
+        (dummy_locate (Proj(t2, dummy_locate "fst")))
+        k1 &*&
+      equiv_typ env
+        (dummy_locate (Proj(t1, dummy_locate "snd")))
+        (dummy_locate (Proj(t2, dummy_locate "snd")))
+        (bsubst_kind k2 x t1_1)
+  | Prod(k1, k2) ->
+      equiv_typ env
+        (dummy_locate (Proj(t1, dummy_locate "fst")))
+        (dummy_locate (Proj(t2, dummy_locate "fst")))
+        k1 &*&
+      equiv_typ env
+        (dummy_locate (Proj(t1, dummy_locate "snd")))
+        (dummy_locate (Proj(t2, dummy_locate "snd")))
+        k2
 
-and equiv_kind env k1 k2 = match (k1, k2) with
-| (Base, Base) -> true
-| (Single t, Single t') -> equiv_typ env t t' Base
-| (Arrow(k1, k2), Arrow(k1', k2')) ->
-    equiv_kind env k1 k1' && equiv_kind env k2 k2'
-| (Pi(x, k1, k2), Pi(x', k1', k2')) | (Sigma(x, k1, k2), Sigma(x', k1', k2')) ->
-    equiv_kind env k1 k1' &&
-    let y = new_var () in
-    let y_var = dummy_locate (FVar y) in
-    equiv_kind (Env.add_typ_var y k1 env)
-      (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
-| (Arrow(k1, k2), Pi(x', k1', k2')) | (Prod(k1, k2), Sigma(x', k1', k2')) ->
-    equiv_kind env k1 k1' &&
-    let y = new_var () in
-    let y_var = dummy_locate (FVar y) in
-    equiv_kind (Env.add_typ_var y k1 env) k2 (bsubst_kind k2' x' y_var)
-| (Pi(x, k1, k2), Arrow(k1', k2')) | (Sigma(x, k1, k2), Prod(k1', k2')) ->
-    equiv_kind env k1 k1' &&
-    let y = new_var () in
-    let y_var = dummy_locate (FVar y) in
-    equiv_kind (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) k2'
-| _ -> false
+and equiv_typ env t1 t2 k =
+  let open Binrel in
+  match try_equiv_typ env t1 t2 k with
+  | Yes -> Yes
+  | No reasons -> No (TYPES (t1, t2) :: reasons)
+
+
+and equiv_path env p1 p2 =
+  let open Binrel in
+  match (p1.content, p2.content) with
+  | (BaseProd(t1, t2), BaseProd(t1', t2'))
+  | (BaseArrow(t1, t2), BaseArrow(t1', t2')) ->
+      begin
+        match equiv_typ env t1 t1' Base &*&
+          equiv_typ env t2 t2' Base with
+        | Yes -> WithValue.Yes Base
+        | No reasons -> WithValue.No reasons
+      end
+  | (BaseForall(x, k, t), BaseForall(x', k', t')) ->
+      begin
+        match
+          equiv_kind env k.content k'.content &*&
+          let y = new_var () in
+          let y_var = dummy_locate (FVar y) in
+          equiv_typ (Env.add_typ_var y k.content env)
+            (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
+        with
+        | Yes -> WithValue.Yes Base
+        | No reasons -> WithValue.No reasons
+      end
+  | (FVar x, FVar x') ->
+      if x = x'
+      then WithValue.Yes (Env.get_typ_var x env)
+      else WithValue.No []
+  | (App(p, t), App(p', t')) ->
+      begin
+        match equiv_path env p p' with
+        | WithValue.Yes (Arrow(k1, k2)) ->
+            begin
+              match equiv_typ env t t' k1 with
+              | Yes -> WithValue.Yes k2
+              | No reasons -> WithValue.No reasons
+            end
+        | WithValue.Yes (Pi(x, k1, k2)) ->
+            begin
+              match equiv_typ env t t' k1 with
+              | Yes -> WithValue.Yes (bsubst_kind k2 x t)
+              | No reasons -> WithValue.No reasons
+            end
+        | WithValue.Yes _ -> assert false
+        | WithValue.No reasons -> WithValue.No reasons
+      end
+  | (Proj(t, lab), Proj(t', lab'))
+    when lab.content = "fst" && lab.content = lab'.content ->
+      begin
+        match equiv_path env t t' with
+        | WithValue.Yes (Prod(k, _) | Sigma(_, k, _)) -> WithValue.Yes k
+        | WithValue.Yes _ -> assert false
+        | WithValue.No reasons -> WithValue.No reasons
+      end
+  | (Proj(t, lab), Proj(t', lab'))
+    when lab.content = "snd" && lab.content = lab'.content ->
+      begin
+        match equiv_path env t t' with
+        | WithValue.Yes (Prod(_, k)) -> WithValue.Yes k
+        | WithValue.Yes (Sigma(x, _, k)) ->
+            let t_1 = dummy_locate (Proj(t, dummy_locate "fst")) in
+            WithValue.Yes (bsubst_kind k x t_1)
+        | WithValue.Yes _ -> assert false
+        | WithValue.No reasons -> WithValue.No reasons
+      end
+  | _ -> WithValue.No []
+
+and try_equiv_kind env k1 k2 =
+  let open Binrel in
+  match (k1, k2) with
+  | (Base, Base) -> Yes
+  | (Single t, Single t') -> equiv_typ env t t' Base
+  | (Arrow(k1, k2), Arrow(k1', k2')) ->
+      equiv_kind env k1 k1' &*& equiv_kind env k2 k2'
+  | (Pi(x, k1, k2), Pi(x', k1', k2')) | (Sigma(x, k1, k2), Sigma(x', k1', k2')) ->
+      equiv_kind env k1 k1' &*&
+      let y = new_var () in
+      let y_var = dummy_locate (FVar y) in
+      equiv_kind (Env.add_typ_var y k1 env)
+        (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
+  | (Arrow(k1, k2), Pi(x', k1', k2')) | (Prod(k1, k2), Sigma(x', k1', k2')) ->
+      equiv_kind env k1 k1' &*&
+      let y = new_var () in
+      let y_var = dummy_locate (FVar y) in
+      equiv_kind (Env.add_typ_var y k1 env) k2 (bsubst_kind k2' x' y_var)
+  | (Pi(x, k1, k2), Arrow(k1', k2')) | (Sigma(x, k1, k2), Prod(k1', k2')) ->
+      equiv_kind env k1 k1' &*&
+      let y = new_var () in
+      let y_var = dummy_locate (FVar y) in
+      equiv_kind (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) k2'
+  | _ -> No []
+
+and equiv_kind env k1 k2 =
+  let open Binrel in
+  match try_equiv_kind env k1 k2 with
+  | Yes -> Yes
+  | No reasons -> No (KINDS (k1,k2) :: reasons)
+
+let equiv_typ_b env t1 t2 k =
+  Binrel.to_bool (equiv_typ env t1 t2 k)
+let equiv_typ_simple_b env t1 t2 k =
+  Binrel.to_bool (equiv_typ_simple env t1 t2 k)
+let equiv_kind_b env k1 k2 =
+  Binrel.to_bool (equiv_kind env k1 k2)

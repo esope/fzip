@@ -43,7 +43,7 @@ delimited_typ:
 | LANGLE t1=delimited_typ COMMA t2=typ RANGLE
     { locate (Pair(t1, t2)) $startpos $endpos }
 | t=delimited_typ DOT x=ID
-    { locate (Proj(t, x)) $startpos $endpos }
+    { locate (Proj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
 | LBRACE t1=delimited_typ SEMICOLON t2=typ RBRACE
     {locate (BaseProd(t1, t2)) $startpos $endpos }
 | t1=delimited_typ ARROW t2=delimited_typ

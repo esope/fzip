@@ -87,7 +87,7 @@ let test_equiv ?(neg=false) ~env ~t ~u ~k () =
       (let t = String.parse_typ t
       and u = String.parse_typ u
       and k = String.parse_kind k in
-      let b = Normalize.equiv_typ env t u k in
+      let b = Normalize.equiv_typ_b env t u k in
       if neg then not b else b))
 
 let mknum_string n =

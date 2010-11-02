@@ -1,5 +1,7 @@
 open Location
 
+type label = string located
+
 module Raw = struct
 
   type 'a kind =
@@ -16,7 +18,7 @@ module Raw = struct
     | App of typ * typ
     | Lam of string * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * string
+    | Proj of typ * label
 (* base types *)
     | BaseForall of string * (typ kind) located * typ
     | BaseProd of typ * typ
@@ -28,7 +30,7 @@ module Raw = struct
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string * 'typ * ('kind, 'typ) term
     | TePair of ('kind, 'typ) term * ('kind, 'typ) term
-    | TeProj of ('kind, 'typ) term * string
+    | TeProj of ('kind, 'typ) term * label
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
 
@@ -56,7 +58,7 @@ module Typ = struct
     | App of typ * typ
     | Lam of bvar * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * string
+    | Proj of typ * label
     | BaseForall of bvar * (typ kind) located * typ
     | BaseProd of typ * typ
     | BaseArrow of typ * typ
@@ -224,7 +226,7 @@ module Typ = struct
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       eq_typ_rec eq_kind t1 t1' && eq_typ_rec eq_kind t2 t2'
   | (Proj(t,lab), Proj(t',lab')) ->
-      eq_typ_rec eq_kind t t' && lab = lab'
+      eq_typ_rec eq_kind t t' && lab.content = lab'.content
   | _ -> false
 
 (* closing recursion *)
@@ -263,7 +265,7 @@ module Term = struct
     | App of term * term
     | Lam of bvar * Typ.typ * term
     | Pair of term * term
-    | Proj of term * string
+    | Proj of term * label
     | Gen of bvar * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
 
@@ -408,7 +410,7 @@ module Term = struct
   | (Pair(t1,t2), Pair(t1',t2')) | (App(t1,t2), App(t1',t2')) ->
       eq t1 t1' && eq t2 t2'
   | (Proj(t,lab), Proj(t',lab')) ->
-      eq t t' && lab = lab'
+      eq t t' && lab.content = lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) ->
       x = x' && Typ.eq_kind k.content k'.content && eq t t'
   | (Inst(t,tau), Inst(t',tau')) ->
