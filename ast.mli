@@ -1,3 +1,4 @@
+(** Abstract syntax trees. *)
 open Location
 
 type label = string located

@@ -1,3 +1,5 @@
+(** Useful functions related to parsing. *)
+
 open Ast
 
 module String : sig

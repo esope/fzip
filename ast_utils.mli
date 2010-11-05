@@ -1,3 +1,5 @@
+(** Useful functions on ASTs. *)
+
 open Ast
 open Location
 
