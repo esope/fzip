@@ -1,4 +1,4 @@
 type t = int
-let compare: int -> int -> int
-let equal: int -> int -> bool
-let hash: int -> int
+val compare: int -> int -> int
+val equal: int -> int -> bool
+val hash: int -> int

@@ -1,3 +1,3 @@
-include String
-let equal: string -> string -> bool
-let hash: string -> int
+include module type of String
+val equal: string -> string -> bool
+val hash: string -> int
