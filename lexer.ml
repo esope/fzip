@@ -60,12 +60,12 @@ let rec token = lexer
 | "=>" | 8658 (* ⇒ *) -> locate lexbuf DBLARROW
 | "->" | 8594 (* → *) -> locate lexbuf ARROW
 | "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
+| "val" -> locate lexbuf VAL
 | "fun" | 955 (* λ *) -> locate lexbuf LAMBDA
 | "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
 | "forall" | 8704 (* ∀ *) -> locate lexbuf FORALL
 | "::" -> locate lexbuf DBLCOLON
 | ":" -> locate lexbuf COLON
-| ";" -> locate lexbuf SEMICOLON
 | "(" -> locate lexbuf LPAR
 | ")" -> locate lexbuf RPAR
 | "." -> locate lexbuf DOT
@@ -92,6 +92,7 @@ let token = lexing_error_handler token
 
 let string_of_token = function
   | ID x -> x
+  | VAL -> "val"
   | LAMBDA -> "λ"
   | UPLAMBDA -> "Λ"
   | LPAR -> "("
@@ -109,7 +110,6 @@ let string_of_token = function
   | PI -> "Π"
   | SIGMA -> "Σ"
   | COLON -> ":"
-  | SEMICOLON -> ";"
   | LBRACE -> "{"
   | RBRACE -> "}"
   | LBRACKET -> "["

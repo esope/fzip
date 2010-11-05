@@ -4,7 +4,7 @@ open Location
 type env = (typ, typ kind) Env.t
 
 let rec head_norm env t = match t.content with
-| BaseForall(_, _, _) | BaseProd(_, _) | BaseArrow(_, _) ->
+| BaseForall(_, _, _) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Base)
 | FVar x ->
     begin
@@ -28,7 +28,7 @@ let rec head_norm env t = match t.content with
                 ({ t with content = App(t1', t2) } , Some k1)
           end
       | ((FVar _ | BVar _ | App(_,_) | Proj(_,_) | Lam(_,_,_) |
-        Pair(_,_) | BaseArrow (_, _) | BaseProd (_, _) |
+        Pair(_,_) | BaseArrow (_, _) | BaseRecord _ |
         BaseForall (_, _, _)),
          (None |
          Some (Base | Single _ | Pi(_,_,_) | Sigma(_,_,_)))) -> assert false
@@ -68,7 +68,7 @@ let rec head_norm env t = match t.content with
             | _ -> Error.raise_error Error.syntax t.startpos t.endpos
                   ("Illegal label projection: " ^ lab.content ^ ".")
           end
-      | ((FVar _ | BVar _ | BaseArrow (_, _) | BaseProd (_, _) |
+      | ((FVar _ | BVar _ | BaseArrow (_, _) | BaseRecord _ |
         BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) |
         Proj(_,_) | Pair(_,_)),
          (None |
@@ -76,10 +76,9 @@ let rec head_norm env t = match t.content with
     end
 
 let rec path_norm env t = match t.content with
-  | BaseProd(t1, t2) ->
-      let t1' = typ_norm env t1 Base
-      and t2' = typ_norm env t2 Base in
-      ({ t with content = BaseProd(t1', t2') }, Base)
+  | BaseRecord m ->
+      let m' = Label.Map.map (fun t -> typ_norm env t Base) m in
+      ({ t with content = BaseRecord m' }, Base)
   | BaseArrow(t1, t2) ->
       let t1' = typ_norm env t1 Base
       and t2' = typ_norm env t2 Base in
@@ -204,7 +203,8 @@ and equiv_typ env t1 t2 k =
 and equiv_path env p1 p2 =
   let open Answer in
   match (p1.content, p2.content) with
-  | (BaseProd(t1, t2), BaseProd(t1', t2'))
+  | (BaseRecord m, BaseRecord m') ->
+      equiv_bindings env (Label.Map.bindings m) (Label.Map.bindings m')
   | (BaseArrow(t1, t2), BaseArrow(t1', t2')) ->
       begin
         match equiv_typ env t1 t1' Base &*&
@@ -259,8 +259,37 @@ and equiv_path env p1 p2 =
         | WithValue.No reasons -> WithValue.No reasons
       end
   | ((FVar _ | BVar _ | Proj (_, _) | Pair (_, _) | Lam (_, _, _) |
-    App (_, _) | BaseForall (_, _, _) | BaseArrow (_, _) | BaseProd (_, _)),
+    App (_, _) | BaseForall (_, _, _) | BaseArrow (_, _) | BaseRecord _),
      _) -> WithValue.No []
+
+and equiv_bindings env b1 b2 =
+  let open Answer in match (b1, b2) with
+  | ([], []) -> WithValue.Yes Base
+  | ([], b) | (b, []) ->
+      WithValue.No
+        [TYPES
+           (dummy_locate (BaseRecord Label.Map.empty),
+            dummy_locate
+              (BaseRecord
+                 (List.fold_left
+                    (fun acc (lab, t) -> Label.Map.add lab t acc)
+                    Label.Map.empty b)))]
+  | ((lab1, t1) :: _, (lab2, t2) :: _) when not (Label.equal lab1 lab2) ->
+      WithValue.No
+        [TYPES
+           (dummy_locate (BaseRecord (Label.Map.singleton lab1 t1)),
+            dummy_locate (BaseRecord (Label.Map.singleton lab1 t2)))]
+  | ((lab1, t1) :: b1, (lab2, t2) :: b2) (* lab1 = lab2 *) ->
+      begin
+        match equiv_typ env t1 t2 Base with
+        | Yes -> equiv_bindings env b1 b2
+        | No reasons ->
+            WithValue.No
+              (TYPES
+                 (dummy_locate (BaseRecord (Label.Map.singleton lab1 t1)),
+                  dummy_locate (BaseRecord (Label.Map.singleton lab2 t2)))
+               :: reasons)
+      end
 
 and try_equiv_kind env k1 k2 =
   let open Answer in

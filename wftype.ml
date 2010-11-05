@@ -105,7 +105,7 @@ let rec wftype env t =
             "Ill-formed universal type: this kind is not a base kind."
       else Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind."
-  | BaseProd(t1, t2) | BaseArrow(t1, t2) ->
+  | BaseArrow(t1, t2) ->
       begin
         if wfsubkind_b env (wftype env t1) Base
         then if wfsubkind_b env (wftype env t2) Base
@@ -115,6 +115,9 @@ let rec wftype env t =
         else Error.raise_error Error.type_wf t1.startpos t1.endpos
             "Ill-formed basic product type: this type has not a base kind."
       end
+  | BaseRecord m ->
+      Label.Map.iter (fun _lab t -> ignore (wftype env t)) m ;
+      Single t
 
 and wfkind env = function
   | Base -> true

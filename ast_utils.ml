@@ -36,7 +36,7 @@ module Encode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkBaseForall (Var.make x) k' t'
-      | Raw.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
+      | Raw.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
       | Raw.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
 (* closing recursion *)
@@ -57,7 +57,7 @@ module Encode = struct
           let tau' = Typ.typ tau
           and t' = term t in
           mkLam (Var.make x)tau' t'
-      | Raw.TePair (t, u) -> Pair (term t, term u)
+      | Raw.TeRecord m -> Record (Label.AList.map term m)
       | Raw.TeProj (t, lab) -> Proj (term t, lab)
       | Raw.TeGen (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
@@ -101,7 +101,7 @@ module Decode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           BaseForall(Typ.Var.bto_string x, k', t')
-      | Typ.BaseProd (t, u) -> BaseProd (typ_rec kind t, typ_rec kind u)
+      | Typ.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
       | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
 (* closing recursion *)
@@ -142,46 +142,46 @@ module PPrint = struct
     match t.content with
     | Lam(_,_,_) -> false
     | Var _ | Pair(_,_) | Proj(_,_) | App(_,_) |
-      BaseArrow (_, _) | BaseProd (_, _) | BaseForall (_, _, _)-> true
+      BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _)-> true
   let is_app t = match t.content with
   | App(_,_) -> true
-  | Var _ | BaseArrow (_, _) | BaseProd (_, _)| BaseForall (_, _, _) |
+  | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
     Proj (_, _) | Pair (_, _) | Lam (_, _, _)-> false
   let is_proj t = match t.content with
   | Proj(_,_) -> true
-  | Var _ | BaseArrow (_, _) | BaseProd (_, _) | BaseForall (_, _, _) |
+  | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
     Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
   let is_base_arrow t = match t.content with
   | BaseArrow(_,_) -> true
-  | Var _ | BaseProd (_, _) | BaseForall (_, _, _) | Proj (_, _) |
+  | Var _ | BaseRecord _ | BaseForall (_, _, _) | Proj (_, _) |
     Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
-  let is_base_prod t = match t.content with
-  | BaseProd(_,_) -> true
+  let is_base_record t = match t.content with
+  | BaseRecord _ -> true
   | Var _ | BaseArrow (_, _) | BaseForall (_, _, _) | Proj (_, _) |
     Pair (_, _) | Lam (_, _, _) | App (_, _) -> false
   let tights_more_than_app x =
     match x.content with
-    | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
+    | Var _ | Pair(_, _) | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_pair x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
+    | Var _ | Pair (_,_) | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_proj x =
     match x.content with
-    | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
+    | Var _ | Pair(_, _) | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_prod x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
+    | Var _ | Pair (_,_) | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_arrow x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _)
+    | Var _ | Pair (_,_) | Proj _ | BaseRecord _
     | BaseArrow(_,_) -> true
     | BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) -> false
 
@@ -223,13 +223,12 @@ module PPrint = struct
          || (is_delimited t2 && tights_more_than_base_arrow t2)
           then typ_rec kind t2
           else parens (typ_rec kind t2))
-    | BaseProd(t1,t2) ->
-        seq2 "{" "; " "}"
-          [ if is_delimited t1
-             then typ_rec kind t1
-             else parens (typ_rec kind t1) ;
-            typ_rec kind t2
-          ]
+    | BaseRecord m ->
+        seq2 "{" " " "}"
+          (Label.Map.fold
+             (fun lab ty acc ->
+               (prefix "val" (prefix lab (typ_rec kind ty))) :: acc)
+             m [])
     | BaseForall(x, k, t) ->
         text "∀" ^^
         infix_com ""

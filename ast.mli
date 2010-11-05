@@ -1,8 +1,6 @@
 (** Abstract syntax trees. *)
 open Location
 
-type label = string located
-
 (** raw syntax *)
 module Raw : sig
   type 'a kind =
@@ -17,10 +15,10 @@ module Raw : sig
     | App of typ * typ
     | Lam of string * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * label
+    | Proj of typ * Label.t located
 (** base types *)
     | BaseForall of string * (typ kind) located * typ
-    | BaseProd of typ * typ
+    | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
   type ('kind, 'typ) term = (('kind, 'typ) pre_term) located
@@ -28,8 +26,8 @@ module Raw : sig
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string * 'typ * ('kind, 'typ) term
-    | TePair of ('kind, 'typ) term * ('kind, 'typ) term
-    | TeProj of ('kind, 'typ) term * label
+    | TeRecord of (('kind, 'typ) term) Label.AList.t
+    | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
 
@@ -52,9 +50,9 @@ module Typ : sig
     | App of typ * typ
     | Lam of Var.bound * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * label
+    | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
-    | BaseProd of typ * typ
+    | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
 (** map on free variables *)
@@ -94,8 +92,8 @@ module Term : sig
     | BVar of Var.bound
     | App of term * term
     | Lam of Var.bound * Typ.typ * term
-    | Pair of term * term
-    | Proj of term * label
+    | Record of term Label.AList.t
+    | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
 

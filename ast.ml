@@ -1,7 +1,5 @@
 open Location
 
-type label = string located
-
 module Raw = struct
 
   type 'a kind =
@@ -16,10 +14,10 @@ module Raw = struct
     | App of typ * typ
     | Lam of string * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * label
+    | Proj of typ * Label.t located
 (* base types *)
     | BaseForall of string * (typ kind) located * typ
-    | BaseProd of typ * typ
+    | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
   type ('kind, 'typ) term = (('kind, 'typ) pre_term) located
@@ -27,8 +25,8 @@ module Raw = struct
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string * 'typ * ('kind, 'typ) term
-    | TePair of ('kind, 'typ) term * ('kind, 'typ) term
-    | TeProj of ('kind, 'typ) term * label
+    | TeRecord of (('kind, 'typ) term) Label.AList.t
+    | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
 
@@ -50,10 +48,13 @@ module Typ = struct
     | App of typ * typ
     | Lam of Var.bound * (typ kind) located * typ
     | Pair of typ * typ
-    | Proj of typ * label
+    | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
-    | BaseProd of typ * typ
+    | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
+
+  let h_max f m =
+    Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
 
   let rec h_kind_rec h_typ (x : Var.free) = function
     | Base -> Var.bzero
@@ -65,12 +66,13 @@ module Typ = struct
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
     | FVar y -> if Var.eq x y then Var.bone else Var.bzero
     | BVar _ -> Var.bzero
-    | App (t,u) | Pair(t, u) | BaseProd(t, u) | BaseArrow(t, u) ->
+    | App (t,u) | Pair(t, u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) ->
         let n = Var.bmax (h_kind x k.content) (h_typ_rec h_kind x t) in
         if Var.beq n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) -> h_typ_rec h_kind x t
+    | BaseRecord m -> h_max (h_typ_rec h_kind x) m
   and h_typ_rec h_kind (x : Var.free) t =
     pre_h_typ_rec h_kind x t.content
 
@@ -108,9 +110,8 @@ module Typ = struct
         BaseForall (x,
                     {k with content = var_map_kind f_free k.content },
                     var_map_typ_rec var_map_kind f_free t)
-    | BaseProd (t1, t2) ->
-        BaseProd(var_map_typ_rec var_map_kind f_free t1,
-                 var_map_typ_rec var_map_kind f_free t2)
+    | BaseRecord m ->
+        BaseRecord (Label.Map.map (var_map_typ_rec var_map_kind f_free) m)
     | BaseArrow (t1, t2) ->
         BaseArrow(var_map_typ_rec var_map_kind f_free t1,
                   var_map_typ_rec var_map_kind f_free t2)
@@ -168,9 +169,8 @@ module Typ = struct
       if x = y
       then BaseForall (y, k', t)
       else BaseForall (y, k', bsubst_typ_rec bsubst_kind t x u)
-  | BaseProd (t1, t2) ->
-      BaseProd (bsubst_typ_rec bsubst_kind t1 x u,
-                bsubst_typ_rec bsubst_kind t2 x u)
+  | BaseRecord m ->
+      BaseRecord (Label.Map.map (fun t -> bsubst_typ_rec bsubst_kind t x u) m)
   | BaseArrow (t1, t2) ->
       BaseArrow (bsubst_typ_rec bsubst_kind t1 x u,
                  bsubst_typ_rec bsubst_kind t2 x u)
@@ -198,13 +198,14 @@ module Typ = struct
   | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t')) ->
       Var.beq x x' && eq_kind k.content k'.content && eq_typ_rec eq_kind t t'
   | (Pair(t1,t2), Pair(t1',t2')) | (App(t1,t2), App(t1',t2'))
-  | (BaseProd(t1,t2), BaseProd(t1',t2'))
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       eq_typ_rec eq_kind t1 t1' && eq_typ_rec eq_kind t2 t2'
+  | (BaseRecord m, BaseRecord m') ->
+      Label.Map.equal (eq_typ_rec eq_kind) m m'
   | (Proj(t,lab), Proj(t',lab')) ->
       eq_typ_rec eq_kind t t' && lab.content = lab'.content
-  | ((FVar _ | BVar _ | Lam(_,_,_) | Pair(_,_) | BaseProd(_,_)
-     | BaseArrow(_,_) | BaseForall(_,_,_) | App(_,_) | Proj(_,_)), _) -> false
+  | ((FVar _ | BVar _ | Lam(_,_,_) | Pair(_,_) | BaseRecord _ |
+    BaseArrow(_,_) | BaseForall(_,_,_) | App(_,_) | Proj(_,_)), _) -> false
 
 (* closing recursion *)
   let rec eq_kind k1 k2 = eq_kind_rec eq_typ k1 k2
@@ -245,26 +246,32 @@ module Term = struct
     | BVar of Var.bound
     | App of term * term
     | Lam of Var.bound * Typ.typ * term
-    | Pair of term * term
-    | Proj of term * label
+    | Record of term Label.AList.t
+    | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
+
+  let h_term_max f m =
+    Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
+
+  let h_typ_max f m =
+    Label.AList.fold (fun _lab x acc -> Typ.Var.bmax (f x) acc) m Typ.Var.bzero
 
   let rec pre_h_term_var (x : Var.free) = function
     | FVar y -> if Var.eq x y then Var.bone else Var.bzero
     | BVar _ -> Var.bzero
-    | App (t,u) | Pair(t, u) ->
-        Var.bmax (h_term_var x t) (h_term_var x u)
+    | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) ->
         let n = h_term_var x t in
         if Var.beq n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) -> h_term_var x t
+    | Record m -> h_term_max (h_term_var x) m
   and h_term_var (x : Var.free) t =
     pre_h_term_var x t.content
 
   let rec pre_h_typ_var (x : Typ.Var.free) = function
     | FVar _ | BVar _ -> Typ.Var.bzero
-    | App (t,u) | Pair(t, u) ->
+    | App (t,u) ->
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
     | Lam (_, tau, t) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
@@ -273,6 +280,7 @@ module Term = struct
         if Typ.Var.beq n Typ.Var.bzero then n
         else Typ.Var.bmax n (Typ.Var.bsucc y)
     | Proj(t, _) | Inst(t, _) -> h_typ_var x t
+    | Record m -> h_typ_max (h_typ_var x) m
   and h_typ_var (x : Typ.Var.free) t =
     pre_h_typ_var x t.content
 
@@ -286,9 +294,8 @@ module Term = struct
         Lam (x,
              k,
              var_map_term_var f_free t)
-    | Pair (t1, t2) ->
-        Pair(var_map_term_var f_free t1,
-             var_map_term_var f_free t2)
+    | Record m ->
+        Record (Label.AList.map (var_map_term_var f_free) m)
     | Proj (t, lab) ->
         Proj(var_map_term_var f_free t, lab)
     | Gen (x, k, t) ->
@@ -313,9 +320,8 @@ module Term = struct
         Lam (x,
              Typ.var_map_typ f_free k,
              var_map_typ_var f_free t)
-    | Pair (t1, t2) ->
-        Pair(var_map_typ_var f_free t1,
-             var_map_typ_var f_free t2)
+    | Record m ->
+        Record (Label.AList.map (var_map_typ_var f_free) m)
     | Proj (t, lab) ->
         Proj(var_map_typ_var f_free t, lab)
     | Gen (x, k, t) ->
@@ -344,9 +350,8 @@ module Term = struct
       if x = y
       then Lam(y, k, t)
       else Lam (y, k, bsubst_term_var t x u)
-  | Pair (t1, t2) ->
-      Pair(bsubst_term_var t1 x u,
-           bsubst_term_var t2 x u)
+  | Record m ->
+      Record (Label.AList.map (fun t -> bsubst_term_var t x u) m)
   | Proj (t, lab) ->
       Proj(bsubst_term_var t x u, lab)
   | Gen (y, k, t) ->
@@ -366,9 +371,8 @@ module Term = struct
       Lam (y,
           Typ.bsubst_typ tau x u,
           bsubst_typ_var t x u)
-  | Pair (t1, t2) ->
-      Pair(bsubst_typ_var t1 x u,
-           bsubst_typ_var t2 x u)
+  | Record m ->
+      Record (Label.AList.map (fun t -> bsubst_typ_var t x u) m)
   | Proj (t, lab) ->
       Proj(bsubst_typ_var t x u, lab)
   | Gen(y, k, t) ->
@@ -389,15 +393,17 @@ module Term = struct
   | (BVar x, BVar x') -> Var.beq x x'
   | (Lam(x,tau,t), Lam(x',tau',t')) ->
       Var.beq x x' && Typ.eq_typ tau tau' && eq t t'
-  | (Pair(t1,t2), Pair(t1',t2')) | (App(t1,t2), App(t1',t2')) ->
+  | (App(t1,t2), App(t1',t2')) ->
       eq t1 t1' && eq t2 t2'
+  | (Record m, Record m') ->
+      Label.AList.equal eq m m'
   | (Proj(t,lab), Proj(t',lab')) ->
       eq t t' && lab.content = lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) ->
       Typ.Var.beq x x' && Typ.eq_kind k.content k'.content && eq t t'
   | (Inst(t,tau), Inst(t',tau')) ->
       eq t t' && Typ.eq_typ tau tau'
-  | ((FVar _ | BVar _ | Lam(_,_,_) | Pair(_,_) | Proj(_,_)
+  | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_)
      | Gen(_,_,_) | App(_,_) | Inst(_,_)) ,_) -> false
 
 (* smart constructors *)

@@ -27,7 +27,8 @@ let mkTeGen_binding (x,k) t = locate (TeGen(x, k, t))
 %token LANGLE RANGLE COMMA DOT TIMES
 %token SINGLE
 %token PI SIGMA
-%token COLON SEMICOLON RBRACE LBRACE EQ RBRACKET LBRACKET
+%token COLON RBRACE LBRACE EQ RBRACKET LBRACKET
+%token VAL
 %token <string> ID
 
 %nonassoc LPAR ID LANGLE LBRACE LBRACKET

@@ -45,7 +45,7 @@ and pre_wfterm env = function
                     (Printf.sprintf "Ill-formed application\n%s%!"
                        (error_msg reason))
             end
-        | (Typ.BVar _ | Typ.FVar _ | Typ.BaseProd (_, _) |
+        | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
           Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e1.startpos e2.startpos
@@ -79,26 +79,30 @@ and pre_wfterm env = function
                        (error_msg reasons))
             end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
-          Typ.BaseProd (_, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.BaseRecord _ | Typ.Proj (_, _) | Typ.Pair (_, _) |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau' ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf
                  "Ill-formed instantiation: this term should have a universal type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau')))
       end
-  | Pair(e1, e2) ->
-      let t1 = wfterm env e1
-      and t2 = wfterm env e2 in
-      Typ.BaseProd(t1, t2)
+  | Record r ->
+      let m = Label.AList.fold
+          (fun lab e acc ->
+            Label.Map.add lab (wfterm env e) acc)
+          r Label.Map.empty
+      in
+      Typ.BaseRecord m
   | Proj(e, lab) ->
       begin
         match (wfterm env e).content with
-        | Typ.BaseProd(t1, t2) ->
-            if lab.content = "fst" then t1.content
-            else if lab.content = "snd" then t2.content
-            else
-              Error.raise_error Error.term_wf lab.startpos lab.endpos
-                ("Unknown label " ^ lab.content ^ ".")
+        | Typ.BaseRecord m ->
+            begin
+              try (Label.Map.find lab.content m).content
+              with Not_found ->
+                Error.raise_error Error.term_wf lab.startpos lab.endpos
+                  ("Unknown label " ^ lab.content ^ ".")
+            end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
           Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->

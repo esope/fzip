@@ -38,23 +38,26 @@ let tests_parsing = "Tests about parsing" >:::
    test_kind_parser "* => * × * => *" "* => ((* × *) => *)" ;
    test_typ_parser "a -> a" "a → a" ;
    test_typ_parser "a -> a -> a" "a -> (a -> a)" ;
-   test_typ_parser "{ a ; a }" "{ a ; a }" ;
+   test_typ_parser "{ val l1: a val l2: a }" "{ val l1: a val l2: a }" ;
    test_typ_parser "< a , a >" "< a , a >" ;
    test_typ_parser "λ (a :: *) a b" "fun (a :: *) (a b)" ;
    test_typ_parser "λ (a :: *) a . b" "λ (a :: *) (a . b)" ;
    test_typ_parser "λ (a :: *) a <b,c>" "λ (a :: *) (a <b,c>)" ;
-   test_typ_parser "λ (a :: *) a {b;c}" "λ (a :: *) (a {b;c})" ;
+   test_typ_parser
+     "λ (a :: *)  a { val B: b val C: c }"
+     "λ (a :: *) (a { val B: b val C: c })" ;
    test_typ_parser "∀ (a :: *) a b" "forall (a :: *) (a b)" ;
    test_typ_parser "∀ (a :: *) a . b" "∀ (a :: *) (a . b)" ;
    test_typ_parser "∀ (a :: *) a <b,c>" "∀ (a :: *) (a <b,c>)" ;
-   test_typ_parser "∀ (a :: *) a {b;c}" "∀ (a :: *) (a {b;c})" ;
-
+   test_typ_parser
+     "∀ (a :: *)  a { val B: b val C: c }"
+     "∀ (a :: *) (a { val B: b val C: c })" ;
    test_term_parser "Λ(a::*)λ(x:a) x" "Fun(a::*)fun(x:a)x" ;
    test_term_parser "λ(x:a) x y" "λ(x:a) (x y)" ;
    test_term_parser "λ(x:a) x . y" "λ(x:a) (x . y)" ;
    test_term_parser "Λ(a::*) x y" "Λ(a::*) (x y)" ;
    test_term_parser "Λ(a::*) x . y" "Λ(a::*) (x . y)" ;
-   
+
  ]
 
 (* tests about wftype *)
@@ -179,11 +182,12 @@ let tests_wfterm = "Tests about wfterm" >:::
    test_wfterm ~e:"Fun (α:: *) fun (x : α) x"
      ~t:"∀ (a:: *) a -> a" ;
 
-   test_wfterm ~e:"Fun (α:: *) fun (x : {α ; α}) x"
-     ~t:"∀ (a:: *) {a;a} -> {a;a}" ;
+   test_wfterm ~e:"Fun (α:: *) fun (x : { val A: α val B: α }) x"
+     ~t:"∀ (a:: *) { val A:a val B: a } -> { val A: a val B: a }" ;
 
-   test_wfterm ~e:"Fun (α:: * => *) Fun (β :: *) fun (x : {α β ; α β}) x"
-     ~t:"∀ (α:: *=>*) ∀ (β::*) {α β ; α β} -> {α β ; α β}" ;
+   test_wfterm
+     ~e:"Fun (α:: * => *) Fun (β :: *) fun (x : { val A: α β  val B: α β }) x"
+     ~t:"∀ (α:: *=>*) ∀ (β::*) { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
  ]
 
 (* all tests *)

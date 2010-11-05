@@ -29,6 +29,15 @@ delimited_kind:
 kind_expr:
 | k=kind EOF { k }
 
+typ_fields:
+| 
+    { Label.Map.empty }
+| VAL lab=ID COLON t=typ f=typ_fields
+    { if Label.Map.mem lab f
+    then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
+        (Printf.sprintf "Duplicate record label: %s." lab)
+    else Label.Map.add lab t f }
+
 undelimited_typ:
 | LAMBDA b=typ_binding(kind) t=typ
     { mkLam_binding b t $startpos $endpos }
@@ -44,8 +53,8 @@ delimited_typ:
     { locate (Pair(t1, t2)) $startpos $endpos }
 | t=delimited_typ DOT x=ID
     { locate (Proj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
-| LBRACE t1=delimited_typ SEMICOLON t2=typ RBRACE
-    {locate (BaseProd(t1, t2)) $startpos $endpos }
+| LBRACE f=typ_fields RBRACE
+    {locate (BaseRecord f) $startpos $endpos }
 | t1=delimited_typ ARROW t2=delimited_typ
     {locate (BaseArrow(t1, t2)) $startpos $endpos }
 
