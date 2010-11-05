@@ -112,78 +112,9 @@ module Decode = struct
 
 end
 
-module Gen = struct
-  let () = Random.self_init ()
-  let letter () = Char.escaped (Char.chr (Random.int 10))
-
-  open Ast.Raw
-
-  module Type = struct
-    let rec gen n =
-      Location.locate (pre_gen n) Lexing.dummy_pos Lexing.dummy_pos
-    and pre_gen = function
-      | 0 -> Var (letter ())
-      | 1 -> Lam (letter (), dummy_locate Base, gen 0)
-      | n ->
-          if Random.float 1. < 0.9
-          then Lam (letter (), dummy_locate Base, gen (n-1))
-          else begin match Random.int 3 with
-          | 0 -> Proj(gen (n-1), dummy_locate "fst")
-          | 1 -> let m = Random.int n in
-            App(gen m, gen (n - 1 - m))
-          | 2 -> let m = Random.int n in
-            Pair(gen m, gen (n - 1 - m))
-          | _ -> assert false
-          end
-  end
-end
-
-module Measure = struct
-
-  module Typ = struct
-    open Typ
-
-    let rec size { content = content ; startpos = _ ; endpos = _ } =
-      pre_size content
-    and pre_size = function
-      | FVar _ | BVar _ -> 1
-      | App(t1, t2) | Pair(t1, t2) | BaseProd(t1, t2)
-      | BaseArrow(t1, t2) -> 1 + size t1 + size t2
-      | Lam(_, _, t) | Proj(t, _) | BaseForall(_, _, t) -> 1 + size t
-
-    let rec nb_binders { content = content ; startpos = _ ; endpos = _ } =
-      pre_nb_binders content
-    and pre_nb_binders = function
-      | FVar _ | BVar _ -> 0
-      | App(t1, t2) | Pair(t1, t2) | BaseProd(t1, t2)
-      | BaseArrow(t1, t2) ->
-          nb_binders t1 + nb_binders t2
-      | Proj(t, _) -> nb_binders t
-      | Lam(_, _, t) | BaseForall(_, _, t) -> 1 + nb_binders t
-
-    let rec height { content = content ; startpos = _ ; endpos = _ } =
-      pre_height content
-    and pre_height = function
-      | FVar _ | BVar _ -> 1
-      | App(t1, t2) | Pair(t1, t2) | BaseProd(t1, t2)
-      | BaseArrow(t1, t2) ->
-          1 + max (height t1) (height t2)
-      | Lam(_, _, t) | Proj(t, _) | BaseForall(_, _, t) -> 1 + height t
-
-    let rec bheight { content = content ; startpos = _ ; endpos = _ } =
-      pre_bheight content
-    and pre_bheight = function
-      | FVar _ | BVar _ -> 0
-      | App(t1, t2) | Pair(t1, t2) | BaseProd(t1, t2)
-      | BaseArrow(t1, t2) ->
-          max (bheight t1) (bheight t2)
-      | Proj(t, _) -> bheight t
-      | Lam(_, _, t) | BaseForall(_, _, t) -> 1 + bheight t
-  end
-end
-
 module PPrint = struct
   open Ast.Raw
+  type doc = Pprint.document
 
   let is_delimited = function
     | Sigma(_,_,_) | Pi(_,_,_) -> false
