@@ -190,9 +190,41 @@ let tests_wfterm = "Tests about wfterm" >:::
      ~t:"∀ (α:: *=>*) ∀ (β::*) { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
  ]
 
+(* tests about wfsubtype *)
+let test_wfsubtype ~t ~u =
+  (Printf.sprintf "⊢ %s ≤ %s?" t u) >:: (fun () ->
+    let t = String.parse_typ t
+    and u = String.parse_typ u in
+    assert_equal
+      ~printer:PPrint.Typ.string
+      ~cmp:(Wftype.wfsubtype_b Env.empty) t u)
+
+let tests_wfsubtype = "Tests about wfsubtype" >:::
+  [
+   test_wfsubtype
+     ~t:"∀ (a:: *) a -> a"
+     ~u:"∀ (a:: *) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∀ (a:: *) a -> a"
+     ~u:"∀ (a:: S (forall (b::*) b)) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∀ (a:: *) a -> a"
+     ~u:"∀ (a:: S (forall (b::*) b)) (forall (b::*) b) -> a" ;
+
+   test_wfsubtype
+     ~t:"∀ (a:: *) (forall (b::*) b) -> a"
+     ~u:"∀ (a:: S (forall (b::*) b)) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∀ (a:: *) {val A:a val B:a} -> {val A:a val B:a}"
+     ~u:"∀ (a:: *) {val B:a val A:a} -> {val B:a}" ;
+ ]
+
 (* all tests *)
 let tests = TestList
-    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm ]
+    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm ; tests_wfsubtype ]
 
 (* running tests *)
 let () =

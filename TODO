@@ -1,5 +1,4 @@
 * better pretty printing for bound variables
-* record subtyping
 * subkinding in bounds of universals and existentials
 * open existential types
 * examples, tests with files

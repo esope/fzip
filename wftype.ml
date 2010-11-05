@@ -133,7 +133,52 @@ and wfkind env = function
           Error.raise_error Error.kind_wf t.startpos t.endpos
             "Ill-formed singleton: this type has not a base kind."
 
-let wfsubtype env tau1 tau2 =
-  Normalize.equiv_typ env tau1 tau2 Base
+let rec try_wfsubtype env tau tau' =
+  let open Answer in
+  match (tau, tau') with
+  | (Pair(_, _), _) | (_, Pair(_, _))
+  | (Lam(_,_,_), _) | (_, Lam(_,_,_)) ->
+      assert false (* only types that have the base kind are compared *)
+  | (BVar _, _) | (_, BVar _) ->
+      assert false
+  | (BaseForall(a, k,t), BaseForall(a', k',t')) ->
+      wfsubkind env k'.content k.content &*&
+      let x = Var.bfresh a in
+      let x_var = dummy_locate (FVar x) in
+      wfsubtype (Env.add_typ_var x k'.content env)
+        (bsubst_typ t a x_var) (bsubst_typ t' a' x_var)
+  | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
+      wfsubtype env t1' t1 &*& wfsubtype env t2 t2'
+  | (BaseRecord m, BaseRecord m') ->
+      (* for every lab ∈ dom m', Γ ⊢ m(l) ≤ m'(l) must hold *)
+      Label.Map.fold
+        (fun lab tau' acc -> match acc with
+        | Yes ->
+            begin try
+              let tau = Label.Map.find lab m in
+              wfsubtype env tau tau'
+            with Not_found ->
+              No [TYPES
+                    (dummy_locate (BaseRecord Label.Map.empty),
+                     dummy_locate (BaseRecord (Label.Map.singleton lab tau')))]
+            end
+        | No reasons -> No reasons)
+        m' Yes
+  | (App(_,_), App(_,_)) | (Proj(_,_), Proj(_,_)) | (FVar _, FVar _) ->
+      (* we already are in head normal form, so comparing
+         for equivalence is enough *)
+      Normalize.equiv_typ env (dummy_locate tau) (dummy_locate tau') Base
+  | ((BaseForall (_,_,_) | BaseArrow (_,_) | BaseRecord _ |
+    App(_,_) | Proj(_,_) | FVar _),
+     (BaseForall (_,_,_) | BaseArrow (_,_) | BaseRecord _ |
+     App(_,_) | Proj(_,_) | FVar _)) -> No []
+
+and wfsubtype env tau tau' =
+  let (tau,  _) = Normalize.head_norm env tau
+  and (tau', _) = Normalize.head_norm env tau' in
+  let open Answer in
+  match try_wfsubtype env tau.content tau'.content with
+  | Yes -> Yes
+  | No reasons -> No (TYPES (tau, tau') :: reasons)
 
 let wfsubtype_b env k1 k2 = Answer.to_bool (wfsubtype env k1 k2)
