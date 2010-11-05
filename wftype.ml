@@ -21,7 +21,7 @@ let rec single_ext k t = match k with
     mkProd k1' k2'
 
 let rec wfsubkind env k1 k2 =
-  let open Binrel in
+  let open Answer in
   match (k1, k2) with
   | (Base, Base) | (Single _, Base) -> Yes
   | (Pi(x,k1, k2), Pi(x',k1', k2')) ->
@@ -40,10 +40,10 @@ let rec wfsubkind env k1 k2 =
       Normalize.equiv_typ env t t' Base
   | _ -> No [ KINDS (k1,k2) ]
 
-let wfsubkind_b env k1 k2 = Binrel.to_bool (wfsubkind env k1 k2)
+let wfsubkind_b env k1 k2 = Answer.to_bool (wfsubkind env k1 k2)
 
 let rec wftype env t =
-  let open Binrel in
+  let open Answer in
   match t.content with
   | BVar _ -> assert false
   | FVar x -> single_ext (Env.get_typ_var x env) t
@@ -126,4 +126,4 @@ and wfkind env = function
 let wfsubtype env tau1 tau2 =
   Normalize.equiv_typ env tau1 tau2 Base
 
-let wfsubtype_b env k1 k2 = Binrel.to_bool (wfsubtype env k1 k2)
+let wfsubtype_b env k1 k2 = Answer.to_bool (wfsubtype env k1 k2)

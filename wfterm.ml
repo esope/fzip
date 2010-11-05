@@ -37,7 +37,7 @@ and pre_wfterm env = function
         | Typ.BaseArrow(tau2', tau1') ->
             begin
               let tau2 = wfterm env e2 in
-              let open Binrel in
+              let open Answer in
               match wfsubtype env tau2 tau2' with
               | Yes -> tau1'.content
               | No reason ->
@@ -68,7 +68,7 @@ and pre_wfterm env = function
         | Typ.BaseForall(x, k', tau') ->
             begin
               let k = wftype env tau in
-              let open Binrel in
+              let open Answer in
               match wfsubkind env k k'.content with
               | Yes -> (Typ.bsubst_typ tau' x tau).content
               | No reasons ->

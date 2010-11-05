@@ -149,13 +149,13 @@ and kind_norm env = function
       mkSigma y k1' k2'
 
 let equiv_typ_simple env t1 t2 k =
-  let open Binrel in
+  let open Answer in
   if eq_typ (typ_norm env t1 k) (typ_norm env t2 k)
   then Yes
   else No [TYPES (t1, t2)]
 
 let rec try_equiv_typ env t1 t2 k =
-  let open Binrel in
+  let open Answer in
   match k with
   | Base ->
       let (p1, _) = head_norm env t1
@@ -186,14 +186,14 @@ let rec try_equiv_typ env t1 t2 k =
         (bsubst_kind k2 x t1_1)
 
 and equiv_typ env t1 t2 k =
-  let open Binrel in
+  let open Answer in
   match try_equiv_typ env t1 t2 k with
   | Yes -> Yes
   | No reasons -> No (TYPES (t1, t2) :: reasons)
 
 
 and equiv_path env p1 p2 =
-  let open Binrel in
+  let open Answer in
   match (p1.content, p2.content) with
   | (BaseProd(t1, t2), BaseProd(t1', t2'))
   | (BaseArrow(t1, t2), BaseArrow(t1', t2')) ->
@@ -252,7 +252,7 @@ and equiv_path env p1 p2 =
   | _ -> WithValue.No []
 
 and try_equiv_kind env k1 k2 =
-  let open Binrel in
+  let open Answer in
   match (k1, k2) with
   | (Base, Base) -> Yes
   | (Single t, Single t') -> equiv_typ env t t' Base
@@ -265,14 +265,14 @@ and try_equiv_kind env k1 k2 =
   | _ -> No []
 
 and equiv_kind env k1 k2 =
-  let open Binrel in
+  let open Answer in
   match try_equiv_kind env k1 k2 with
   | Yes -> Yes
   | No reasons -> No (KINDS (k1,k2) :: reasons)
 
 let equiv_typ_b env t1 t2 k =
-  Binrel.to_bool (equiv_typ env t1 t2 k)
+  Answer.to_bool (equiv_typ env t1 t2 k)
 let equiv_typ_simple_b env t1 t2 k =
-  Binrel.to_bool (equiv_typ_simple env t1 t2 k)
+  Answer.to_bool (equiv_typ_simple env t1 t2 k)
 let equiv_kind_b env k1 k2 =
-  Binrel.to_bool (equiv_kind env k1 k2)
+  Answer.to_bool (equiv_kind env k1 k2)
