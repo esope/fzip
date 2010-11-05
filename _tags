@@ -1,4 +1,6 @@
-true: dtypes, warn_error_A, use_menhir, package(menhirLib), package(ulex)
+true: dtypes, warn_A, use_menhir, package(menhirLib), package(ulex)
 <lexer.*>: syntax(ulex), package(ulex), syntax(camlp4o)
+<{parser,lexer}.*>: warn_a
 <test*.*>: package(oUnit)
 <libs/pprint>: include
+<libs/pprint/pprint.*>: warn_a

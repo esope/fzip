@@ -45,7 +45,9 @@ and pre_wfterm env = function
                     (Printf.sprintf "Ill-formed application\n%s%!"
                        (error_msg reason))
             end
-        | tau ->
+        | (Typ.BVar _ | Typ.FVar _ | Typ.BaseProd (_, _) |
+          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e1.startpos e2.startpos
               (Printf.sprintf
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
@@ -76,7 +78,9 @@ and pre_wfterm env = function
                     (Printf.sprintf "Ill-formed instantiation:\n%s%!"
                        (error_msg reasons))
             end
-        | tau' ->
+        | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
+          Typ.BaseProd (_, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.Lam (_, _, _) | Typ.App (_, _)) as tau' ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf
                  "Ill-formed instantiation: this term should have a universal type,\nbut has type\n%s%!"
@@ -95,7 +99,9 @@ and pre_wfterm env = function
             else
               Error.raise_error Error.term_wf lab.startpos lab.endpos
                 ("Unknown label " ^ lab.content ^ ".")
-        | tau ->
+        | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
+          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf
                  "Ill-formed projection: this term should have a record type,\nbut has type\n%s%!"

@@ -1,4 +1,4 @@
-let parser_error_handle parser next_token file =
+let parser_error_handle parser next_token =
     try parser next_token
     with Parser.Error ->
       let current_start = Lexer.get_current_start ()
@@ -25,19 +25,19 @@ module String =  struct
       let lexbuf = Ulexing.from_utf8_string s in
       let file = "<string>" in
       parser_error_handle
-        typ_expr_parser (fun () -> Lexer.token file lexbuf) file
+        typ_expr_parser (fun () -> Lexer.token file lexbuf)
 
     let parse_kind s =
       let lexbuf = Ulexing.from_utf8_string s in
       let file = "<string>" in
       parser_error_handle
-        kind_expr_parser (fun () -> Lexer.token file lexbuf) file
+        kind_expr_parser (fun () -> Lexer.token file lexbuf)
 
     let parse_term s =
       let lexbuf = Ulexing.from_utf8_string s in
       let file = "<string>" in
       parser_error_handle
-        term_expr_parser (fun () -> Lexer.token file lexbuf) file
+        term_expr_parser (fun () -> Lexer.token file lexbuf)
   end
 
   let parse_typ s =
@@ -56,17 +56,17 @@ module Channel =  struct
     let parse_typ chan file =
       let lexbuf = Ulexing.from_utf8_channel chan in
       parser_error_handle
-        typ_expr_parser (fun () -> Lexer.token file lexbuf) file
+        typ_expr_parser (fun () -> Lexer.token file lexbuf)
 
     let parse_kind chan file =
       let lexbuf = Ulexing.from_utf8_channel chan in
       parser_error_handle
-        kind_expr_parser (fun () -> Lexer.token file lexbuf) file
+        kind_expr_parser (fun () -> Lexer.token file lexbuf)
 
     let parse_term chan file =
       let lexbuf = Ulexing.from_utf8_channel chan in
       parser_error_handle
-        term_expr_parser (fun () -> Lexer.token file lexbuf) file
+        term_expr_parser (fun () -> Lexer.token file lexbuf)
   end
 
   let parse_typ chan file =

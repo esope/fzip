@@ -118,7 +118,7 @@ module PPrint = struct
 
   let is_delimited = function
     | Sigma(_,_,_) | Pi(_,_,_) -> false
-    | _ -> true
+    | Base | Single _ -> true
 
   let ident = Pprint.text
 
@@ -131,7 +131,7 @@ module PPrint = struct
            (kind_rec typ k2))
     | Sigma(x, k1, k2) ->
         prefix "Σ"
-          ((parens (infix_com "::" (ident x) (kind_rec typ k2))) ^^
+          ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
            break1 ^^
            (kind_rec typ k2))
     | Single t ->
@@ -141,40 +141,49 @@ module PPrint = struct
   let is_delimited t =
     match t.content with
     | Lam(_,_,_) -> false
-    | _ -> true
+    | Var _ | Pair(_,_) | Proj(_,_) | App(_,_) |
+      BaseArrow (_, _) | BaseProd (_, _) | BaseForall (_, _, _)-> true
   let is_app t = match t.content with
   | App(_,_) -> true
-  | _ -> false
+  | Var _ | BaseArrow (_, _) | BaseProd (_, _)| BaseForall (_, _, _) |
+    Proj (_, _) | Pair (_, _) | Lam (_, _, _)-> false
   let is_proj t = match t.content with
   | Proj(_,_) -> true
-  | _ -> false
+  | Var _ | BaseArrow (_, _) | BaseProd (_, _) | BaseForall (_, _, _) |
+    Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
   let is_base_arrow t = match t.content with
   | BaseArrow(_,_) -> true
-  | _ -> false
+  | Var _ | BaseProd (_, _) | BaseForall (_, _, _) | Proj (_, _) |
+    Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
   let is_base_prod t = match t.content with
   | BaseProd(_,_) -> true
-  | _ -> false
+  | Var _ | BaseArrow (_, _) | BaseForall (_, _, _) | Proj (_, _) |
+    Pair (_, _) | Lam (_, _, _) | App (_, _) -> false
   let tights_more_than_app x =
     match x.content with
     | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
-    | _ -> false
+    | BaseArrow (_, _) | BaseForall (_, _, _) |
+      Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_pair x =
     match x.content with
     | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
-    | _ -> false
+    | BaseArrow (_, _) | BaseForall (_, _, _) |
+      Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_proj x =
     match x.content with
     | Var _ | Pair(_, _) | Proj _ | BaseProd(_, _) -> true
-    | _ -> false
+    | BaseArrow (_, _) | BaseForall (_, _, _) |
+      Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_prod x =
     match x.content with
     | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _) -> true
-    | _ -> false
+    | BaseArrow (_, _) | BaseForall (_, _, _) |
+      Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_arrow x =
     match x.content with
     | Var _ | Pair (_,_) | Proj _ | BaseProd(_, _)
     | BaseArrow(_,_) -> true
-    | _ -> false
+    | BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) -> false
 
 
   let rec pre_typ_rec kind = let open Pprint in function

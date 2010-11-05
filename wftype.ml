@@ -6,7 +6,7 @@ type env = (typ, typ kind) Env.t
 
 let rec single_ext k t = match k with
 | Base -> Single t
-| Single u as k -> k
+| Single _u as k -> k
 | Pi(y, k1, k2) ->
     let x = Var.bfresh y in
     let x_var = dummy_locate (FVar x) in
@@ -30,7 +30,7 @@ let rec wfsubkind env k1 k2 =
       let y_var = dummy_locate (FVar y) in
       wfsubkind (Env.add_typ_var y k1' env)
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
-  | (Sigma(x,k1, k2), Sigma(x',k1', k2')) ->
+  | (Sigma(x,k1, k2), Sigma(x',_k1', k2')) ->
       wfsubkind env k1 k1 &*&
       let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
@@ -38,7 +38,7 @@ let rec wfsubkind env k1 k2 =
         (bsubst_kind k2 x y_var) (bsubst_kind k2' x' y_var)
   | (Single t, Single t') ->
       Normalize.equiv_typ env t t' Base
-  | _ -> No [ KINDS (k1,k2) ]
+  | ((Base | Single _ | Pi(_,_,_) | Sigma(_,_,_)), _) -> No [ KINDS (k1,k2) ]
 
 let wfsubkind_b env k1 k2 = Answer.to_bool (wfsubkind env k1 k2)
 
@@ -60,7 +60,8 @@ let rec wftype env t =
                     (Printf.sprintf "Ill-kinded application:\n%s%!"
                        (error_msg reasons))
             end
-        | _ -> Error.raise_error Error.type_wf t.startpos t.endpos
+        | Base | Single _ | Sigma (_,_,_) ->
+            Error.raise_error Error.type_wf t.startpos t.endpos
               "Non functional application."
       end
   | Lam(x, k, t) ->
@@ -83,7 +84,12 @@ let rec wftype env t =
         | Sigma(_, k1, _) when lab.content = "fst" -> k1
         | Sigma(x, _, k2) when lab.content = "snd" ->
             bsubst_kind k2 x (dummy_locate (Proj(t', dummy_locate "fst")))
-        | _ -> Error.raise_error Error.type_wf t.startpos t.endpos
+        | Sigma(_, _, _) ->
+            Error.raise_error Error.type_wf t.startpos t.endpos
+              (Printf.sprintf
+                 "Ill-formed projection: unknown label %s." lab.content)
+        | Base | Single _ | Pi(_,_,_) ->
+            Error.raise_error Error.type_wf t.startpos t.endpos
               "Ill-formed projection."
       end
   | BaseForall(x, k, u) ->
@@ -120,7 +126,8 @@ and wfkind env = function
   | Single t ->
       match wftype env t with
       | Single _ | Base -> true
-      | _ -> Error.raise_error Error.kind_wf t.startpos t.endpos
+      | Pi(_,_,_) | Sigma(_,_,_) ->
+          Error.raise_error Error.kind_wf t.startpos t.endpos
             "Ill-formed singleton: this type has not a base kind."
 
 let wfsubtype env tau1 tau2 =
