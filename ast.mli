@@ -6,7 +6,7 @@ module Raw : sig
   type 'a kind =
     | Base
     | Pi of string * 'a kind * 'a kind
-    | Sigma of string * 'a kind * 'a kind
+    | Sigma of (string * 'a kind) Label.AList.t
     | Single of 'a
 
   type typ = pre_typ located
@@ -14,7 +14,7 @@ module Raw : sig
     | Var of string
     | App of typ * typ
     | Lam of string * (typ kind) located * typ
-    | Pair of typ * typ
+    | Record of typ Label.Map.t
     | Proj of typ * Label.t located
 (** base types *)
     | BaseForall of string * (typ kind) located * typ
@@ -40,7 +40,7 @@ module Typ : sig
   type 'a kind =
     | Base
     | Pi of Var.bound * 'a kind * 'a kind
-    | Sigma of Var.bound * 'a kind * 'a kind
+    | Sigma of (Var.bound * 'a kind) Label.AList.t
     | Single of 'a
 
   type typ = pre_typ located
@@ -49,7 +49,7 @@ module Typ : sig
     | BVar of Var.bound
     | App of typ * typ
     | Lam of Var.bound * (typ kind) located * typ
-    | Pair of typ * typ
+    | Record of typ Label.Map.t
     | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
@@ -62,10 +62,16 @@ module Typ : sig
 (** substitution of free variables *)
   val subst_typ: typ -> Var.free -> pre_typ -> typ
   val subst_kind: typ kind -> Var.free -> pre_typ -> typ kind
+  val subst_kind_fields:
+      (Var.bound * typ kind) Label.AList.t -> Var.free -> pre_typ
+        -> (Var.bound * typ kind) Label.AList.t
 
 (** substitution of bound variables *)
-  val bsubst_kind: typ kind -> Var.bound -> typ -> typ kind
   val bsubst_typ: typ -> Var.bound -> typ -> typ
+  val bsubst_kind: typ kind -> Var.bound -> typ -> typ kind
+  val bsubst_kind_fields:
+      (Var.bound * typ kind) Label.AList.t -> Var.bound -> typ
+        -> (Var.bound * typ kind) Label.AList.t
 
 (** equality test *)
   val eq_kind: typ kind -> typ kind -> bool
@@ -76,9 +82,7 @@ module Typ : sig
   val mkPi: Var.free -> typ kind -> typ kind -> typ kind
 (** non-dependent version of mkPi *)
   val mkArrow: typ kind -> typ kind -> typ kind
-  val mkSigma: Var.free -> typ kind -> typ kind -> typ kind
- (** non-dependent version of mkSigma *)
-  val mkProd: typ kind -> typ kind -> typ kind
+  val mkSigma: (Var.free * typ kind) Label.AList.t -> typ kind
   val mkBaseForall: Var.free -> typ kind located -> typ -> pre_typ
 end
 

@@ -15,10 +15,10 @@ module Encode = struct
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
           mkPi (Var.make x) k1' k2'
-      | Raw.Sigma(x, k1, k2) ->
-          let k1' = kind_rec typ k1
-          and k2' = kind_rec typ k2 in
-          mkSigma (Var.make x) k1' k2'
+      | Raw.Sigma f ->
+          let f = Label.AList.map
+              (fun (x, k) -> (Var.make x, kind_rec typ k)) f in
+          mkSigma f
       | Raw.Single t -> Single (typ t)
 
     let rec typ_rec kind t =
@@ -30,7 +30,7 @@ module Encode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkLam (Var.make x) k' t'
-      | Raw.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
+      | Raw.Record m -> Record (Label.Map.map (typ_rec kind) m)
       | Raw.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Raw.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
@@ -79,10 +79,9 @@ module Decode = struct
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
           Pi(Typ.Var.bto_string x, k1', k2')
-      | Typ.Sigma(x, k1, k2) ->
-          let k1' = kind_rec typ k1
-          and k2' = kind_rec typ k2 in
-          Sigma(Typ.Var.bto_string x, k1', k2')
+      | Typ.Sigma f ->
+          Sigma (Label.AList.map
+                   (fun (x,k) -> (Typ.Var.bto_string x, kind_rec typ k)) f)
       | Typ.Single t -> Single (typ t)
 
     let rec typ_rec kind t =
@@ -95,7 +94,7 @@ module Decode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           Lam(Typ.Var.bto_string x, k', t')
-      | Typ.Pair (t, u) -> Pair (typ_rec kind t, typ_rec kind u)
+      | Typ.Record m -> Record (Label.Map.map (typ_rec kind) m)
       | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Typ.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
@@ -117,8 +116,8 @@ module PPrint = struct
   type doc = Pprint.document
 
   let is_delimited = function
-    | Sigma(_,_,_) | Pi(_,_,_) -> false
-    | Base | Single _ -> true
+    | Pi(_,_,_) -> false
+    | Base | Sigma _ | Single _ -> true
 
   let ident = Pprint.text
 
@@ -129,11 +128,17 @@ module PPrint = struct
           ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
            break1 ^^
            (kind_rec typ k2))
-    | Sigma(x, k1, k2) ->
-        prefix "Σ"
-          ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
-           break1 ^^
-           (kind_rec typ k2))
+    | Sigma f ->
+        seq2 "<" " " ">"
+          (Label.AList.fold
+             (fun lab (x, k) acc ->
+               (prefix "type"
+                  (prefix lab
+                     (prefix "as"
+                        (infix "::" (ident x)
+                           (kind_rec typ k)))))
+               :: acc)
+             f [])
     | Single t ->
         prefix "S"
           (parens (typ t))
@@ -141,47 +146,47 @@ module PPrint = struct
   let is_delimited t =
     match t.content with
     | Lam(_,_,_) -> false
-    | Var _ | Pair(_,_) | Proj(_,_) | App(_,_) |
+    | Var _ | Record _ | Proj(_,_) | App(_,_) |
       BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _)-> true
   let is_app t = match t.content with
   | App(_,_) -> true
   | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    Proj (_, _) | Pair (_, _) | Lam (_, _, _)-> false
+    Proj (_, _) | Record _ | Lam (_, _, _)-> false
   let is_proj t = match t.content with
   | Proj(_,_) -> true
   | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
+    Record _ | Lam (_, _, _) | App (_, _)-> false
   let is_base_arrow t = match t.content with
   | BaseArrow(_,_) -> true
   | Var _ | BaseRecord _ | BaseForall (_, _, _) | Proj (_, _) |
-    Pair (_, _) | Lam (_, _, _) | App (_, _)-> false
+    Record _ | Lam (_, _, _) | App (_, _)-> false
   let is_base_record t = match t.content with
   | BaseRecord _ -> true
   | Var _ | BaseArrow (_, _) | BaseForall (_, _, _) | Proj (_, _) |
-    Pair (_, _) | Lam (_, _, _) | App (_, _) -> false
+    Record _ | Lam (_, _, _) | App (_, _) -> false
   let tights_more_than_app x =
     match x.content with
-    | Var _ | Pair(_, _) | Proj _ | BaseRecord _ -> true
+    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_pair x =
+  let tights_more_than_record x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseRecord _ -> true
+    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_proj x =
     match x.content with
-    | Var _ | Pair(_, _) | Proj _ | BaseRecord _ -> true
+    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_base_prod x =
+  let tights_more_than_base_record x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseRecord _ -> true
+    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_arrow x =
     match x.content with
-    | Var _ | Pair (_,_) | Proj _ | BaseRecord _
+    | Var _ | Record _ | Proj _ | BaseRecord _
     | BaseArrow(_,_) -> true
     | BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) -> false
 
@@ -201,13 +206,13 @@ module PPrint = struct
           (if tights_more_than_app t2 && is_delimited t2
           then typ_rec kind t2
           else parens (typ_rec kind t2))
-    | Pair(t1, t2) ->
-        seq2 "<" ", " ">"
-          [ if is_delimited t1
-             then typ_rec kind t1
-             else parens (typ_rec kind t1) ;
-            typ_rec kind t2
-          ]
+    | Record m ->
+        seq2 "<" " " ">"
+          (Label.Map.fold
+             (fun lab ty acc ->
+               (prefix "type" (prefix lab (prefix "=" (typ_rec kind ty))))
+               :: acc)
+             m [])
     | Proj(t, lab) ->
         infix_dot "."
           (if is_proj t || (tights_more_than_proj t && is_delimited t)
@@ -227,7 +232,8 @@ module PPrint = struct
         seq2 "{" " " "}"
           (Label.Map.fold
              (fun lab ty acc ->
-               (prefix "val" (prefix lab (typ_rec kind ty))) :: acc)
+               (prefix "val" (prefix lab (prefix ":" (typ_rec kind ty))))
+               :: acc)
              m [])
     | BaseForall(x, k, t) ->
         text "∀" ^^

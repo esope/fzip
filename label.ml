@@ -6,6 +6,7 @@ module AList = struct
   type key = t
   type 'a t = (MyString.t * 'a) list
   let empty = []
+  let singleton k v = [(k,v)]
   let add k x l = (k, x) :: l
   let find = List.assoc
   let mem = List.mem_assoc

@@ -29,26 +29,22 @@ let tests_parsing = "Tests about parsing" >:::
    test_kind_parser "* => *" "* ⇒ *" ;
    test_kind_parser "* => * => *" "* => (* => *)" ;
    test_kind_parser "Π (x :: *) * => *" "Π (x :: *) (* => *)" ;
-   test_kind_parser "* × * × *" "(* × *) × *" ;
-   test_kind_parser "Σ (x :: *) * × *" "Σ (x :: *) (* × *)" ;
-   test_kind_parser "Σ (x :: *) * => *" "Σ (x :: *) (* => *)" ;
-   test_kind_parser "Π (x :: *) * × *" "Π (x :: *) (* × *)" ;
-   test_kind_parser "* × * => *" "(* × *) => *" ;
-   test_kind_parser "* => * × *" "* => (* × *)" ;
-   test_kind_parser "* => * × * => *" "* => ((* × *) => *)" ;
    test_typ_parser "a -> a" "a → a" ;
    test_typ_parser "a -> a -> a" "a -> (a -> a)" ;
    test_typ_parser "{ val l1: a val l2: a }" "{ val l1: a val l2: a }" ;
-   test_typ_parser "< a , a >" "< a , a >" ;
+   test_typ_parser "< type l1 = a type l2 = a >"
+     "< type l1 = a type l2 = a >" ;
    test_typ_parser "λ (a :: *) a b" "fun (a :: *) (a b)" ;
    test_typ_parser "λ (a :: *) a . b" "λ (a :: *) (a . b)" ;
-   test_typ_parser "λ (a :: *) a <b,c>" "λ (a :: *) (a <b,c>)" ;
+   test_typ_parser "λ (a :: *) a < type B=b type C=c>"
+     "λ (a :: *) (a < type B=b type C=c>)" ;
    test_typ_parser
      "λ (a :: *)  a { val B: b val C: c }"
      "λ (a :: *) (a { val B: b val C: c })" ;
    test_typ_parser "∀ (a :: *) a b" "forall (a :: *) (a b)" ;
    test_typ_parser "∀ (a :: *) a . b" "∀ (a :: *) (a . b)" ;
-   test_typ_parser "∀ (a :: *) a <b,c>" "∀ (a :: *) (a <b,c>)" ;
+   test_typ_parser "∀ (a :: *) a < type B=b type C=c>"
+     "∀ (a :: *) (a < type B=b type C=c>)" ;
    test_typ_parser
      "∀ (a :: *)  a { val B: b val C: c }"
      "∀ (a :: *) (a { val B: b val C: c })" ;
@@ -67,7 +63,7 @@ let test_wftype ~t ~k =
     and k = String.parse_kind k in
     assert_equal
       ~printer:PPrint.Kind.string
-      ~cmp:(wfsubkind_b Env.empty) (wftype Env.empty t) k)
+      ~cmp:(sub_kind_b Env.empty) (wftype Env.empty t) k)
 
 let tests_wftype = "Tests about wftype" >:::
   [
@@ -124,11 +120,30 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
    "nf of fun (x::*) fun (y:: * => *) y x" >::
    test_nf ~t:"fun (x::*) fun (y:: * => *) y x"
      ~nf:"fun (x::*) fun (y:: * => *) y x" ;
-   (let f = "λ(x :: ⋆ × ⋆ × (⋆ × ⋆ ⇒ ⋆ × ⋆)) x"
+
+   (let f =
+     "λ(x :: \
+       < type fst::⋆ \
+         type snd:: \
+           < type fst::⋆ \
+             type snd:: \
+               (<type fst::⋆ type snd::⋆> ⇒ <type fst::⋆ type snd::⋆>) >>) x"
    and g =
-     "λ(x :: ⋆ × ⋆ × (⋆ × ⋆ ⇒ ⋆ × ⋆))\
-       < <x.fst.fst, x.fst.snd>,\
-       λ(y:: ⋆×⋆) < (x.snd <y.fst,y.snd>).fst , (x.snd <y.fst,y.snd>).snd >>"
+    "λ(x :: \
+       <type fst::⋆ \
+        type snd:: \
+          <type fst::⋆ \
+           type snd:: \
+             (<type fst::⋆ type snd::⋆> ⇒ <type fst::⋆ type snd::⋆>)>>) \
+  < type fst= x.fst \
+    type snd= \
+          < type fst = x.snd.fst \
+            type snd = \
+              λ(y :: <type fst::⋆ type snd::⋆>) \
+              < type fst = (x.snd.snd (<type fst=y.fst type snd=y.snd>)).fst \
+                type snd = (x.snd.snd (<type fst=y.fst type snd=y.snd>)).snd > \
+          > \
+  >"
    in
    ("nf of " ^ f) >:: test_nf ~t:f ~nf:g) ;
 
@@ -175,7 +190,7 @@ let test_wfterm ~e ~t =
     and t = String.parse_typ t in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(Wftype.wfsubtype_b Env.empty) (Wfterm.wfterm Env.empty e) t)
+      ~cmp:(sub_type_b Env.empty) (Wfterm.wfterm Env.empty e) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [
@@ -197,7 +212,7 @@ let test_wfsubtype ~t ~u =
     and u = String.parse_typ u in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(Wftype.wfsubtype_b Env.empty) t u)
+      ~cmp:(sub_type_b Env.empty) t u)
 
 let tests_wfsubtype = "Tests about wfsubtype" >:::
   [
@@ -222,9 +237,95 @@ let tests_wfsubtype = "Tests about wfsubtype" >:::
      ~u:"∀ (a:: *) {val B:a val A:a} -> {val B:a}" ;
  ]
 
+(* tests about sub_kind *)
+let test_sub_kind ~k1 ~k2 =
+  (Printf.sprintf "⊢ %s ≤ %s?" k1 k2) >:: (fun () ->
+    let k1 = String.parse_kind k1
+    and k2 = String.parse_kind k2 in
+    assert_equal
+      ~printer:PPrint.Kind.string
+      ~cmp:(sub_kind_b Env.empty) k1 k2)
+
+let tests_sub_kind = "Tests about sub_kind" >:::
+  [
+   test_sub_kind
+     ~k1:"Π (a:: *) S(a)"
+     ~k2:"Π (a:: *) *" ;
+
+   test_sub_kind
+     ~k1:"Π (a:: *) Π (b :: *) *"
+     ~k2:"Π (a:: *) Π (b :: S(a)) *" ;
+
+   test_sub_kind
+     ~k1:"Π (a:: *) Π (b :: S(a)) S(a)"
+     ~k2:"Π (a:: *) Π (b :: S(a)) S(b)" ;
+
+   test_sub_kind
+     ~k1:"Π (a:: *) Π (b :: *) S(a)"
+     ~k2:"Π (a:: *) Π (b :: S(a)) S(a)" ;
+
+   test_sub_kind
+     ~k1:"Π (a:: *) Π (b :: *) S(a)"
+     ~k2:"Π (a:: *) Π (b :: S(a)) S(b)" ;
+
+   test_sub_kind
+     ~k1:"Π (a:: *) Π (b :: *) S(a)"
+     ~k2:"Π (a:: *) Π (b :: S({ val lab : a })) S(a)" ;
+
+   test_sub_kind
+     ~k1:"< type left :: * type right :: * >"
+     ~k2:"< >" ;
+
+   test_sub_kind
+     ~k1:"< type left :: * type right :: * >"
+     ~k2:"< type left :: * >" ;
+
+   test_sub_kind
+     ~k1:"< type left :: * type right :: * >"
+     ~k2:"< type right :: * >" ;
+
+   test_sub_kind
+     ~k1:"< type left :: * type right :: * >"
+     ~k2:"< type right :: * type left :: * >" ;
+
+   test_sub_kind
+     ~k1:"< type left as α :: * type right :: S(α) >"
+     ~k2:"< type right as β :: * type left :: S(β) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other :: * type right as β :: * type left :: S(β) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other as α :: * type right as β :: S(α) type left :: S(β) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other as α :: * type left as β :: S(α) type right :: S(β) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left as β :: S(α) type right :: S(β) >"
+     ~k2:"< type other as α :: * type left :: S(α) type right :: S(α) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: * type other as β :: S(α) type left :: S(β) >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: * type other as β :: S(α) type left :: * >" ;
+
+   test_sub_kind
+     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: * type left :: S(α) >" ;
+
+ ]
+
 (* all tests *)
 let tests = TestList
-    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm ; tests_wfsubtype ]
+    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm
+    ; tests_wfsubtype ; tests_sub_kind ]
 
 (* running tests *)
 let () =

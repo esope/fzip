@@ -6,6 +6,7 @@ module AList : sig
   type key = t
   type 'a t = (key * 'a) list
   val empty: 'a t
+  val singleton: key -> 'a -> 'a t
   val add: key -> 'a -> 'a t -> 'a t
   val find: key -> 'a t -> 'a
   val mem: key -> 'a t -> bool

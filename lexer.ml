@@ -61,6 +61,8 @@ let rec token = lexer
 | "->" | 8594 (* → *) -> locate lexbuf ARROW
 | "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
 | "val" -> locate lexbuf VAL
+| "type" -> locate lexbuf TYPE
+| "as" -> locate lexbuf AS
 | "fun" | 955 (* λ *) -> locate lexbuf LAMBDA
 | "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
 | "forall" | 8704 (* ∀ *) -> locate lexbuf FORALL
@@ -69,7 +71,6 @@ let rec token = lexer
 | "(" -> locate lexbuf LPAR
 | ")" -> locate lexbuf RPAR
 | "." -> locate lexbuf DOT
-| "," -> locate lexbuf COMMA
 | "<" -> locate lexbuf LANGLE
 | ">" -> locate lexbuf RANGLE
 | "{" -> locate lexbuf LBRACE
@@ -93,6 +94,8 @@ let token = lexing_error_handler token
 let string_of_token = function
   | ID x -> x
   | VAL -> "val"
+  | TYPE -> "type"
+  | AS -> "as"
   | LAMBDA -> "λ"
   | UPLAMBDA -> "Λ"
   | LPAR -> "("
@@ -101,7 +104,6 @@ let string_of_token = function
   | APP -> ""
   | STAR -> "⋆"
   | DBLARROW -> "⇒"
-  | COMMA -> ","
   | DOT -> "."
   | LANGLE -> "<"
   | RANGLE -> ">"

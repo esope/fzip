@@ -9,7 +9,7 @@ type env = (Typ.typ, Typ.typ Typ.kind) Env.t
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
   let k = wftype env t in
-  if wfsubkind_b env k Typ.Base
+  if sub_kind_b env k Typ.Base
   then OK
   else KIND k
 
@@ -38,7 +38,7 @@ and pre_wfterm env = function
             begin
               let tau2 = wfterm env e2 in
               let open Answer in
-              match wfsubtype env tau2 tau2' with
+              match sub_type env tau2 tau2' with
               | Yes -> tau1'.content
               | No reason ->
                   Error.raise_error Error.subtype e1.startpos e2.endpos
@@ -46,7 +46,7 @@ and pre_wfterm env = function
                        (error_msg reason))
             end
         | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
-          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e1.startpos e2.startpos
               (Printf.sprintf
@@ -71,7 +71,7 @@ and pre_wfterm env = function
             begin
               let k = wftype env tau in
               let open Answer in
-              match wfsubkind env k k'.content with
+              match sub_kind env k k'.content with
               | Yes -> (Typ.bsubst_typ tau' x tau).content
               | No reasons ->
                   Error.raise_error Error.subkind e.startpos tau.endpos
@@ -79,7 +79,7 @@ and pre_wfterm env = function
                        (error_msg reasons))
             end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
-          Typ.BaseRecord _ | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.BaseRecord _ | Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau' ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf
@@ -104,7 +104,7 @@ and pre_wfterm env = function
                   ("Unknown label " ^ lab.content ^ ".")
             end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
-          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Pair (_, _) |
+          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf

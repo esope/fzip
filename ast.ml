@@ -5,7 +5,7 @@ module Raw = struct
   type 'a kind =
     | Base
     | Pi of string * 'a kind * 'a kind
-    | Sigma of string * 'a kind * 'a kind
+    | Sigma of (string * 'a kind) Label.AList.t
     | Single of 'a
 
   type typ = pre_typ located
@@ -13,7 +13,7 @@ module Raw = struct
     | Var of string
     | App of typ * typ
     | Lam of string * (typ kind) located * typ
-    | Pair of typ * typ
+    | Record of typ Label.Map.t
     | Proj of typ * Label.t located
 (* base types *)
     | BaseForall of string * (typ kind) located * typ
@@ -38,7 +38,7 @@ module Typ = struct
   type 'a kind =
     | Base
     | Pi of Var.bound * 'a kind * 'a kind
-    | Sigma of Var.bound * 'a kind * 'a kind
+    | Sigma of (Var.bound * 'a kind) Label.AList.t
     | Single of 'a
 
   type typ = pre_typ located
@@ -47,7 +47,7 @@ module Typ = struct
     | BVar of Var.bound
     | App of typ * typ
     | Lam of Var.bound * (typ kind) located * typ
-    | Pair of typ * typ
+    | Record of typ Label.Map.t
     | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
@@ -56,9 +56,16 @@ module Typ = struct
   let h_max f m =
     Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
 
+  let rec h_sigmas h_kind (x: Var.free) = function
+    | [] -> Var.bzero
+    | (_label, (y, k)) :: l ->
+        let n = Var.bmax (h_kind x k) (h_sigmas h_kind x l) in
+        if n = Var.bzero then n else Var.bmax n (Var.bsucc y)
+
   let rec h_kind_rec h_typ (x : Var.free) = function
     | Base -> Var.bzero
-    | Pi(y, k1, k2) | Sigma(y, k1, k2) ->
+    | Sigma f -> h_sigmas (h_kind_rec h_typ) x f
+    | Pi(y, k1, k2) ->
         let n = Var.bmax (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
         if n = Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Single t -> h_typ x t
@@ -66,13 +73,13 @@ module Typ = struct
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
     | FVar y -> if Var.eq x y then Var.bone else Var.bzero
     | BVar _ -> Var.bzero
-    | App (t,u) | Pair(t, u) | BaseArrow(t, u) ->
+    | App (t,u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) ->
         let n = Var.bmax (h_kind x k.content) (h_typ_rec h_kind x t) in
         if Var.beq n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) -> h_typ_rec h_kind x t
-    | BaseRecord m -> h_max (h_typ_rec h_kind x) m
+    | BaseRecord m | Record m -> h_max (h_typ_rec h_kind x) m
   and h_typ_rec h_kind (x : Var.free) t =
     pre_h_typ_rec h_kind x t.content
 
@@ -85,9 +92,10 @@ module Typ = struct
     | Pi(x, k1, k2) ->
         Pi(x, var_map_kind_rec var_map_typ f_free k1,
            var_map_kind_rec var_map_typ f_free k2)
-    | Sigma(x, k1, k2) ->
-        Sigma(x, var_map_kind_rec var_map_typ f_free k1,
-              var_map_kind_rec var_map_typ f_free k2)
+    | Sigma f ->
+        Sigma
+          (Label.AList.map
+             (fun (x, k) -> (x, var_map_kind_rec var_map_typ f_free k)) f)
     | Single t ->
         Single (var_map_typ f_free t)
 
@@ -101,9 +109,8 @@ module Typ = struct
         Lam (x,
              { k with content = var_map_kind f_free k.content },
              var_map_typ_rec var_map_kind f_free t)
-    | Pair (t1, t2) ->
-        Pair(var_map_typ_rec var_map_kind f_free t1,
-             var_map_typ_rec var_map_kind f_free t2)
+    | Record m ->
+        Record (Label.Map.map (var_map_typ_rec var_map_kind f_free) m)
     | Proj (t, lab) ->
         Proj(var_map_typ_rec var_map_kind f_free t, lab)
     | BaseForall (x, k, t) ->
@@ -133,6 +140,16 @@ module Typ = struct
       (fun y -> if x = y then u else FVar y)
       k
 
+  let subst_kind_fields f x u =
+    Label.AList.map (fun (y, k) -> (y, subst_kind k x u)) f
+
+  let rec bsubst_kind_fields bsubst_kind f x u = match f with
+  | [] -> []
+  | (label, (y, k)) :: f when Var.beq x y ->
+      (label, (y, bsubst_kind k x u)) :: f
+  | (label, (y, k)) :: f ->
+      (label, (y, bsubst_kind k x u)) :: (bsubst_kind_fields bsubst_kind f x u)
+
   let rec bsubst_kind_rec bsubst_typ k x u = match k with
   | Base as k -> k
   | Pi(y, k1, k2) ->
@@ -140,11 +157,8 @@ module Typ = struct
       if x = y
       then Pi(y, k1', k2)
       else Pi(y, k1', bsubst_kind_rec bsubst_typ k2 x u)
-  | Sigma(y, k1, k2) ->
-      let k1' = bsubst_kind_rec bsubst_typ k1 x u in
-      if x = y
-      then Sigma(y, k1', k2)
-      else Sigma(y, k1', bsubst_kind_rec bsubst_typ k2 x u)
+  | Sigma f ->
+      Sigma (bsubst_kind_fields (bsubst_kind_rec bsubst_typ) f x u)
   | Single t ->
       Single (bsubst_typ t x u)
 
@@ -159,9 +173,8 @@ module Typ = struct
       if x = y
       then Lam(y, k', t)
       else Lam (y, k', bsubst_typ_rec bsubst_kind t x u)
-  | Pair (t1, t2) ->
-      Pair(bsubst_typ_rec bsubst_kind t1 x u,
-           bsubst_typ_rec bsubst_kind t2 x u)
+  | Record m ->
+      Record (Label.Map.map (fun t -> bsubst_typ_rec bsubst_kind t x u) m)
   | Proj (t, lab) ->
       Proj(bsubst_typ_rec bsubst_kind t x u, lab)
   | BaseForall (y, k, t) ->
@@ -182,13 +195,24 @@ module Typ = struct
   let rec bsubst_kind k x u = bsubst_kind_rec bsubst_typ k x u
   and bsubst_typ t x u = bsubst_typ_rec bsubst_kind t x u
 
+  let bsubst_kind_fields f x u = bsubst_kind_fields bsubst_kind f x u
+
+  let rec eq_kind_fields eq_kind f1 f2 = match(f1, f2) with
+  | ([], []) -> true
+  | ((lab1, (x1, k1)) :: f1, (lab2, (x2, k2)) :: f2) ->
+      Label.equal lab1 lab2 && Var.beq x1 x2 && eq_kind k1 k2
+        && eq_kind_fields eq_kind f1 f2
+  | (([] | _ :: _), _) -> false
+
   let rec eq_kind_rec eq_typ k1 k2 = match (k1, k2) with
   | (Base, Base) -> true
-  | (Pi(x,k1,k2), Pi(x',k1',k2')) | (Sigma(x,k1,k2), Sigma(x',k1',k2')) ->
+  | (Sigma f1, Sigma f2) ->
+      eq_kind_fields (eq_kind_rec eq_typ) f1 f2
+  | (Pi(x,k1,k2), Pi(x',k1',k2')) ->
       Var.beq x x' && eq_kind_rec eq_typ k1 k1' && eq_kind_rec eq_typ k2 k2'
   | (Single t, Single t') ->
       eq_typ t t'
-  | ((Base| Pi(_,_,_) | Sigma(_,_,_) | Single _), _)-> false
+  | ((Base| Pi(_,_,_) | Sigma _ | Single _), _)-> false
 
   let rec eq_typ_rec eq_kind t1 t2 =
     pre_eq_typ_rec eq_kind t1.content t2.content
@@ -197,14 +221,13 @@ module Typ = struct
   | (BVar x, BVar x') -> Var.beq x x'
   | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t')) ->
       Var.beq x x' && eq_kind k.content k'.content && eq_typ_rec eq_kind t t'
-  | (Pair(t1,t2), Pair(t1',t2')) | (App(t1,t2), App(t1',t2'))
-  | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
+  | (App(t1,t2), App(t1',t2')) | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       eq_typ_rec eq_kind t1 t1' && eq_typ_rec eq_kind t2 t2'
-  | (BaseRecord m, BaseRecord m') ->
+  | (BaseRecord m, BaseRecord m') | (Record m, Record m') ->
       Label.Map.equal (eq_typ_rec eq_kind) m m'
   | (Proj(t,lab), Proj(t',lab')) ->
       eq_typ_rec eq_kind t t' && lab.content = lab'.content
-  | ((FVar _ | BVar _ | Lam(_,_,_) | Pair(_,_) | BaseRecord _ |
+  | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | BaseRecord _ |
     BaseArrow(_,_) | BaseForall(_,_,_) | App(_,_) | Proj(_,_)), _) -> false
 
 (* closing recursion *)
@@ -224,13 +247,15 @@ module Typ = struct
     let x = Var.fresh () in
     mkPi x k1 k2
 
-  let mkSigma x k1 k2 =
-    let y = h_kind x k2 in
-    Sigma (y, k1, subst_kind k2 x (BVar y))
-
-  let mkProd k1 k2 = 
-    let x = Var.fresh () in
-    mkSigma x k1 k2
+  let mkSigma = 
+    let rec aux : (Var.free * typ kind) Label.AList.t
+      -> (Var.bound * typ kind) Label.AList.t = function
+      | [] -> []
+      | (lab, (x, k)) :: f ->
+          let f = aux f in
+          let y = h_sigmas h_kind x f in
+          (lab, (y, k)) :: (subst_kind_fields f x (BVar y))
+    in fun f -> Sigma (aux f)
 
   let mkBaseForall x k t =
     let y = h_typ x t in
