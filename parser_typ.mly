@@ -60,6 +60,8 @@ undelimited_typ:
     { mkLam_binding b t $startpos $endpos }
 | FORALL b=typ_binding(kind) t=typ
     { mkForall_binding b t $startpos $endpos }
+| EXISTS b=typ_binding(kind) t=typ
+    { mkExists_binding b t $startpos $endpos }
 
 delimited_typ:
 | LPAR t=typ RPAR { locate t.Location.content $startpos $endpos }

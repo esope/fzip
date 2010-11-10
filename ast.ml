@@ -17,6 +17,7 @@ module Raw = struct
     | Proj of typ * Label.t located
 (* base types *)
     | BaseForall of string * (typ kind) located * typ
+    | BaseExists of string * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -50,6 +51,7 @@ module Typ = struct
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
+    | BaseExists of Var.bound * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -77,7 +79,7 @@ module Typ = struct
     | BVar _ -> Var.bzero
     | App (t,u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
-    | Lam (y, k, t) | BaseForall(y, k, t) ->
+    | Lam (y, k, t) | BaseForall(y, k, t) | BaseExists(y, k, t) ->
         let n = Var.bmax (h_kind x k.content) (h_typ_rec h_kind x t) in
         if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Proj(t, _) -> h_typ_rec h_kind x t
@@ -117,6 +119,10 @@ module Typ = struct
         Proj(var_map_typ_rec var_map_kind f_free t, lab)
     | BaseForall (x, k, t) ->
         BaseForall (x,
+                    {k with content = var_map_kind f_free k.content },
+                    var_map_typ_rec var_map_kind f_free t)
+    | BaseExists (x, k, t) ->
+        BaseExists (x,
                     {k with content = var_map_kind f_free k.content },
                     var_map_typ_rec var_map_kind f_free t)
     | BaseRecord m ->
@@ -178,6 +184,11 @@ module Typ = struct
       if Var.bequal x y
       then BaseForall (y, k', t)
       else BaseForall (y, k', bsubst_typ_rec bsubst_kind t x u)
+  | BaseExists (y, k, t) ->
+      let k' = { k with content = bsubst_kind k.content x u } in
+      if Var.bequal x y
+      then BaseExists (y, k', t)
+      else BaseExists (y, k', bsubst_typ_rec bsubst_kind t x u)
   | BaseRecord m ->
       BaseRecord (Label.Map.map (fun t -> bsubst_typ_rec bsubst_kind t x u) m)
   | BaseArrow (t1, t2) ->
@@ -215,7 +226,8 @@ module Typ = struct
   and pre_equal_typ_rec equal_kind t1 t2 = match (t1, t2) with
   | (FVar x, FVar x') -> Var.equal x x'
   | (BVar x, BVar x') -> Var.bequal x x'
-  | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t')) ->
+  | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t'))
+  | (BaseExists(x,k,t), BaseExists(x',k',t')) ->
       Var.bequal x x' && equal_kind k.content k'.content && equal_typ_rec equal_kind t t'
   | (App(t1,t2), App(t1',t2')) | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       equal_typ_rec equal_kind t1 t1' && equal_typ_rec equal_kind t2 t2'
@@ -224,7 +236,8 @@ module Typ = struct
   | (Proj(t,lab), Proj(t',lab')) ->
       equal_typ_rec equal_kind t t' && Label.equal lab.content lab'.content
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | BaseRecord _ |
-    BaseArrow(_,_) | BaseForall(_,_,_) | App(_,_) | Proj(_,_)), _) -> false
+    BaseArrow(_,_) | BaseForall(_,_,_) | BaseExists (_,_,_) | App(_,_) |
+    Proj(_,_)), _) -> false
 
 (* closing recursion *)
   let rec equal_kind k1 k2 = equal_kind_rec equal_typ k1 k2
@@ -240,6 +253,10 @@ module Typ = struct
   let mkBaseForall x k t =
     let y = h_typ x t in
     BaseForall (y, k, subst t x (BVar y))
+
+  let mkBaseExists x k t =
+    let y = h_typ x t in
+    BaseExists (y, k, subst t x (BVar y))
 end
 
 module Kind = struct

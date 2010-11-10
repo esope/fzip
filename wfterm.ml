@@ -51,7 +51,8 @@ let rec wfterm env term = match term.content with
                        (error_msg reason))
             end
         | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
-          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Record _ |
+          Typ.BaseForall (_, _, _) | Typ.BaseExists (_,_,_) |
+          Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e1.startpos e2.startpos
               (Printf.sprintf
@@ -85,8 +86,8 @@ let rec wfterm env term = match term.content with
                        (error_msg reasons))
             end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
-          Typ.BaseRecord _ | Typ.Proj (_, _) | Typ.Record _ |
-          Typ.Lam (_, _, _) | Typ.App (_, _)) as tau' ->
+          Typ.BaseExists (_,_,_) | Typ.BaseRecord _ | Typ.Proj (_, _) |
+          Typ.Record _ | Typ.Lam (_, _, _) | Typ.App (_, _)) as tau' ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf
                  "Ill-formed instantiation: this term should have a universal type,\nbut has type\n%s%!"
@@ -110,7 +111,8 @@ let rec wfterm env term = match term.content with
                   ("Unknown label " ^ lab.content ^ ".")
             end
         | (Typ.FVar _ | Typ.BVar _ | Typ.BaseArrow (_, _) |
-          Typ.BaseForall (_, _, _) | Typ.Proj (_, _) | Typ.Record _ |
+          Typ.BaseForall (_, _, _) | Typ.BaseExists (_,_,_) |
+          Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
             Error.raise_error Error.term_wf e.startpos e.endpos
               (Printf.sprintf

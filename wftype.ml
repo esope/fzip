@@ -87,7 +87,7 @@ let rec wftype env t =
             Error.raise_error Error.type_wf t.startpos t.endpos
               "Ill-formed projection."
       end
-  | BaseForall(x, k, u) ->
+  | BaseForall(x, k, u) | BaseExists(x, k, u) ->
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
@@ -145,7 +145,8 @@ let rec try_sub_type env tau tau' =
       assert false (* only types that have the base kind are compared *)
   | (BVar _, _) | (_, BVar _) ->
       assert false
-  | (BaseForall(a, k,t), BaseForall(a', k',t')) ->
+  | (BaseForall(a, k,  t), BaseForall(a', k', t'))
+  | (BaseExists(a, k', t), BaseExists(a', k,  t')) ->
       sub_kind env k'.content k.content &*&
       let x = Var.bfresh a in
       let x_var = dummy_locate (FVar x) in
@@ -172,10 +173,10 @@ let rec try_sub_type env tau tau' =
       (* we already are in head normal form, so comparing
          for equivalence is enough *)
       Normalize.equiv_typ env (dummy_locate tau) (dummy_locate tau') Base
-  | ((BaseForall (_,_,_) | BaseArrow (_,_) | BaseRecord _ |
-    App(_,_) | Proj(_,_) | FVar _),
-     (BaseForall (_,_,_) | BaseArrow (_,_) | BaseRecord _ |
-     App(_,_) | Proj(_,_) | FVar _)) -> No []
+  | ((BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |
+    BaseRecord _ | App(_,_) | Proj(_,_) | FVar _),
+     (BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |
+     BaseRecord _ | App(_,_) | Proj(_,_) | FVar _)) -> No []
 
 and sub_type env tau tau' =
   let (tau,  _) = Normalize.head_norm env tau

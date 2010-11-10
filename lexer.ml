@@ -66,6 +66,7 @@ let rec token = lexer
 | "fun" | 955 (* λ *) -> locate lexbuf LAMBDA
 | "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
 | "forall" | 8704 (* ∀ *) -> locate lexbuf FORALL
+| "exists" | 8707 (* ∃ *) -> locate lexbuf EXISTS
 | "::" -> locate lexbuf DBLCOLON
 | ":" -> locate lexbuf COLON
 | "(" -> locate lexbuf LPAR
@@ -78,9 +79,8 @@ let rec token = lexer
 | "[" -> locate lexbuf LBRACKET
 | "]" -> locate lexbuf RBRACKET
 | "=" -> locate lexbuf EQ
-| 215 (* × *) -> locate lexbuf TIMES
 | "Pi" | 928 (* Π *) -> locate lexbuf PI
-| "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA
+(* | "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA *)
 | "S" -> locate lexbuf SINGLE
 | eof -> locate lexbuf EOF
 | id -> locate lexbuf (ID (utf8_lexeme lexbuf))
@@ -107,10 +107,9 @@ let string_of_token = function
   | DOT -> "."
   | LANGLE -> "<"
   | RANGLE -> ">"
-  | TIMES -> "×"
   | SINGLE -> "S"
   | PI -> "Π"
-  | SIGMA -> "Σ"
+(*  | SIGMA -> "Σ" *)
   | COLON -> ":"
   | LBRACE -> "{"
   | RBRACE -> "}"
@@ -118,5 +117,6 @@ let string_of_token = function
   | RBRACKET -> "]"
   | EQ -> "="
   | FORALL -> "∀"
+  | EXISTS -> "∃"
   | ARROW -> "→"
   | EOF -> "\n"

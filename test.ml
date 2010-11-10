@@ -68,7 +68,9 @@ let test_wftype ~t ~k =
 let tests_wftype = "Tests about wftype" >:::
   [
    test_wftype ~t:"fun (x::*) x" ~k:"* => *" ;
-   test_wftype ~t:"fun (x::*) fun (y::*=>*) y x" ~k:"* => (* => *) => *"
+   test_wftype ~t:"fun (x::*) fun (y::*=>*) y x" ~k:"* => (* => *) => *" ;
+   test_wftype ~t:"fun (x::*) ∀ (y::*=>*) y x" ~k:"* => *" ;
+   test_wftype ~t:"fun (x::*) ∃ (y::*=>*) y x" ~k:"* => *" ;
  ]
 
 (* tests about normal forms and equivalence *)
@@ -235,6 +237,26 @@ let tests_wfsubtype = "Tests about wfsubtype" >:::
    test_wfsubtype
      ~t:"∀ (a:: *) {val A:a val B:a} -> {val A:a val B:a}"
      ~u:"∀ (a:: *) {val B:a val A:a} -> {val B:a}" ;
+
+   test_wfsubtype
+     ~t:"∃ (a:: *) a -> a"
+     ~u:"∃ (a:: *) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∃ (a:: S (forall (b::*) b)) a -> a"
+     ~u:"∃ (a:: *) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∃ (a:: S (forall (b::*) b)) (forall (b::*) b) -> a"
+     ~u:"∃ (a:: *) a -> a" ;
+
+   test_wfsubtype
+     ~t:"∃ (a:: S (forall (b::*) b)) a -> a"
+     ~u:"∃ (a:: *) (forall (b::*) b) -> a" ;
+
+   test_wfsubtype
+     ~t:"∃ (a:: *) {val B:a val A:a} -> {val A:a val B:a}"
+     ~u:"∃ (a:: *) {val A:a val B:a} -> {val B:a}" ;
  ]
 
 (* tests about sub_kind *)

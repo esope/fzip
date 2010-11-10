@@ -36,6 +36,10 @@ module Encode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkBaseForall (Var.make x) k' t'
+      | Raw.BaseExists (x, k, t) ->
+          let k' = { k with content = kind k.content }
+          and t' = typ_rec kind t in
+          mkBaseExists (Var.make x) k' t'
       | Raw.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
       | Raw.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
@@ -100,6 +104,10 @@ module Decode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           BaseForall(Typ.Var.bto_string x, k', t')
+      | Typ.BaseExists (x, k, t) ->
+          let k' = { k with content = kind k.content }
+          and t' = typ_rec kind t in
+          BaseExists(Typ.Var.bto_string x, k', t')
       | Typ.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
       | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
@@ -143,50 +151,51 @@ module PPrint = struct
 
   let is_delimited t =
     match t.content with
-    | Lam(_,_,_) -> false
+    | Lam(_,_,_) | BaseForall (_, _, _) | BaseExists (_, _, _) -> false
     | Var _ | Record _ | Proj(_,_) | App(_,_) |
-      BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _)-> true
+      BaseArrow (_, _) | BaseRecord _ -> true
   let is_app t = match t.content with
   | App(_,_) -> true
   | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    Proj (_, _) | Record _ | Lam (_, _, _)-> false
+    BaseExists (_,_,_) | Proj (_, _) | Record _ | Lam (_, _, _)-> false
   let is_proj t = match t.content with
   | Proj(_,_) -> true
   | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    Record _ | Lam (_, _, _) | App (_, _)-> false
+    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _)-> false
   let is_base_arrow t = match t.content with
   | BaseArrow(_,_) -> true
   | Var _ | BaseRecord _ | BaseForall (_, _, _) | Proj (_, _) |
-    Record _ | Lam (_, _, _) | App (_, _)-> false
+    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _)-> false
   let is_base_record t = match t.content with
   | BaseRecord _ -> true
   | Var _ | BaseArrow (_, _) | BaseForall (_, _, _) | Proj (_, _) |
-    Record _ | Lam (_, _, _) | App (_, _) -> false
+    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _) -> false
   let tights_more_than_app x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) |
+    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_record x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) |
+    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_proj x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) |
+    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_record x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) |
+    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
       Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_base_arrow x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _
     | BaseArrow(_,_) -> true
-    | BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) -> false
+    | BaseForall (_, _, _) | BaseExists (_,_,_) |
+      Lam (_, _, _) | App(_,_) -> false
 
 
   let rec pre_typ_rec kind = let open Pprint in function
@@ -239,6 +248,11 @@ module PPrint = struct
              m [])
     | BaseForall(x, k, t) ->
         text "∀" ^^
+        infix_com ""
+          (parens (infix_com "::" (ident x) (kind k.content)))
+          (typ_rec kind t)
+    | BaseExists(x, k, t) ->
+        text "∃" ^^
         infix_com ""
           (parens (infix_com "::" (ident x) (kind k.content)))
           (typ_rec kind t)

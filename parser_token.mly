@@ -10,6 +10,7 @@ let mkArrow k k' =
 
 let mkLam_binding (x,k) t = locate (Lam(x, k, t))
 let mkForall_binding (x,k) t = locate (BaseForall(x, k, t))
+let mkExists_binding (x,k) t = locate (BaseExists(x, k, t))
 
 let mkTeLam_binding (x,tau) t = locate (TeLam(x, tau, t))
 let mkTeGen_binding (x,k) t = locate (TeGen(x, k, t))
@@ -20,10 +21,10 @@ let mkTeGen_binding (x,k) t = locate (TeGen(x, k, t))
 
 %token STAR DBLARROW
 
-%token UPLAMBDA LAMBDA LPAR RPAR DBLCOLON FORALL ARROW APP
-%token LANGLE RANGLE DOT TIMES
+%token UPLAMBDA LAMBDA LPAR RPAR DBLCOLON FORALL ARROW APP EXISTS
+%token LANGLE RANGLE DOT
 %token SINGLE
-%token PI SIGMA
+%token PI
 %token COLON RBRACE LBRACE EQ RBRACKET LBRACKET
 %token VAL TYPE AS
 %token <string> ID
@@ -32,7 +33,6 @@ let mkTeGen_binding (x,k) t = locate (TeGen(x, k, t))
 %left APP
 %right DBLARROW
 %right ARROW
-%left TIMES
 %nonassoc DOT
 
 

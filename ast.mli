@@ -18,6 +18,7 @@ module Raw : sig
     | Proj of typ * Label.t located
 (** base types *)
     | BaseForall of string * (typ kind) located * typ
+    | BaseExists of string * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -52,6 +53,7 @@ module Typ : sig
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
     | BaseForall of Var.bound * (typ kind) located * typ
+    | BaseExists of Var.bound * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -72,6 +74,7 @@ module Typ : sig
 (** smart constructors *)
   val mkLam: Var.free -> t kind located -> t -> pre_typ
   val mkBaseForall: Var.free -> t kind located -> t -> pre_typ
+  val mkBaseExists: Var.free -> t kind located -> t -> pre_typ
 end
 
 module Kind : sig

@@ -24,7 +24,7 @@ let rec select_all_fields ty = function
       (select_all_fields ty (Kind.bsubst_fields f x ty_lab))
 
 let rec head_norm env t = match t.content with
-| BaseForall(_, _, _) | BaseRecord _ | BaseArrow(_, _) ->
+| BaseForall(_, _, _) | BaseExists (_,_,_) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Base)
 | FVar x ->
     begin
@@ -50,7 +50,8 @@ let rec head_norm env t = match t.content with
                 ({ t with content = App(t1', t2) } , Some k1)
           end
       | ((FVar _ | BVar _ | App(_,_) | Proj(_,_) | Lam(_,_,_) |
-        Record _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _)),
+        Record _ | BaseArrow (_, _) | BaseRecord _ |
+        BaseForall (_, _, _) | BaseExists (_, _, _)),
          (None |
          Some (Base | Single _ | Pi(_,_,_) | Sigma _))) -> assert false
     end
@@ -77,7 +78,7 @@ let rec head_norm env t = match t.content with
                 ("Illegal label projection: " ^ lab.content ^ ".")
           end
       | ((FVar _ | BVar _ | BaseArrow (_, _) | BaseRecord _ |
-        BaseForall (_, _, _) | Lam (_, _, _) | App(_,_) |
+        BaseForall (_, _, _) | BaseExists (_,_,_) | Lam (_, _, _) | App(_,_) |
         Proj(_,_) | Record _),
          (None |
          Some (Base | Single _ | Pi(_,_,_) | Sigma _))) -> assert false
@@ -99,6 +100,14 @@ let rec path_norm env t = match t.content with
         typ_norm (Env.Typ.add_var x' k1.content env)
           (bsubst t1 x x_var') Base in
       ({ t with content = mkBaseForall x' k1' t1' }, Base)
+  | BaseExists (x, k1, t1) ->
+      let k1' = { k1 with content = kind_norm env k1.content } in
+      let x' = Var.bfresh x in
+      let x_var' = dummy_locate (FVar x') in
+      let t1' =
+        typ_norm (Env.Typ.add_var x' k1.content env)
+          (bsubst t1 x x_var') Base in
+      ({ t with content = mkBaseExists x' k1' t1' }, Base)
   | FVar x ->
       begin
         try (t, Env.Typ.get_var x env)
@@ -220,7 +229,8 @@ and equiv_path env p1 p2 =
         | Yes -> WithValue.Yes Base
         | No reasons -> WithValue.No reasons
       end
-  | (BaseForall(x, k, t), BaseForall(x', k', t')) ->
+  | (BaseForall(x, k, t), BaseForall(x', k', t'))
+  | (BaseExists(x, k, t), BaseExists(x', k', t')) ->
       begin
         match
           equiv_kind env k.content k'.content &*&
@@ -260,7 +270,8 @@ and equiv_path env p1 p2 =
         | WithValue.No reasons -> WithValue.No reasons
       end
   | ((FVar _ | BVar _ | Proj (_, _) | Record _ | Lam (_, _, _) |
-    App (_, _) | BaseForall (_, _, _) | BaseArrow (_, _) | BaseRecord _),
+    App (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
+    BaseArrow (_, _) | BaseRecord _),
      _) -> WithValue.No []
 
 and equiv_bindings env b1 b2 =
