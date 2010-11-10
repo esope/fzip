@@ -14,11 +14,8 @@
 kind_fields:
 | 
   { Label.AList.empty }
-| TYPE lab=ID AS a=ID DBLCOLON k=kind f=kind_fields
+| TYPE lab=ID a=option(preceded(AS,ID)) DBLCOLON k=kind f=kind_fields
     { Label.AList.add lab (a, k) f }
-| TYPE lab=ID DBLCOLON k=kind f=kind_fields
-    { let a = Ast.Typ.Var.to_string (Ast.Typ.Var.fresh ()) in
-    Label.AList.add lab (a, k) f }
 
 undelimited_kind:
 | PI b=typ_binding(kind) k=kind { mkPi_binding b k }

@@ -11,13 +11,21 @@ module Encode = struct
 
     let rec kind_rec typ = let open Kind in function
       | Raw.Base -> mkBase
-      | Raw.Pi(x, k1, k2) ->
+      | Raw.Pi(Some x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
           Kind.mkPi (Var.make x) k1' k2'
+      | Raw.Pi(None, k1, k2) ->
+          let k1' = kind_rec typ k1
+          and k2' = kind_rec typ k2 in
+          Kind.mkArrow k1' k2'
       | Raw.Sigma f ->
           let f = Label.AList.map
-              (fun (x, k) -> (Var.make x, kind_rec typ k)) f in
+              (fun (x, k) ->
+                let x = match x with
+                | None -> Var.make (Var.to_string (Var.fresh ()))
+                | Some x -> Var.make x
+                in (x, kind_rec typ k)) f in
           Kind.mkSigma f
       | Raw.Single (t, k) -> mkSingle (typ t) (kind_rec typ k)
 
@@ -82,10 +90,17 @@ module Decode = struct
       | Typ.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          Pi(Typ.Var.bto_string x, k1', k2')
+          if Kind.bvar_occurs x k2
+          then Pi(Some (Typ.Var.bto_string x), k1', k2')
+          else Pi(None, k1', k2')
       | Typ.Sigma f ->
-          Sigma (Label.AList.map
-                   (fun (x,k) -> (Typ.Var.bto_string x, kind_rec typ k)) f)
+          Sigma
+            (Label.AList.map
+               (fun (x,k) ->
+                 ((if Kind.bvar_occurs_field x f
+                 then Some (Typ.Var.bto_string x)
+                 else None),
+                   kind_rec typ k)) f)
       | Typ.Single (t, k) -> Single (typ t, kind_rec typ k)
 
     let rec typ_rec kind t =
@@ -127,23 +142,37 @@ module PPrint = struct
     | Pi(_,_,_) -> false
     | Base | Sigma _ | Single (_,_) -> true
 
+  let is_non_dep_pi = function
+    | Pi(None, _, _) -> true
+    | Pi(Some _, _, _) | Base | Sigma _ | Single(_,_) -> false
+
   let ident = Pprint.text
 
   let rec kind_rec typ = let open Pprint in function
     | Base -> text "⋆"
-    | Pi(x, k1, k2) ->
+    | Pi(Some x, k1, k2) ->
         prefix "Π"
           ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
            break1 ^^
            (kind_rec typ k2))
+    | Pi(None, k1, k2) ->
+        infix "⇒"
+          (if is_delimited k1 && not (is_non_dep_pi k1)
+          then kind_rec typ k1
+          else parens (kind_rec typ k1))
+          (kind_rec typ k2)
     | Sigma f ->
         seq2 "<" " " ">"
           (Label.AList.fold
-             (fun lab (x, k) acc ->
-               (infix "::"
-                  (string "type " ^^ string lab ^^ string " as " ^^ ident x)
-                  (kind_rec typ k))
-               :: acc)
+             (fun lab (x, k) acc -> match x with
+             | Some x ->
+                 (infix "::"
+                    (string "type " ^^ string lab ^^ string " as " ^^ ident x)
+                    (kind_rec typ k)) :: acc
+             | None ->
+                 (infix "::"
+                    (string "type " ^^ string lab)
+                    (kind_rec typ k)) :: acc)
              f [])
     | Single (t, Base) ->
         prefix "S"
@@ -204,10 +233,10 @@ module PPrint = struct
   let rec pre_typ_rec kind = let open Pprint in function
     | Var x -> ident x
     | Lam(x, k, t) ->
-        text "λ" ^^
-        infix_com ""
-          (parens (infix_com "::" (ident x) (kind k.content)))
-          (typ_rec kind t)
+        (prefix "λ"
+           (parens (infix "::" (ident x) (kind k.content)))) ^^
+        break1 ^^
+        (typ_rec kind t)
     | App(t1, t2) ->
         infix_dot " "
           (if (tights_more_than_app t1 && is_delimited t1) || is_app t1
@@ -250,15 +279,16 @@ module PPrint = struct
                :: acc)
              m [])
     | BaseForall(x, k, t) ->
-        text "∀" ^^
-        infix_com ""
-          (parens (infix_com "::" (ident x) (kind k.content)))
-          (typ_rec kind t)
+        (prefix "∀"
+           (parens (infix_com "::" (ident x) (kind k.content)))) ^^
+        break1 ^^
+        (typ_rec kind t)
     | BaseExists(x, k, t) ->
-        text "∃" ^^
-        infix_com ""
-          (parens (infix_com "::" (ident x) (kind k.content)))
-          (typ_rec kind t)
+        (prefix "∃"
+           (parens (infix_com "::" (ident x) (kind k.content)))) ^^
+        break1 ^^
+        (typ_rec kind t)
+
   and typ_rec kind { content ; _ } = Pprint.group1 (pre_typ_rec kind content)
 
   let rec typ t = typ_rec kind t

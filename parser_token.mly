@@ -3,10 +3,9 @@
 open Ast.Raw
 let locate = Location.locate
 
-let mkPi_binding (x,k) k' = Pi(x, k.Location.content, k')
+let mkPi_binding (x,k) k' = Pi(Some x, k.Location.content, k')
 
-let mkArrow k k' =
-  let x = Ast.Typ.Var.to_string (Ast.Typ.Var.fresh ()) in Pi(x, k, k')
+let mkArrow k k' = Pi(None, k, k')
 
 let mkLam_binding (x,k) t = locate (Lam(x, k, t))
 let mkForall_binding (x,k) t = locate (BaseForall(x, k, t))

@@ -5,8 +5,8 @@ open Location
 module Raw : sig
   type 'a kind =
     | Base
-    | Pi of string * 'a kind * 'a kind
-    | Sigma of (string * 'a kind) Label.AList.t
+    | Pi of string option * 'a kind * 'a kind
+    | Sigma of (string option * 'a kind) Label.AList.t
     | Single of 'a * 'a kind
 
   type typ = pre_typ located
@@ -59,6 +59,9 @@ module Typ : sig
 
    type t = typ
 
+(** decides whether some bound variable occurs. *)
+  val bvar_occurs: Var.bound -> t -> bool
+
 (** map on free variables *)
   val var_map:  (Var.free -> pre_typ) -> t -> t
 
@@ -92,6 +95,11 @@ module Kind : sig
 
   type t = Typ.t kind
 
+(** decides whether some bound variable occurs. *)
+  val bvar_occurs: Typ.Var.bound -> t -> bool
+  val bvar_occurs_field:
+      Typ.Var.bound -> (Typ.Var.bound * 'a kind) Label.AList.t -> bool
+
 (** map on free variables *)
   val var_map: (Typ.Var.free -> Typ.pre_typ) -> t -> t
 
@@ -117,6 +125,7 @@ module Kind : sig
 (** non-dependent version of mkPi *)
   val mkArrow: t -> t -> t
   val mkSigma: (Typ.Var.free * t) Label.AList.t -> t
+
 end
 
 (** AST for terms *)
@@ -135,6 +144,10 @@ module Term : sig
     | Inst of term * Typ.t
 
   type t = term
+
+(** decides whether some bound variable occurs. *)
+  val term_bvar_occurs: Var.bound -> t -> bool
+  val typ_bvar_occurs: Typ.Var.bound -> t -> bool
 
 (** maps on free variables *)
   val var_map_term_var: (Var.free -> pre_term) -> t -> t

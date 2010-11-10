@@ -4,8 +4,8 @@ module Raw = struct
 
   type 'a kind =
     | Base
-    | Pi of string * 'a kind * 'a kind
-    | Sigma of (string * 'a kind) Label.AList.t
+    | Pi of string option * 'a kind * 'a kind
+    | Sigma of (string option * 'a kind) Label.AList.t
     | Single of 'a * 'a kind
 
   type typ = pre_typ located
@@ -56,6 +56,9 @@ module Typ = struct
     | BaseArrow of typ * typ
 
   type t = typ
+
+  let bvar_occurs x _t = not (Var.bequal x Var.bzero)
+      (* from Sato-Pollack, x is free iff it is not 0 *)
 
   let h_binder y h =
     if Var.bequal h Var.bzero then h else Var.bmax h (Var.bsucc y)
@@ -206,9 +209,9 @@ module Typ = struct
   and bsubst_typ t x u = bsubst_typ_rec bsubst_kind t x u
 
   let bsubst t x u =
-    if Var.bequal x Var.bzero
-    then t (* from Sato-Pollack, x is free iff it is not 0 *)
-    else bsubst_typ t x u
+    if bvar_occurs x t
+    then bsubst_typ t x u
+    else t
 
   let rec equal_kind_fields equal_kind f1 f2 = match(f1, f2) with
   | ([], []) -> true
@@ -286,6 +289,11 @@ module Kind = struct
 
   type t = Typ.t kind
 
+  let bvar_occurs x _k = not (Typ.Var.bequal x Typ.Var.bzero)
+      (* from Sato-Pollack, x is free iff it is not 0 *)
+
+  let bvar_occurs_field = bvar_occurs
+
   let var_map = Typ.var_map_kind
 
   let subst k x u =
@@ -297,14 +305,14 @@ module Kind = struct
     Label.AList.map (fun (y, k) -> (y, subst k x u)) f
 
   let bsubst k x u =
-    if Typ.Var.bequal x Typ.Var.bzero
-    then k (* from Sato-Pollack, x is free iff it is not 0 *)
-    else Typ.bsubst_kind k x u
+    if bvar_occurs x k
+    then Typ.bsubst_kind k x u
+    else k
 
   let bsubst_fields f x u =
-    if Typ.Var.bequal x Typ.Var.bzero
-    then f (* from Sato-Pollack, x is free iff it is not 0 *)
-    else Typ.bsubst_kind_fields bsubst f x u
+    if bvar_occurs_field x f
+    then Typ.bsubst_kind_fields bsubst f x u
+    else f
 
   let equal = Typ.equal_kind
 
@@ -348,6 +356,11 @@ module Term = struct
     | Inst of term * Typ.typ
 
   type t = term
+
+  let term_bvar_occurs x _t = not (Var.bequal x Var.bzero)
+      (* from Sato-Pollack, x is free iff it is not 0 *)
+  let typ_bvar_occurs x _t = not (Typ.Var.bequal x Typ.Var.bzero)
+      (* from Sato-Pollack, x is free iff it is not 0 *)
 
   let h_term_max f m =
     Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
@@ -464,9 +477,9 @@ module Term = struct
       content = pre_bsubst_term_var t.content x u }
 
   let bsubst_term_var t x u =
-    if Var.bequal x Var.bzero
-    then t (* from Sato-Pollack, x is free iff it is not 0 *)
-    else bsubst_term_var t x u
+    if term_bvar_occurs x t
+    then bsubst_term_var t x u
+    else t
 
   let rec pre_bsubst_typ_var t x u = match t with
   | FVar _ | BVar _ -> t
@@ -494,9 +507,9 @@ module Term = struct
       content = pre_bsubst_typ_var t.content x u }
 
   let bsubst_typ_var t x u =
-    if Typ.Var.bequal x Typ.Var.bzero
-    then t (* from Sato-Pollack, x is free iff it is not 0 *)
-    else bsubst_typ_var t x u
+    if typ_bvar_occurs x t
+    then bsubst_typ_var t x u
+    else t
 
   let rec equal t1 t2 = pre_equal t1.content t2.content
   and pre_equal t1 t2 = match (t1, t2) with
