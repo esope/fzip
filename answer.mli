@@ -1,16 +1,27 @@
+(** Handling of reasons of failures. *)
+
 open Ast
 
 type reason =
   | TYPES of Typ.t * Typ.t
+        (** [TYPES(t1,t2)] means that [t1] is not a subtype of [t2]. *)
+
   | KINDS of Kind.t * Kind.t
+        (** [KINDS(k1,k2)] means that [k1] is not a subkind of [k2]. *)
+
   | WF_TYPE of Typ.t * Kind.t
+        (** [WF_TYPE(t,k)] means that [t] cannot be given the kind [k]. *)
+
 type t = Yes | No of reason list
 
+(** Chains two answers.
+    If the left one is [No], then the second one is discarded. *)
 val ( &*& ): t -> t -> t
 val from_bool: bool -> t
 val to_bool: t -> bool
 val error_msg: reason list -> string
 
+(** The same module, with a value in the positive case. *)
 module WithValue : sig
   type 'a t = Yes of 'a | No of reason list
 
