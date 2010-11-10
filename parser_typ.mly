@@ -62,7 +62,7 @@ undelimited_typ:
     { mkForall_binding b t $startpos $endpos }
 
 delimited_typ:
-| LPAR t=typ RPAR { t }
+| LPAR t=typ RPAR { locate t.Location.content $startpos $endpos }
 | x=ID { locate (Var x) $startpos $endpos }
 | t1=delimited_typ t2=delimited_typ                 %prec APP
     { locate (App(t1, t2)) $startpos $endpos }

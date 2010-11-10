@@ -36,14 +36,14 @@ let locate lexbuf token =
 exception Lexing_error of Lexing.position * Lexing.position * string
 
 let lexing_error_handler f file lexbuf =
-  current_lnum := 1 ; current_bol := 0 ; current_file := file ;
+  current_file := file ;
   try f lexbuf
   with Lexing_error(startpos, endpos, s) ->
     Error.raise_error Error.lexing startpos endpos
       (Printf.sprintf "Unknown token: %s." s)
 
 let regexp whitespace = ['\t' ' ']+
-let regexp linebreak = ['\n']
+let regexp linebreak = ['\n' '\r' "\r\n"]
 let regexp low_greek = [945-969]
 let regexp up_greek = [913-937]
 let regexp greek = low_greek | up_greek

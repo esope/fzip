@@ -29,7 +29,7 @@ undelimited_term(kind,typ):
     { mkTeGen_binding b t $startpos $endpos }
 
 delimited_term(kind,typ):
-| LPAR t=term(kind,typ) RPAR { t }
+| LPAR t=term(kind,typ) RPAR { locate t.Location.content $startpos $endpos }
 | x=ID { locate (TeVar x) $startpos $endpos }
 | t1=delimited_term(kind,typ) t2=delimited_term(kind,typ)             %prec APP
     { locate (TeApp(t1, t2)) $startpos $endpos }
