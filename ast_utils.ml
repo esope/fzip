@@ -132,11 +132,9 @@ module PPrint = struct
         seq2 "<" " " ">"
           (Label.AList.fold
              (fun lab (x, k) acc ->
-               (prefix "type"
-                  (prefix lab
-                     (prefix "as"
-                        (infix "::" (ident x)
-                           (kind_rec typ k)))))
+               (infix "::"
+                  (string "type " ^^ string lab ^^ string " as " ^^ ident x)
+                  (kind_rec typ k))
                :: acc)
              f [])
     | Single t ->
@@ -210,7 +208,9 @@ module PPrint = struct
         seq2 "<" " " ">"
           (Label.Map.fold
              (fun lab ty acc ->
-               (prefix "type" (prefix lab (prefix "=" (typ_rec kind ty))))
+               (infix "="
+                  (string "type " ^^ string lab)
+                  (typ_rec kind ty))
                :: acc)
              m [])
     | Proj(t, lab) ->
@@ -232,7 +232,9 @@ module PPrint = struct
         seq2 "{" " " "}"
           (Label.Map.fold
              (fun lab ty acc ->
-               (prefix "val" (prefix lab (prefix ":" (typ_rec kind ty))))
+               (infix ":"
+                  (string "val " ^^ string lab)
+                  (typ_rec kind ty))
                :: acc)
              m [])
     | BaseForall(x, k, t) ->
