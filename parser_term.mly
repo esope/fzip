@@ -26,6 +26,8 @@ undelimited_term(kind,typ):
 | LAMBDA b=term_binding(typ) t=term(kind,typ)
     { mkTeLam_binding b t $startpos $endpos }
 | UPLAMBDA b=typ_binding(kind) t=term(kind,typ)
+| LAMBDA b=typ_binding(kind) t=term(kind,typ)
+  (* we allow the use of λ of Λ for type generalization *)
     { mkTeGen_binding b t $startpos $endpos }
 
 delimited_term(kind,typ):
