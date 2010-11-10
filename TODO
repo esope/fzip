@@ -1,5 +1,4 @@
 * add labeled singletons
-* check the Sato-Pollack encoding
 * better pretty printing for bound variables
 * open existential types
 * examples, tests with files

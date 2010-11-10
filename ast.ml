@@ -57,21 +57,24 @@ module Typ = struct
 
   type t = typ
 
+  let h_binder y h =
+    if Var.bequal h Var.bzero then h else Var.bmax h (Var.bsucc y)
+
+  (* computes the maximum of all the elements of the range of a map *)
   let h_max f m =
     Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
 
+  (* computes the height of a variable in a list of kind fields *)
   let rec h_sigmas h_kind (x: Var.free) = function
     | [] -> Var.bzero
     | (_label, (y, k)) :: l ->
-        let n = Var.bmax (h_kind x k) (h_sigmas h_kind x l) in
-        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
+        Var.bmax (h_kind x k) (h_binder y (h_sigmas h_kind x l))
 
   let rec h_kind_rec h_typ (x : Var.free) = function
     | Base -> Var.bzero
     | Sigma f -> h_sigmas (h_kind_rec h_typ) x f
     | Pi(y, k1, k2) ->
-        let n = Var.bmax (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
-        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
+        Var.bmax (h_kind_rec h_typ x k1) (h_binder y (h_kind_rec h_typ x k2))
     | Single t -> h_typ x t
 
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
@@ -80,8 +83,7 @@ module Typ = struct
     | App (t,u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) | BaseExists(y, k, t) ->
-        let n = Var.bmax (h_kind x k.content) (h_typ_rec h_kind x t) in
-        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
+        Var.bmax (h_kind x k.content) (h_binder y (h_typ_rec h_kind x t))
     | Proj(t, _) -> h_typ_rec h_kind x t
     | BaseRecord m | Record m -> h_max (h_typ_rec h_kind x) m
   and h_typ_rec h_kind (x : Var.free) t =
@@ -327,13 +329,22 @@ module Term = struct
   let h_typ_max f m =
     Label.AList.fold (fun _lab x acc -> Typ.Var.bmax (f x) acc) m Typ.Var.bzero
 
+  let h_ty_binder y h =
+    if Typ.Var.bequal h Typ.Var.bzero
+    then h
+    else Typ.Var.bmax h (Typ.Var.bsucc y)
+
+  let h_te_binder y h =
+    if Var.bequal h Var.bzero
+    then h
+    else Var.bmax h (Var.bsucc y)
+
   let rec pre_h_term_var (x : Var.free) = function
     | FVar y -> if Var.equal x y then Var.bone else Var.bzero
     | BVar _ -> Var.bzero
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) ->
-        let n = h_term_var x t in
-        if Var.bequal n Var.bzero then n else Var.bmax n (Var.bsucc y)
+        h_te_binder y (h_term_var x t)
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) -> h_term_var x t
     | Record m -> h_term_max (h_term_var x) m
   and h_term_var (x : Var.free) t =
@@ -346,9 +357,7 @@ module Term = struct
     | Lam (_, tau, t) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) ->
-        let n = Typ.Var.bmax (Typ.h_kind x k.content) (h_typ_var x t) in
-        if Typ.Var.bequal n Typ.Var.bzero then n
-        else Typ.Var.bmax n (Typ.Var.bsucc y)
+        Typ.Var.bmax (Typ.h_kind x k.content) (h_ty_binder y (h_typ_var x t))
     | Proj(t, _) | Inst(t, _) -> h_typ_var x t
     | Record m -> h_typ_max (h_typ_var x) m
   and h_typ_var (x : Typ.Var.free) t =
@@ -361,9 +370,7 @@ module Term = struct
         App(var_map_term_var f_free t1,
             var_map_term_var f_free t2)
     | Lam (x, k, t) ->
-        Lam (x,
-             k,
-             var_map_term_var f_free t)
+        Lam (x, k, var_map_term_var f_free t)
     | Record m ->
         Record (Label.AList.map (var_map_term_var f_free) m)
     | Proj (t, lab) ->
@@ -387,9 +394,7 @@ module Term = struct
         App(var_map_typ_var f_free t1,
             var_map_typ_var f_free t2)
     | Lam (x, k, t) ->
-        Lam (x,
-             Typ.var_map_typ f_free k,
-             var_map_typ_var f_free t)
+        Lam (x, Typ.var_map_typ f_free k, var_map_typ_var f_free t)
     | Record m ->
         Record (Label.AList.map (var_map_typ_var f_free) m)
     | Proj (t, lab) ->
