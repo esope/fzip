@@ -17,7 +17,7 @@ let rec wfterm env term = match term.content with
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try Env.get_term_var x env
+        try Env.Term.get_var x env
         with Not_found ->
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
@@ -29,7 +29,7 @@ let rec wfterm env term = match term.content with
             let x' = Var.bfresh x in
             let x_var' = dummy_locate (FVar x') in
             let t' =
-              wfterm (Env.add_term_var x' t env) (bsubst_term_var e x x_var') in
+              wfterm (Env.Term.add_var x' t env) (bsubst_term_var e x x_var') in
             dummy_locate (Typ.BaseArrow(t, t'))
         | KIND k ->
             Error.raise_error Error.term_wf t.startpos t.endpos
@@ -64,7 +64,8 @@ let rec wfterm env term = match term.content with
         let x' = Typ.Var.bfresh x in
         let x_var' = dummy_locate (Typ.FVar x') in
         let t' =
-          wfterm (Env.add_typ_var x' k.content env) (bsubst_typ_var e x x_var') in
+          wfterm (Env.Typ.add_var x' k.content env)
+            (bsubst_typ_var e x x_var') in
         dummy_locate (Typ.mkBaseForall x' k t')
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos
@@ -77,7 +78,7 @@ let rec wfterm env term = match term.content with
               let k = wftype env tau in
               let open Answer in
               match sub_kind env k k'.content with
-              | Yes -> Typ.bsubst_typ tau' x tau
+              | Yes -> Typ.bsubst tau' x tau
               | No reasons ->
                   Error.raise_error Error.subkind e.startpos tau.endpos
                     (Printf.sprintf "Ill-formed instantiation:\n%s%!"
@@ -116,3 +117,7 @@ let rec wfterm env term = match term.content with
                  "Ill-formed projection: this term should have a record type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
+
+let check_wfterm env e t =
+  let t_min = wfterm env e in
+  sub_type_b env t_min t

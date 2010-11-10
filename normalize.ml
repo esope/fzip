@@ -1,3 +1,4 @@
+open Ast
 open Ast.Typ
 open Location
 
@@ -10,7 +11,7 @@ let rec select_kind_field label ty = function
   | (label', (_, k)) :: _ when Label.equal label.content label' -> k
   | (label', (x, _)) :: f ->
       select_kind_field label ty
-        (bsubst_kind_fields f x (dummy_locate (Proj(ty, dummy_locate label'))))
+        (Kind.bsubst_fields f x (dummy_locate (Proj(ty, dummy_locate label'))))
 
 (* given a type [ty] of kind [Sigma f],
    [select_all_fields ty f] computes the map
@@ -20,7 +21,7 @@ let rec select_all_fields ty = function
   | (label, (x, k)) :: f ->
       let ty_lab = dummy_locate (Proj(ty, dummy_locate label)) in
       Label.Map.add label (ty_lab, k)
-      (select_all_fields ty (bsubst_kind_fields f x ty_lab))
+      (select_all_fields ty (Kind.bsubst_fields f x ty_lab))
 
 let rec head_norm env t = match t.content with
 | BaseForall(_, _, _) | BaseRecord _ | BaseArrow(_, _) ->
@@ -28,7 +29,7 @@ let rec head_norm env t = match t.content with
 | FVar x ->
     begin
       try
-        let k = Env.get_typ_var x env in
+        let k = Env.Typ.get_var x env in
         match k with Single u -> (u, Some k)
         | (Base | Pi(_,_,_) | Sigma _) -> (t, Some k)
       with Not_found -> assert false
@@ -40,10 +41,10 @@ let rec head_norm env t = match t.content with
       let (t1', k) = head_norm env t1 in
       match (t1'.content, k) with
       | (Lam (x, _tau, t), None) ->
-          head_norm env (bsubst_typ t x t2)
+          head_norm env (bsubst t x t2)
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
-            match bsubst_kind k1 x t2 with
+            match Kind.bsubst k1 x t2 with
             | Single u -> (u , Some k1)
             | (Base | Pi(_,_,_) | Sigma _) ->
                 ({ t with content = App(t1', t2) } , Some k1)
@@ -95,12 +96,12 @@ let rec path_norm env t = match t.content with
       let x' = Var.bfresh x in
       let x_var' = dummy_locate (FVar x') in
       let t1' =
-        typ_norm (Env.add_typ_var x' k1.content env)
-          (bsubst_typ t1 x x_var') Base in
+        typ_norm (Env.Typ.add_var x' k1.content env)
+          (bsubst t1 x x_var') Base in
       ({ t with content = mkBaseForall x' k1' t1' }, Base)
   | FVar x ->
       begin
-        try (t, Env.get_typ_var x env)
+        try (t, Env.Typ.get_var x env)
         with Not_found -> assert false
       end
   | BVar _ | Lam (_,_,_) | Record _ -> assert false
@@ -110,7 +111,7 @@ let rec path_norm env t = match t.content with
         match k with
         | Pi(x, k1, k2) ->
             let t' = typ_norm env t k1 in
-            ({ t with content = App(p', t') }, bsubst_kind k2 x t)
+            ({ t with content = App(p', t') }, Kind.bsubst k2 x t)
         | Base | Single _ | Sigma _ -> assert false
       end
   | Proj(p, lab) ->
@@ -132,7 +133,7 @@ and typ_norm env t k = match k with
 | Base | Single _ ->
     let (t', _) = head_norm env t in
     let (t'', k'') = path_norm env t' in
-    assert (Ast.Typ.equal_kind k'' Base) ;
+    assert (Ast.Kind.equal k'' Base) ;
     t''
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm env k1) in
@@ -140,7 +141,7 @@ and typ_norm env t k = match k with
     let x_var = dummy_locate (FVar x) in
     let t_ext = dummy_locate (App(t, x_var)) in
     let t' =
-      typ_norm (Env.add_typ_var x k1 env) t_ext (bsubst_kind k2 y x_var) in
+      typ_norm (Env.Typ.add_var x k1 env) t_ext (Kind.bsubst k2 y x_var) in
     { t with content = mkLam x k1' t' }
 | Sigma f ->
     let projections = select_all_fields t f in
@@ -154,11 +155,11 @@ and kind_norm env = function
       let k1' = kind_norm env k1
       and y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
-      let k2' = kind_norm (Env.add_typ_var y k1 env) (bsubst_kind k2 x y_var) in
-      mkPi y k1' k2'
+      let k2' = kind_norm (Env.Typ.add_var y k1 env) (Kind.bsubst k2 x y_var) in
+      Kind.mkPi y k1' k2'
   | Sigma f ->
       let f' = kind_fields_norm env f in
-      mkSigma f'
+      Kind.mkSigma f'
 
 and kind_fields_norm env = function
   | [] -> []
@@ -167,8 +168,8 @@ and kind_fields_norm env = function
       and y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
       let f' =
-        kind_fields_norm (Env.add_typ_var y k env)
-          (bsubst_kind_fields f x y_var)
+        kind_fields_norm (Env.Typ.add_var y k env)
+          (Kind.bsubst_fields f x y_var)
       in (lab, (y, k')) :: f'
 
 let rec try_equiv_typ env t1 t2 k =
@@ -187,10 +188,10 @@ let rec try_equiv_typ env t1 t2 k =
   | Pi(x, k1, k2) ->
       let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
-      equiv_typ (Env.add_typ_var y k1 env)
+      equiv_typ (Env.Typ.add_var y k1 env)
         (dummy_locate (App(t1, y_var)))
         (dummy_locate (App(t2, y_var)))
-        (bsubst_kind k2 x y_var)
+        (Kind.bsubst k2 x y_var)
   | Sigma f ->
       let projections = select_all_fields t1 f in
       Label.Map.fold
@@ -225,8 +226,8 @@ and equiv_path env p1 p2 =
           equiv_kind env k.content k'.content &*&
           let y = Var.bfresh x in
           let y_var = dummy_locate (FVar y) in
-          equiv_typ (Env.add_typ_var y k.content env)
-            (bsubst_typ t x y_var) (bsubst_typ t' x' y_var) Base
+          equiv_typ (Env.Typ.add_var y k.content env)
+            (bsubst t x y_var) (bsubst t' x' y_var) Base
         with
         | Yes -> WithValue.Yes Base
         | No reasons -> WithValue.No reasons
@@ -235,7 +236,7 @@ and equiv_path env p1 p2 =
       if Var.equal x x'
       then
         begin
-          try WithValue.Yes (Env.get_typ_var x env)
+          try WithValue.Yes (Env.Typ.get_var x env)
           with Not_found -> assert false
         end
       else WithValue.No []
@@ -245,7 +246,7 @@ and equiv_path env p1 p2 =
         | WithValue.Yes (Pi(x, k1, k2)) ->
             begin
               match equiv_typ env t t' k1 with
-              | Yes -> WithValue.Yes (bsubst_kind k2 x t)
+              | Yes -> WithValue.Yes (Kind.bsubst k2 x t)
               | No reasons -> WithValue.No reasons
             end
         | WithValue.Yes (Base | Single _ | Sigma _) -> assert false
@@ -298,7 +299,7 @@ and equiv_kind env k1 k2 =
 and sub_kind env k1 k2 =
   let x = Var.fresh () in
   let x_var = dummy_locate (FVar x) in
-  check_sub_kind (Env.add_typ_var x k1 env) x_var k1 k2
+  check_sub_kind (Env.Typ.add_var x k1 env) x_var k1 k2
 
 and try_check_sub_kind env p k k' =
   let open Answer in match (k, k') with
@@ -309,10 +310,10 @@ and try_check_sub_kind env p k k' =
       sub_kind env k1' k1 &*&
       let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
-      check_sub_kind (Env.add_typ_var y k1' env)
+      check_sub_kind (Env.Typ.add_var y k1' env)
         (dummy_locate (App(p, y_var)))
-        (bsubst_kind k2  x  y_var)
-        (bsubst_kind k2' x' y_var)
+        (Kind.bsubst k2  x  y_var)
+        (Kind.bsubst k2' x' y_var)
   | (Sigma f, Sigma f') ->
       let projections  = select_all_fields p f
       and projections' = select_all_fields p f' in
@@ -325,7 +326,8 @@ and try_check_sub_kind env p k k' =
             check_sub_kind env p_lab k_lab k'_lab
           with Not_found ->
             No [KINDS
-                  (mkSigma [(lab, (Var.fresh (), k'_lab))], mkSigma [])])
+                  (Kind.mkSigma
+                     [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])])
         projections' Yes
   | ((Base | Single _ | Sigma _ | Pi(_,_,_)), _) -> No []
 

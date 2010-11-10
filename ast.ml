@@ -53,6 +53,8 @@ module Typ = struct
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
+  type t = typ
+
   let h_max f m =
     Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
 
@@ -130,18 +132,12 @@ module Typ = struct
   let rec var_map_kind f_free k = var_map_kind_rec var_map_typ f_free k
   and var_map_typ f_free k = var_map_typ_rec var_map_kind f_free k
 
-  let subst_typ t x u =
+  let var_map = var_map_typ
+
+  let subst t x u =
     var_map_typ
       (fun y -> if Var.equal x y then u else FVar y)
       t
-
-  let subst_kind k x u =
-    var_map_kind
-      (fun y -> if Var.equal x y then u else FVar y)
-      k
-
-  let subst_kind_fields f x u =
-    Label.AList.map (fun (y, k) -> (y, subst_kind k x u)) f
 
   let rec bsubst_kind_fields bsubst_kind f x u = match f with
   | [] -> []
@@ -195,7 +191,7 @@ module Typ = struct
   let rec bsubst_kind k x u = bsubst_kind_rec bsubst_typ k x u
   and bsubst_typ t x u = bsubst_typ_rec bsubst_kind t x u
 
-  let bsubst_kind_fields f x u = bsubst_kind_fields bsubst_kind f x u
+  let bsubst = bsubst_typ
 
   let rec equal_kind_fields equal_kind f1 f2 = match(f1, f2) with
   | ([], []) -> true
@@ -234,33 +230,63 @@ module Typ = struct
   let rec equal_kind k1 k2 = equal_kind_rec equal_typ k1 k2
   and equal_typ t1 t2 = equal_typ_rec equal_kind t1 t2
 
+  let equal = equal_typ
+
 (* smart constructors *)
   let mkLam x tau t =
     let y = h_typ x t in
-    Lam (y, tau, subst_typ t x (BVar y))
-
-  let mkPi x k1 k2 =
-    let y = h_kind x k2 in
-    Pi (y, k1, subst_kind k2 x (BVar y))
-
-  let mkArrow k1 k2 = 
-    let x = Var.fresh () in
-    mkPi x k1 k2
-
-  let mkSigma = 
-    let rec aux : (Var.free * typ kind) Label.AList.t
-      -> (Var.bound * typ kind) Label.AList.t = function
-      | [] -> []
-      | (lab, (x, k)) :: f ->
-          let f = aux f in
-          let y = h_sigmas h_kind x f in
-          (lab, (y, k)) :: (subst_kind_fields f x (BVar y))
-    in fun f -> Sigma (aux f)
+    Lam (y, tau, subst t x (BVar y))
 
   let mkBaseForall x k t =
     let y = h_typ x t in
-    BaseForall (y, k, subst_typ t x (BVar y))
+    BaseForall (y, k, subst t x (BVar y))
 end
+
+module Kind = struct
+  type 'a kind = 'a Typ.kind =
+    | Base
+    | Pi of Typ.Var.bound * 'a kind * 'a kind
+    | Sigma of (Typ.Var.bound * 'a kind) Label.AList.t
+    | Single of 'a
+
+  type t = Typ.t kind
+
+  let var_map = Typ.var_map_kind
+
+  let subst k x u =
+    var_map
+      (fun y -> if Typ.Var.equal x y then u else Typ.FVar y)
+      k
+
+  let subst_fields f x u =
+    Label.AList.map (fun (y, k) -> (y, subst k x u)) f
+
+  let bsubst = Typ.bsubst_kind
+
+  let bsubst_fields f x u = Typ.bsubst_kind_fields bsubst f x u
+
+  let equal = Typ.equal_kind
+
+  let mkPi x k1 k2 =
+    let y = Typ.h_kind x k2 in
+    Pi (y, k1, subst k2 x (Typ.BVar y))
+
+  let mkArrow k1 k2 = 
+    let x = Typ.Var.fresh () in
+    mkPi x k1 k2
+
+  let mkSigma = 
+    let rec aux : (Typ.Var.free * Typ.t kind) Label.AList.t
+      -> (Typ.Var.bound * Typ.t kind) Label.AList.t = function
+      | [] -> []
+      | (lab, (x, k)) :: f ->
+          let f = aux f in
+          let y = Typ.h_sigmas Typ.h_kind x f in
+          (lab, (y, k)) :: (subst_fields f x (Typ.BVar y))
+    in fun f -> Sigma (aux f)
+
+end
+
 
 module Term = struct
   module Var : Var.S = Var.Make(struct let fbase = "x" let bbase = "x__" end)
@@ -275,6 +301,8 @@ module Term = struct
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
+
+  type t = term
 
   let h_term_max f m =
     Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero

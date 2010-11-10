@@ -1,3 +1,4 @@
+open Ast
 open Ast.Typ
 open Ast_utils
 open Location
@@ -14,10 +15,10 @@ let rec single_ext k t = match k with
     let x = Var.bfresh y in
     let x_var = dummy_locate (FVar x) in
     let k2' =
-      single_ext (bsubst_kind k2 y x_var) (dummy_locate (App(t, x_var))) in
-    mkPi x k1 k2'
+      single_ext (Kind.bsubst k2 y x_var) (dummy_locate (App(t, x_var))) in
+    Kind.mkPi x k1 k2'
 | Sigma f ->
-    mkSigma (single_ext_fields f t)
+    Kind.mkSigma (single_ext_fields f t)
 
 and single_ext_fields f t = match f with
 | [] -> []
@@ -25,7 +26,7 @@ and single_ext_fields f t = match f with
     let t_lab = dummy_locate (Proj(t, dummy_locate lab)) in
     let k' = single_ext k t_lab in
     let y = Var.bfresh x in
-    let f' = single_ext_fields (bsubst_kind_fields f x t_lab) t in
+    let f' = single_ext_fields (Kind.bsubst_fields f x t_lab) t in
     (lab, (y, k')) :: f'
 
 let rec wftype env t =
@@ -34,7 +35,7 @@ let rec wftype env t =
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try single_ext (Env.get_typ_var x env) t
+        try single_ext (Env.Typ.get_var x env) t
         with Not_found ->
           Error.raise_error Error.type_wf t.startpos t.endpos
             (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
@@ -46,7 +47,7 @@ let rec wftype env t =
         | Pi(x, k2', k1') ->
             begin
               match sub_kind env k2 k2' with
-              | Yes -> bsubst_kind k1' x t2
+              | Yes -> Kind.bsubst k1' x t2
               | No reasons ->
                   Error.raise_error Error.type_wf t.startpos t.endpos
                     (Printf.sprintf "Ill-kinded application:\n%s%!"
@@ -60,9 +61,9 @@ let rec wftype env t =
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
-        let t' = bsubst_typ t x (dummy_locate (FVar x')) in
-        let k' = wftype (Env.add_typ_var x' k.content env) t' in
-        mkPi x' k.content k'
+        let t' = bsubst t x (dummy_locate (FVar x')) in
+        let k' = wftype (Env.Typ.add_var x' k.content env) t' in
+        Kind.mkPi x' k.content k'
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos "Ill-formed kind."
   | Record m ->
@@ -70,7 +71,7 @@ let rec wftype env t =
       let f = Label.Map.fold
           (fun lab t acc -> (lab, (x, wftype env t)) :: acc)
           m []
-      in mkSigma f
+      in Kind.mkSigma f
   | Proj(t', lab) ->
       begin
         match wftype env t' with
@@ -90,8 +91,8 @@ let rec wftype env t =
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
-        let u' = bsubst_typ u x (dummy_locate (FVar x')) in
-        let env' = Env.add_typ_var x' k.content env in
+        let u' = bsubst u x (dummy_locate (FVar x')) in
+        let env' = Env.Typ.add_var x' k.content env in
         let k' = wftype env' u' in
         if sub_kind_b env' k' Base 
         then Single t
@@ -120,7 +121,7 @@ and wfkind env = function
       wfkind env k1 &&
       let x = Var.bfresh y in
       let x_var = dummy_locate (FVar x) in
-      wfkind (Env.add_typ_var x k1 env) (bsubst_kind k2 y x_var)
+      wfkind (Env.Typ.add_var x k1 env) (Kind.bsubst k2 y x_var)
   | Single t ->
       match wftype env t with
       | Single _ | Base -> true
@@ -134,7 +135,7 @@ and wfkind_fields env = function
       wfkind env k &&
       let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
-      wfkind_fields (Env.add_typ_var y k env) (bsubst_kind_fields f x y_var)
+      wfkind_fields (Env.Typ.add_var y k env) (Kind.bsubst_fields f x y_var)
 
 let rec try_sub_type env tau tau' =
   let open Answer in
@@ -148,8 +149,8 @@ let rec try_sub_type env tau tau' =
       sub_kind env k'.content k.content &*&
       let x = Var.bfresh a in
       let x_var = dummy_locate (FVar x) in
-      sub_type (Env.add_typ_var x k'.content env)
-        (bsubst_typ t a x_var) (bsubst_typ t' a' x_var)
+      sub_type (Env.Typ.add_var x k'.content env)
+        (bsubst t a x_var) (bsubst t' a' x_var)
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       sub_type env t1' t1 &*& sub_type env t2 t2'
   | (BaseRecord m, BaseRecord m') ->

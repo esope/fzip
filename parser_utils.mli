@@ -5,27 +5,27 @@ open Ast
 module String : sig
   module Raw : sig
     open Raw
-    val parse_typ: string -> typ
-    val parse_kind: string -> typ kind
-    val parse_term: string -> (typ kind, typ) term
+    module Typ:  sig val parse: string -> typ                  end
+    module Kind: sig val parse: string -> typ kind             end
+    module Term: sig val parse: string -> (typ kind, typ) term end
   end
 
-  val parse_typ: string -> Typ.typ
-  val parse_kind: string -> Typ.typ Typ.kind
-  val parse_term: string -> Term.term
+  module Typ:  sig val parse: string -> Typ.t  end
+  module Kind: sig val parse: string -> Kind.t end
+  module Term: sig val parse: string -> Term.t end
 
 end
 
 module Channel : sig
   module Raw : sig
     open Raw
-    val parse_typ: in_channel -> string -> typ
-    val parse_kind: in_channel -> string -> typ kind
-    val parse_term: in_channel -> string -> (typ kind, typ) term
+    module Typ:  sig val parse: in_channel -> string -> typ                  end
+    module Kind: sig val parse: in_channel -> string -> typ kind             end
+    module Term: sig val parse: in_channel -> string -> (typ kind, typ) term end
   end
 
-  val parse_typ: in_channel -> string -> Typ.typ
-  val parse_kind: in_channel -> string -> Typ.typ Typ.kind
-  val parse_term: in_channel -> string -> Term.term
+  module Typ:  sig val parse: in_channel -> string -> Typ.t  end
+  module Kind: sig val parse: in_channel -> string -> Kind.t end 
+  module Term: sig val parse: in_channel -> string -> Term.t end 
 
 end

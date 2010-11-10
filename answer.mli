@@ -1,6 +1,6 @@
-open Ast.Typ
+open Ast
 
-type reason = TYPES of typ * typ | KINDS of typ kind * typ kind
+type reason = TYPES of Typ.t * Typ.t | KINDS of Kind.t * Kind.t
 type t = Yes | No of reason list
 
 val ( &*& ): t -> t -> t

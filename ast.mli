@@ -55,35 +55,57 @@ module Typ : sig
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
+   type t = typ
+
 (** map on free variables *)
-  val var_map_kind: (Var.free -> pre_typ) -> typ kind -> typ kind
-  val var_map_typ:  (Var.free -> pre_typ) -> typ -> typ
+  val var_map:  (Var.free -> pre_typ) -> t -> t
 
 (** substitution of free variables *)
-  val subst_typ: typ -> Var.free -> pre_typ -> typ
-  val subst_kind: typ kind -> Var.free -> pre_typ -> typ kind
-  val subst_kind_fields:
-      (Var.bound * typ kind) Label.AList.t -> Var.free -> pre_typ
-        -> (Var.bound * typ kind) Label.AList.t
+  val subst: t -> Var.free -> pre_typ -> t
 
 (** substitution of bound variables *)
-  val bsubst_typ: typ -> Var.bound -> typ -> typ
-  val bsubst_kind: typ kind -> Var.bound -> typ -> typ kind
-  val bsubst_kind_fields:
-      (Var.bound * typ kind) Label.AList.t -> Var.bound -> typ
-        -> (Var.bound * typ kind) Label.AList.t
+  val bsubst: t -> Var.bound -> t -> t
 
 (** equality test *)
-  val equal_kind: typ kind -> typ kind -> bool
-  val equal_typ: typ -> typ -> bool
+  val equal: t -> t -> bool
 
 (** smart constructors *)
-  val mkLam: Var.free -> typ kind located -> typ -> pre_typ
-  val mkPi: Var.free -> typ kind -> typ kind -> typ kind
+  val mkLam: Var.free -> t kind located -> t -> pre_typ
+  val mkBaseForall: Var.free -> t kind located -> t -> pre_typ
+end
+
+module Kind : sig
+  type 'a kind = 'a Typ.kind =
+    | Base
+    | Pi of Typ.Var.bound * 'a kind * 'a kind
+    | Sigma of (Typ.Var.bound * 'a kind) Label.AList.t
+    | Single of 'a
+
+  type t = Typ.t kind
+
+(** map on free variables *)
+  val var_map: (Typ.Var.free -> Typ.pre_typ) -> t -> t
+
+(** substitution of free variables *)
+  val subst: t -> Typ.Var.free -> Typ.pre_typ -> t
+  val subst_fields:
+      (Typ.Var.bound * t) Label.AList.t -> Typ.Var.free -> Typ.pre_typ
+        -> (Typ.Var.bound * t) Label.AList.t
+
+(** substitution of bound variables *)
+  val bsubst: t -> Typ.Var.bound -> Typ.t -> t
+  val bsubst_fields:
+      (Typ.Var.bound * t) Label.AList.t -> Typ.Var.bound -> Typ.t
+        -> (Typ.Var.bound * t) Label.AList.t
+
+(** equality test *)
+  val equal: t -> t -> bool
+
+(** smart constructors *)
+  val mkPi: Typ.Var.free -> t -> t -> t
 (** non-dependent version of mkPi *)
-  val mkArrow: typ kind -> typ kind -> typ kind
-  val mkSigma: (Var.free * typ kind) Label.AList.t -> typ kind
-  val mkBaseForall: Var.free -> typ kind located -> typ -> pre_typ
+  val mkArrow: t -> t -> t
+  val mkSigma: (Typ.Var.free * t) Label.AList.t -> t
 end
 
 (** AST for terms *)
@@ -101,24 +123,26 @@ module Term : sig
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
 
+  type t = term
+
 (** maps on free variables *)
-  val var_map_term_var: (Var.free -> pre_term) -> term -> term
-  val var_map_typ_var: (Typ.Var.free -> Typ.pre_typ) -> term -> term
+  val var_map_term_var: (Var.free -> pre_term) -> t -> t
+  val var_map_typ_var: (Typ.Var.free -> Typ.pre_typ) -> t -> t
 
 (** substitution of free variables *)
-  val subst_term_var: term -> Var.free -> pre_term -> term
-  val subst_typ_var: term -> Typ.Var.free -> Typ.pre_typ -> term
+  val subst_term_var: t -> Var.free -> pre_term -> t
+  val subst_typ_var: t -> Typ.Var.free -> Typ.pre_typ -> t
 
 (** substitution of bound variables *)
-  val bsubst_term_var: term -> Var.bound -> term -> term
-  val bsubst_typ_var: term -> Typ.Var.bound -> Typ.typ -> term
+  val bsubst_term_var: t -> Var.bound -> t -> t
+  val bsubst_typ_var: t -> Typ.Var.bound -> Typ.typ -> t
 
 (** equality test *)
-  val equal: term -> term -> bool
+  val equal: t -> t -> bool
 
 (** smart constructors *)
-  val mkLam: Var.free -> Typ.typ -> term -> pre_term
-  val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> term -> pre_term
+  val mkLam: Var.free -> Typ.typ -> t -> pre_term
+  val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> t -> pre_term
 
 end
 

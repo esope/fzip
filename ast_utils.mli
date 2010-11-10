@@ -23,8 +23,8 @@ module Decode : sig
 
   module Typ : sig
     open Raw
-    val typ: Typ.typ -> typ
-    val kind: Typ.typ Typ.kind -> typ kind
+    val typ: Typ.t -> typ
+    val kind: Kind.t -> typ kind
   end
 end
 
@@ -42,10 +42,10 @@ module PPrint : sig
       val string: typ -> string
     end
 
-    open Ast.Typ
-    val channel: Pprint.Channel.channel -> typ -> unit
-    val buffer: Pprint.Buffer.channel -> typ -> unit
-    val string: typ -> string
+    open Ast
+    val channel: Pprint.Channel.channel -> Typ.t -> unit
+    val buffer: Pprint.Buffer.channel -> Typ.t -> unit
+    val string: Typ.t -> string
   end
 
   module Kind : sig
@@ -55,10 +55,10 @@ module PPrint : sig
       val string: typ kind -> string
     end
 
-    open Ast.Typ
-    val channel: Pprint.Channel.channel -> typ kind -> unit
-    val buffer: Pprint.Buffer.channel -> typ kind -> unit
-    val string: typ kind -> string
+    open Ast
+    val channel: Pprint.Channel.channel -> Kind.t -> unit
+    val buffer: Pprint.Buffer.channel -> Kind.t -> unit
+    val string: Kind.t -> string
   end
 
 end

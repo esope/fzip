@@ -21,61 +21,85 @@ let term_expr_parser = convert_parser Parser.main_term_expr
 
 module String =  struct
   module Raw = struct
-    let parse_typ s =
-      let lexbuf = Ulexing.from_utf8_string s in
-      let file = "<string>" in
-      parser_error_handle
-        typ_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Typ = struct
+      let parse s =
+        let lexbuf = Ulexing.from_utf8_string s in
+        let file = "<string>" in
+        parser_error_handle
+          typ_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
 
-    let parse_kind s =
-      let lexbuf = Ulexing.from_utf8_string s in
-      let file = "<string>" in
-      parser_error_handle
-        kind_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Kind = struct
+      let parse s =
+        let lexbuf = Ulexing.from_utf8_string s in
+        let file = "<string>" in
+        parser_error_handle
+          kind_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
 
-    let parse_term s =
-      let lexbuf = Ulexing.from_utf8_string s in
-      let file = "<string>" in
-      parser_error_handle
-        term_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Term = struct
+      let parse s =
+        let lexbuf = Ulexing.from_utf8_string s in
+        let file = "<string>" in
+        parser_error_handle
+          term_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
   end
 
-  let parse_typ s =
-    Ast_utils.Encode.Typ.typ (Raw.parse_typ s)
+  module Typ = struct
+    let parse s =
+      Ast_utils.Encode.Typ.typ (Raw.Typ.parse s)
+  end
 
-  let parse_kind s =
-    Ast_utils.Encode.Typ.kind (Raw.parse_kind s)
+  module Kind = struct
+    let parse s =
+      Ast_utils.Encode.Typ.kind (Raw.Kind.parse s)
+  end
 
-  let parse_term s =
-    Ast_utils.Encode.Term.term (Raw.parse_term s)
+  module Term = struct
+    let parse s =
+      Ast_utils.Encode.Term.term (Raw.Term.parse s)
+  end
 
 end
 
 module Channel =  struct
   module Raw = struct
-    let parse_typ chan file =
-      let lexbuf = Ulexing.from_utf8_channel chan in
-      parser_error_handle
-        typ_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Typ = struct
+      let parse chan file =
+        let lexbuf = Ulexing.from_utf8_channel chan in
+        parser_error_handle
+          typ_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
 
-    let parse_kind chan file =
-      let lexbuf = Ulexing.from_utf8_channel chan in
-      parser_error_handle
-        kind_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Kind = struct
+      let parse chan file =
+        let lexbuf = Ulexing.from_utf8_channel chan in
+        parser_error_handle
+          kind_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
 
-    let parse_term chan file =
-      let lexbuf = Ulexing.from_utf8_channel chan in
-      parser_error_handle
-        term_expr_parser (fun () -> Lexer.token file lexbuf)
+    module Term = struct   
+      let parse chan file =
+        let lexbuf = Ulexing.from_utf8_channel chan in
+        parser_error_handle
+          term_expr_parser (fun () -> Lexer.token file lexbuf)
+    end
   end
 
-  let parse_typ chan file =
-    Ast_utils.Encode.Typ.typ (Raw.parse_typ chan file)
+  module Typ = struct
+    let parse chan file =
+      Ast_utils.Encode.Typ.typ (Raw.Typ.parse chan file)
+  end
 
-  let parse_kind chan file =
-    Ast_utils.Encode.Typ.kind (Raw.parse_kind chan file)
+  module Kind = struct
+    let parse chan file =
+      Ast_utils.Encode.Typ.kind (Raw.Kind.parse chan file)
+  end
 
-  let parse_term chan file =
-    Ast_utils.Encode.Term.term (Raw.parse_term chan file)
+  module Term = struct
+    let parse chan file =
+      Ast_utils.Encode.Term.term (Raw.Term.parse chan file)
+  end
 
 end

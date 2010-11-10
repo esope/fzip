@@ -7,11 +7,24 @@ type ('a, 'b) t =
 
 let empty = { term_vars = [] ; typ_vars = [] }
 
-let get_term_var x e = List.assoc x e.term_vars
-let get_typ_var x e = List.assoc x e.typ_vars
+module Term = struct
 
-let add_term_var x t e =
-  { e with term_vars = (x, t) :: e.term_vars }
-let add_typ_var x k e =
-  { e with typ_vars = (x, k) :: e.typ_vars }
+  type var = term_var
 
+  let get_var x e = List.assoc x e.term_vars
+
+  let add_var x t e =
+    { e with term_vars = (x, t) :: e.term_vars }
+
+end
+
+module Typ = struct
+
+  type var = typ_var
+
+  let get_var x e = List.assoc x e.typ_vars
+
+  let add_var x k e =
+    { e with typ_vars = (x, k) :: e.typ_vars }
+
+end

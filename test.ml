@@ -1,4 +1,4 @@
-open Ast.Typ
+open Ast
 open Ast_utils
 open Parser_utils
 open OUnit
@@ -7,21 +7,21 @@ open Wftype
 (* tests about parsing *)
 let test_kind_parser k1 k2 =
   ("Parsing " ^ k1) >:: (fun () ->
-    let k1 = String.parse_kind k1
-    and k2 = String.parse_kind k2 in
-    assert_equal ~cmp:equal_kind k1 k2)
+    let k1 = String.Kind.parse k1
+    and k2 = String.Kind.parse k2 in
+    assert_equal ~cmp:Kind.equal k1 k2)
 
 let test_typ_parser t1 t2 =
   ("Parsing " ^ t1) >:: (fun () ->
-    let t1 = String.parse_typ t1
-    and t2 = String.parse_typ t2 in
-    assert_equal ~cmp:equal_typ t1 t2)
+    let t1 = String.Typ.parse t1
+    and t2 = String.Typ.parse t2 in
+    assert_equal ~cmp:Typ.equal t1 t2)
 
 let test_term_parser t1 t2 =
   ("Parsing " ^ t1) >:: (fun () ->
-    let t1 = String.parse_term t1
-    and t2 = String.parse_term t2 in
-    assert_equal ~cmp:Ast.Term.equal t1 t2)
+    let t1 = String.Term.parse t1
+    and t2 = String.Term.parse t2 in
+    assert_equal ~cmp:Term.equal t1 t2)
 
 let tests_parsing = "Tests about parsing" >:::
   [
@@ -59,8 +59,8 @@ let tests_parsing = "Tests about parsing" >:::
 (* tests about wftype *)
 let test_wftype ~t ~k =
   (Printf.sprintf "⊢ %s :: %s ?" t k) >:: (fun () ->
-    let t = String.parse_typ t
-    and k = String.parse_kind k in
+    let t = String.Typ.parse t
+    and k = String.Kind.parse k in
     assert_equal
       ~printer:PPrint.Kind.string
       ~cmp:(sub_kind_b Env.empty) (wftype Env.empty t) k)
@@ -73,19 +73,19 @@ let tests_wftype = "Tests about wftype" >:::
 
 (* tests about normal forms and equivalence *)
 let test_nf ~t ~nf () =
-  let t = String.parse_typ t
-  and nf = String.parse_typ nf in
+  let t = String.Typ.parse t
+  and nf = String.Typ.parse nf in
   let nf_e =
     let k = wftype Env.empty t in
     Normalize.typ_norm Env.empty t k in
-  assert_equal ~printer:PPrint.Typ.string ~cmp:equal_typ nf_e nf
+  assert_equal ~printer:PPrint.Typ.string ~cmp:Typ.equal nf_e nf
 
 let test_equiv ?(neg=false) ~env ~t ~u ~k () =
   TestCase (fun () ->
     assert_bool (Printf.sprintf "env ⊢ %s ≡ %s :: %s?" t u k)
-      (let t = String.parse_typ t
-      and u = String.parse_typ u
-      and k = String.parse_kind k in
+      (let t = String.Typ.parse t
+      and u = String.Typ.parse u
+      and k = String.Kind.parse k in
       let b = Normalize.equiv_typ_b env t u k in
       if neg then not b else b))
 
@@ -161,9 +161,9 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"Π(c :: *) S(c) => *" () ;
 
    (let env =
-     Env.add_typ_var (Ast.Typ.Var.make "f") (String.parse_kind "(* => *) => *")
-       (Env.add_typ_var (Ast.Typ.Var.make "c")
-          (String.parse_kind "*") Env.empty) in
+     Env.Typ.add_var (Ast.Typ.Var.make "f") (String.Kind.parse "(* => *) => *")
+       (Env.Typ.add_var (Ast.Typ.Var.make "c")
+          (String.Kind.parse "*") Env.empty) in
    test_equiv
      ~neg:true
      ~env
@@ -172,10 +172,10 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"*" ()) ;
 
    (let env =
-     Env.add_typ_var (Ast.Typ.Var.make "f")
-       (String.parse_kind "(S(c) => *) => *")
-       (Env.add_typ_var (Ast.Typ.Var.make "c")
-          (String.parse_kind "*") Env.empty) in
+     Env.Typ.add_var (Ast.Typ.Var.make "f")
+       (String.Kind.parse "(S(c) => *) => *")
+       (Env.Typ.add_var (Ast.Typ.Var.make "c")
+          (String.Kind.parse "*") Env.empty) in
    test_equiv
      ~env
      ~t:"f (λ (x :: *) c)"
@@ -186,8 +186,8 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
 (* tests about wfterm *)
 let test_wfterm ~e ~t =
   (Printf.sprintf "⊢ %s : %s?" e t) >:: (fun () ->
-    let e = String.parse_term e
-    and t = String.parse_typ t in
+    let e = String.Term.parse e
+    and t = String.Typ.parse t in
     assert_equal
       ~printer:PPrint.Typ.string
       ~cmp:(sub_type_b Env.empty) (Wfterm.wfterm Env.empty e) t)
@@ -208,8 +208,8 @@ let tests_wfterm = "Tests about wfterm" >:::
 (* tests about wfsubtype *)
 let test_wfsubtype ~t ~u =
   (Printf.sprintf "⊢ %s ≤ %s?" t u) >:: (fun () ->
-    let t = String.parse_typ t
-    and u = String.parse_typ u in
+    let t = String.Typ.parse t
+    and u = String.Typ.parse u in
     assert_equal
       ~printer:PPrint.Typ.string
       ~cmp:(sub_type_b Env.empty) t u)
@@ -240,8 +240,8 @@ let tests_wfsubtype = "Tests about wfsubtype" >:::
 (* tests about sub_kind *)
 let test_sub_kind ~k1 ~k2 =
   (Printf.sprintf "⊢ %s ≤ %s?" k1 k2) >:: (fun () ->
-    let k1 = String.parse_kind k1
-    and k2 = String.parse_kind k2 in
+    let k1 = String.Kind.parse k1
+    and k2 = String.Kind.parse k2 in
     assert_equal
       ~printer:PPrint.Kind.string
       ~cmp:(sub_kind_b Env.empty) k1 k2)

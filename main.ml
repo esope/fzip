@@ -5,6 +5,6 @@ let () =
     | k when k > 1 -> (open_in Sys.argv.(1), Sys.argv.(1))
     | _ -> assert false
   in
-  let term = Parser_utils.Channel.parse_term input name in
+  let term = Parser_utils.Channel.Term.parse input name in
   let typ = Wfterm.wfterm Env.empty term in
   Ast_utils.PPrint.Typ.channel stdout typ ; print_newline ()

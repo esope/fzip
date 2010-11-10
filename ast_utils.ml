@@ -14,11 +14,11 @@ module Encode = struct
       | Raw.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
-          mkPi (Var.make x) k1' k2'
+          Kind.mkPi (Var.make x) k1' k2'
       | Raw.Sigma f ->
           let f = Label.AList.map
               (fun (x, k) -> (Var.make x, kind_rec typ k)) f in
-          mkSigma f
+          Kind.mkSigma f
       | Raw.Single t -> Single (typ t)
 
     let rec typ_rec kind t =
