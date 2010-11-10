@@ -60,14 +60,14 @@ module Typ = struct
     | [] -> Var.bzero
     | (_label, (y, k)) :: l ->
         let n = Var.bmax (h_kind x k) (h_sigmas h_kind x l) in
-        if n = Var.bzero then n else Var.bmax n (Var.bsucc y)
+        if Var.beq n Var.bzero then n else Var.bmax n (Var.bsucc y)
 
   let rec h_kind_rec h_typ (x : Var.free) = function
     | Base -> Var.bzero
     | Sigma f -> h_sigmas (h_kind_rec h_typ) x f
     | Pi(y, k1, k2) ->
         let n = Var.bmax (h_kind_rec h_typ x k1) (h_kind_rec h_typ x k2) in
-        if n = Var.bzero then n else Var.bmax n (Var.bsucc y)
+        if Var.beq n Var.bzero then n else Var.bmax n (Var.bsucc y)
     | Single t -> h_typ x t
 
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
@@ -132,12 +132,12 @@ module Typ = struct
 
   let subst_typ t x u =
     var_map_typ
-      (fun y -> if x = y then u else FVar y)
+      (fun y -> if Var.eq x y then u else FVar y)
       t
 
   let subst_kind k x u =
     var_map_kind
-      (fun y -> if x = y then u else FVar y)
+      (fun y -> if Var.eq x y then u else FVar y)
       k
 
   let subst_kind_fields f x u =
@@ -154,7 +154,7 @@ module Typ = struct
   | Base as k -> k
   | Pi(y, k1, k2) ->
       let k1' = bsubst_kind_rec bsubst_typ k1 x u in
-      if x = y
+      if Var.beq x y
       then Pi(y, k1', k2)
       else Pi(y, k1', bsubst_kind_rec bsubst_typ k2 x u)
   | Sigma f ->
@@ -164,13 +164,13 @@ module Typ = struct
 
   let rec pre_bsubst_typ_rec bsubst_kind t x u = match t with
   | (FVar _) as v -> v
-  | (BVar y) as b -> if x = y then u.content else b
+  | (BVar y) as b -> if Var.beq x y then u.content else b
   | App (t1, t2) ->
       App(bsubst_typ_rec bsubst_kind t1 x u,
           bsubst_typ_rec bsubst_kind t2 x u)
   | Lam (y, k, t) ->
       let k' = { k with content = bsubst_kind k.content x u } in
-      if x = y
+      if Var.beq x y
       then Lam(y, k', t)
       else Lam (y, k', bsubst_typ_rec bsubst_kind t x u)
   | Record m ->
@@ -179,7 +179,7 @@ module Typ = struct
       Proj(bsubst_typ_rec bsubst_kind t x u, lab)
   | BaseForall (y, k, t) ->
       let k' = { k with content = bsubst_kind k.content x u } in
-      if x = y
+      if Var.beq x y
       then BaseForall (y, k', t)
       else BaseForall (y, k', bsubst_typ_rec bsubst_kind t x u)
   | BaseRecord m ->
@@ -226,7 +226,7 @@ module Typ = struct
   | (BaseRecord m, BaseRecord m') | (Record m, Record m') ->
       Label.Map.equal (eq_typ_rec eq_kind) m m'
   | (Proj(t,lab), Proj(t',lab')) ->
-      eq_typ_rec eq_kind t t' && lab.content = lab'.content
+      eq_typ_rec eq_kind t t' && Label.equal lab.content lab'.content
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | BaseRecord _ |
     BaseArrow(_,_) | BaseForall(_,_,_) | App(_,_) | Proj(_,_)), _) -> false
 
@@ -333,7 +333,7 @@ module Term = struct
 
   let subst_term_var t x u =
     var_map_term_var
-      (fun y -> if x = y then u else FVar y)
+      (fun y -> if Var.eq x y then u else FVar y)
       t
 
   let rec pre_var_map_typ_var f_free = function
@@ -362,17 +362,17 @@ module Term = struct
 
   let subst_typ_var t x u =
     var_map_typ_var
-      (fun y -> if x = y then u else Typ.FVar y)
+      (fun y -> if Typ.Var.eq x y then u else Typ.FVar y)
       t
 
   let rec pre_bsubst_term_var t x u = match t with
   | (FVar _) as v -> v
-  | (BVar y) as b -> if x = y then u.content else b
+  | (BVar y) as b -> if Var.beq x y then u.content else b
   | App (t1, t2) ->
       App(bsubst_term_var t1 x u,
           bsubst_term_var t2 x u)
   | Lam (y, k, t) ->
-      if x = y
+      if Var.beq x y
       then Lam(y, k, t)
       else Lam (y, k, bsubst_term_var t x u)
   | Record m ->
@@ -402,7 +402,7 @@ module Term = struct
       Proj(bsubst_typ_var t x u, lab)
   | Gen(y, k, t) ->
       let k' = { k with content = Typ.bsubst_kind k.content x u } in
-      if x = y
+      if Typ.Var.beq x y
       then Gen(y, k', t)
       else Gen (y, k', bsubst_typ_var t x u)
   | Inst(t, tau) ->
@@ -423,7 +423,7 @@ module Term = struct
   | (Record m, Record m') ->
       Label.AList.equal eq m m'
   | (Proj(t,lab), Proj(t',lab')) ->
-      eq t t' && lab.content = lab'.content
+      eq t t' && Label.equal lab.content lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) ->
       Typ.Var.beq x x' && Typ.eq_kind k.content k'.content && eq t t'
   | (Inst(t,tau), Inst(t',tau')) ->

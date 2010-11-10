@@ -131,8 +131,8 @@ let rec path_norm env t = match t.content with
 and typ_norm env t k = match k with
 | Base | Single _ ->
     let (t', _) = head_norm env t in
-    let (t'', tau) = path_norm env t' in
-    assert (tau = Base) ;
+    let (t'', k'') = path_norm env t' in
+    assert (Ast.Typ.eq_kind k'' Base) ;
     t''
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm env k1) in
@@ -232,7 +232,7 @@ and equiv_path env p1 p2 =
         | No reasons -> WithValue.No reasons
       end
   | (FVar x, FVar x') ->
-      if x = x'
+      if Var.eq x x'
       then
         begin
           try WithValue.Yes (Env.get_typ_var x env)

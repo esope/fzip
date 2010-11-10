@@ -1,5 +1,4 @@
 * add labeled singletons
-* hunting uses of polymorphic equality
 * check the Sato-Pollack encoding
 * better pretty printing for bound variables
 * open existential types
