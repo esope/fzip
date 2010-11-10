@@ -1,4 +1,3 @@
-* add labeled singletons
 * better pretty printing for bound variables
 * open existential types
 * examples, tests with files

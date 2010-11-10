@@ -7,7 +7,7 @@ module Raw : sig
     | Base
     | Pi of string * 'a kind * 'a kind
     | Sigma of (string * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type typ = pre_typ located
   and pre_typ =
@@ -42,7 +42,7 @@ module Typ : sig
     | Base
     | Pi of Var.bound * 'a kind * 'a kind
     | Sigma of (Var.bound * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type typ = pre_typ located
   and pre_typ =
@@ -82,7 +82,7 @@ module Kind : sig
     | Base
     | Pi of Typ.Var.bound * 'a kind * 'a kind
     | Sigma of (Typ.Var.bound * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type t = Typ.t kind
 

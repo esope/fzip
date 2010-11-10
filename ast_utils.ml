@@ -19,7 +19,7 @@ module Encode = struct
           let f = Label.AList.map
               (fun (x, k) -> (Var.make x, kind_rec typ k)) f in
           Kind.mkSigma f
-      | Raw.Single t -> Single (typ t)
+      | Raw.Single (t, k) -> Single (typ t, kind_rec typ k)
 
     let rec typ_rec kind t =
       { t with content = pre_typ_rec kind t.content }
@@ -86,7 +86,7 @@ module Decode = struct
       | Typ.Sigma f ->
           Sigma (Label.AList.map
                    (fun (x,k) -> (Typ.Var.bto_string x, kind_rec typ k)) f)
-      | Typ.Single t -> Single (typ t)
+      | Typ.Single (t, k) -> Single (typ t, kind_rec typ k)
 
     let rec typ_rec kind t =
       { t with content = pre_typ_rec kind t.content }
@@ -125,7 +125,7 @@ module PPrint = struct
 
   let is_delimited = function
     | Pi(_,_,_) -> false
-    | Base | Sigma _ | Single _ -> true
+    | Base | Sigma _ | Single (_,_) -> true
 
   let ident = Pprint.text
 
@@ -145,9 +145,12 @@ module PPrint = struct
                   (kind_rec typ k))
                :: acc)
              f [])
-    | Single t ->
+    | Single (t, Base) ->
         prefix "S"
           (parens (typ t))
+    | Single (t, k) ->
+        prefix "S"
+          (parens (infix "::" (typ t) (kind_rec typ k)))
 
   let is_delimited t =
     match t.content with

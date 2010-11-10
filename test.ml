@@ -71,6 +71,24 @@ let tests_wftype = "Tests about wftype" >:::
    test_wftype ~t:"fun (x::*) fun (y::*=>*) y x" ~k:"* => (* => *) => *" ;
    test_wftype ~t:"fun (x::*) ∀ (y::*=>*) y x" ~k:"* => *" ;
    test_wftype ~t:"fun (x::*) ∃ (y::*=>*) y x" ~k:"* => *" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type C= x.A type D=x.B >"
+     ~k:"< type A::* type B::* > => < type C::* type D::* >" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type C= x.A type D=x.B >"
+     ~k:"Π (x :: < type A::* type B::* >) < type C::S(x.A) type D::S(x.B) >" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::* type B::* >) S(x :: < type A::* type B::* >)" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::* type B::* >) S(x :: < type A::* >)" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::* type B::* >) S(x :: < type A::* >)" ;
+   test_wftype
+     ~t:"fun (x::<type A::* type B::*>) < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::* type B::* >) S(x :: < >)" ;
  ]
 
 (* tests about normal forms and equivalence *)
@@ -370,6 +388,34 @@ let tests_sub_kind = "Tests about sub_kind" >:::
             type A :: \
               < type D :: * type C :: S(b.E) > \
           >" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: Π(x::*)S(x))"
+     ~k2:"*=>*" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: Π(x::*)S(x))"
+     ~k2:"Π(x::*) S(x)" ;
+
+   test_sub_kind
+     ~k1:"Π(x::*) S(x)"
+     ~k2:"S(fun(x::*)x :: Π(x::*)S(x))" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: Π(x::*)S(x))"
+     ~k2:"S(fun(x::*)x :: Π(x::*) S(x))" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: Π(x::*) S(x))"
+     ~k2:"S(fun(x::*)x :: Π(x::*)S(x))" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: Π(x::*)S(x))"
+     ~k2:"S(fun(x::*)x :: *=>*)" ;
+
+   test_sub_kind
+     ~k1:"S(fun(x::*)x :: *=>*)"
+     ~k2:"S(fun(x::*)x :: Π(x::*)S(x))" ;
 
  ]
 

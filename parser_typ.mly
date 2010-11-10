@@ -26,7 +26,8 @@ undelimited_kind:
 delimited_kind:
 | STAR { Base }
 | k1=delimited_kind DBLARROW k2=delimited_kind { mkArrow k1 k2 }
-| SINGLE LPAR t=typ RPAR { Single t }
+| SINGLE LPAR t=typ RPAR { Single (t, Base) }
+| SINGLE LPAR t=typ DBLCOLON k=kind RPAR { Single (t, k) }
 | LANGLE f=kind_fields RANGLE { Sigma f }
 | LPAR k=kind RPAR { k }
 

@@ -2,6 +2,10 @@ open Ast
 open Ast.Typ
 open Location
 
+let option_map f = function
+  | None -> None
+  | Some x -> Some (f x)
+
 type env = (typ, typ kind) Env.t
 
 (* given a type [ty] of kind [Sigma f] and a projection label [l],
@@ -23,14 +27,42 @@ let rec select_all_fields ty = function
       Label.Map.add label (ty_lab, k)
       (select_all_fields ty (Kind.bsubst_fields f x ty_lab))
 
+let rec hd_norm_singleton_fields f t = match f with
+| [] -> []
+| (lab, (x, k)) :: f ->
+    let t_lab = dummy_locate (Proj(t, dummy_locate lab)) in
+    let k' = Single(t_lab, k) in
+    let y = Var.bfresh x in
+    let f' = hd_norm_singleton_fields (Kind.bsubst_fields f x t_lab) t in
+    (lab, (y, k')) :: f'
+
+let rec hd_norm_singleton k t = match k with
+| Base | Single (_, Base) -> Single(t, Base)
+| Single(t', k') ->
+    hd_norm_singleton (hd_norm_singleton k' t') t
+| Pi(y, k1, k2) ->
+    let x = Var.bfresh y in
+    let x_var = dummy_locate (FVar x) in
+    let t' = dummy_locate (App(t, x_var))
+    and k' = Kind.bsubst k2 y x_var in
+    Kind.mkPi x k1 (Single(t', k'))
+| Sigma f ->
+    Kind.mkSigma (hd_norm_singleton_fields f t)
+
+let simplify_kind = function
+  | Single(t, k) -> hd_norm_singleton k t
+  | (Base | Pi(_,_,_) | Sigma _) as k -> k
+
 let rec head_norm env t = match t.content with
 | BaseForall(_, _, _) | BaseExists (_,_,_) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Base)
 | FVar x ->
     begin
       try
-        let k = Env.Typ.get_var x env in
-        match k with Single u -> (u, Some k)
+        let k = simplify_kind (Env.Typ.get_var x env) in
+        match k with
+        | Single (u, Base) -> (u, Some k)
+        | Single (_, _) -> assert false
         | (Base | Pi(_,_,_) | Sigma _) -> (t, Some k)
       with Not_found -> assert false
     end
@@ -39,13 +71,14 @@ let rec head_norm env t = match t.content with
 | App(t1, t2) ->
     begin
       let (t1', k) = head_norm env t1 in
-      match (t1'.content, k) with
+      match (t1'.content, option_map simplify_kind k) with
       | (Lam (x, _tau, t), None) ->
           head_norm env (bsubst t x t2)
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
             match Kind.bsubst k1 x t2 with
-            | Single u -> (u , Some k1)
+            | Single (u, Base) -> (u , Some k1)
+            | Single (_, _) -> assert false
             | (Base | Pi(_,_,_) | Sigma _) ->
                 ({ t with content = App(t1', t2) } , Some k1)
           end
@@ -53,12 +86,12 @@ let rec head_norm env t = match t.content with
         Record _ | BaseArrow (_, _) | BaseRecord _ |
         BaseForall (_, _, _) | BaseExists (_, _, _)),
          (None |
-         Some (Base | Single _ | Pi(_,_,_) | Sigma _))) -> assert false
+         Some (Base | Single (_,_) | Pi(_,_,_) | Sigma _))) -> assert false
     end
 | Proj(t', lab) ->
     begin
       let (t', k) = head_norm env t' in
-      match (t'.content, k) with
+      match (t'.content, option_map simplify_kind k) with
       | (Record m, None) ->
           begin
             try head_norm env (Label.Map.find lab.content m)
@@ -69,8 +102,9 @@ let rec head_norm env t = match t.content with
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Sigma f)) ->
           begin
             try
-              match select_kind_field lab t' f with
-              | (Single u) as k -> (u, Some k)
+              match simplify_kind (select_kind_field lab t' f) with
+              | (Single (u, Base)) as k -> (u, Some k)
+              | Single (_, _) -> assert false
               | (Base | Pi(_,_,_) | Sigma _) as k ->
                   ({ t with content = Proj(t', lab) }, Some k)
             with Not_found ->
@@ -81,7 +115,7 @@ let rec head_norm env t = match t.content with
         BaseForall (_, _, _) | BaseExists (_,_,_) | Lam (_, _, _) | App(_,_) |
         Proj(_,_) | Record _),
          (None |
-         Some (Base | Single _ | Pi(_,_,_) | Sigma _))) -> assert false
+         Some (Base | Single (_,_) | Pi(_,_,_) | Sigma _))) -> assert false
     end
 
 let rec path_norm env t = match t.content with
@@ -117,16 +151,16 @@ let rec path_norm env t = match t.content with
   | App(p, t) ->
       begin
         let (p', k) = path_norm env p in
-        match k with
+        match simplify_kind k with
         | Pi(x, k1, k2) ->
             let t' = typ_norm env t k1 in
             ({ t with content = App(p', t') }, Kind.bsubst k2 x t)
-        | Base | Single _ | Sigma _ -> assert false
+        | Base | Single (_,_) | Sigma _ -> assert false
       end
   | Proj(p, lab) ->
       begin
         let (p', k) = path_norm env p in
-        match k with
+        match simplify_kind k with
         | Sigma f ->
             begin
               try
@@ -135,15 +169,16 @@ let rec path_norm env t = match t.content with
                 Error.raise_error Error.syntax t.startpos t.endpos
                   ("Illegal label projection: " ^ lab.content ^ ".")
             end
-        | Base | Single _ | Pi(_,_,_) -> assert false
+        | Base | Single (_,_) | Pi(_,_,_) -> assert false
       end
 
-and typ_norm env t k = match k with
-| Base | Single _ ->
+and typ_norm env t k = match simplify_kind k with
+| Base | Single (_,Base) ->
     let (t', _) = head_norm env t in
     let (t'', k'') = path_norm env t' in
     assert (Ast.Kind.equal k'' Base) ;
     t''
+| Single (_, _) -> assert false
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm env k1) in
     let x = Var.bfresh y in
@@ -159,7 +194,8 @@ and typ_norm env t k = match k with
 
 and kind_norm env = function
   | Base -> Base
-  | Single t -> Single (typ_norm env t Base)
+  | Single (t, Base) -> Single (typ_norm env t Base, Base)
+  | Single (t, k) -> kind_norm env (hd_norm_singleton k t)
   | Pi(x, k1, k2) ->
       let k1' = kind_norm env k1
       and y = Var.bfresh x in
@@ -190,10 +226,10 @@ let rec try_equiv_typ env t1 t2 k =
       begin
         match equiv_path env p1 p2 with
         | WithValue.Yes Base -> Yes
-        | WithValue.Yes (Single _ | Pi(_,_,_) | Sigma _) -> assert false
+        | WithValue.Yes (Single (_,_) | Pi(_,_,_) | Sigma _) -> assert false
         | WithValue.No reasons -> No reasons
       end
-  | Single _ -> Yes
+  | Single (_,_) -> Yes (* used to be on Single(_,Base) only *)
   | Pi(x, k1, k2) ->
       let y = Var.bfresh x in
       let y_var = dummy_locate (FVar y) in
@@ -252,21 +288,21 @@ and equiv_path env p1 p2 =
       else WithValue.No []
   | (App(p, t), App(p', t')) ->
       begin
-        match equiv_path env p p' with
+        match WithValue.map simplify_kind (equiv_path env p p') with
         | WithValue.Yes (Pi(x, k1, k2)) ->
             begin
               match equiv_typ env t t' k1 with
               | Yes -> WithValue.Yes (Kind.bsubst k2 x t)
               | No reasons -> WithValue.No reasons
             end
-        | WithValue.Yes (Base | Single _ | Sigma _) -> assert false
+        | WithValue.Yes (Base | Single (_,_) | Sigma _) -> assert false
         | WithValue.No reasons -> WithValue.No reasons
       end
   | (Proj(t, lab), Proj(t', lab')) when Label.equal lab.content lab'.content ->
       begin
-        match equiv_path env t t' with
+        match WithValue.map simplify_kind (equiv_path env t t') with
         | WithValue.Yes (Sigma f) -> WithValue.Yes (select_kind_field lab t f)
-        | WithValue.Yes (Base | Single _ | Pi(_,_,_)) -> assert false
+        | WithValue.Yes (Base | Single (_,_) | Pi(_,_,_)) -> assert false
         | WithValue.No reasons -> WithValue.No reasons
       end
   | ((FVar _ | BVar _ | Proj (_, _) | Record _ | Lam (_, _, _) |
@@ -310,13 +346,17 @@ and equiv_kind env k1 k2 =
 and sub_kind env k1 k2 =
   let x = Var.fresh () in
   let x_var = dummy_locate (FVar x) in
-  check_sub_kind (Env.Typ.add_var x k1 env) x_var k1 k2
+  check_sub_kind (Env.Typ.add_var x k1 env) x_var
+    (simplify_kind k1) (simplify_kind k2)
 
 and try_check_sub_kind env p k k' =
-  let open Answer in match (k, k') with
-  | ((Base | Single _), Base) -> Yes
-  | (Base, Single t') -> equiv_typ env p t' Base
-  | (Single t, Single t') -> equiv_typ env t t' Base
+  let open Answer in
+  match (simplify_kind k, simplify_kind k') with
+  | ((Base | Single (_, Base)), Base) -> Yes
+  | (Base, Single (t', Base)) -> equiv_typ env p t' Base
+  | (Single (t, Base), Single (t', Base)) -> equiv_typ env t t' Base
+  | (Single (_, (Single(_,_) | Pi(_,_,_) | Sigma _)), _)
+  | (_, Single (_,_)) -> assert false (* kinds are simplified by sub_kind *)
   | (Pi(x, k1, k2), Pi(x', k1', k2')) ->
       sub_kind env k1' k1 &*&
       let y = Var.bfresh x in
@@ -340,7 +380,7 @@ and try_check_sub_kind env p k k' =
                   (Kind.mkSigma
                      [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])])
         projections' Yes
-  | ((Base | Single _ | Sigma _ | Pi(_,_,_)), _) -> No []
+  | ((Base | Single (_, Base) | Sigma _ | Pi(_,_,_)), _) -> No []
 
 and check_sub_kind env p k k' =
   let open Answer in

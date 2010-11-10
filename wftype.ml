@@ -8,34 +8,13 @@ type env = (typ, typ kind) Env.t
 let sub_kind = Normalize.sub_kind
 let sub_kind_b = Normalize.sub_kind_b
 
-let rec single_ext k t = match k with
-| Base -> Single t
-| Single _u as k -> k
-| Pi(y, k1, k2) ->
-    let x = Var.bfresh y in
-    let x_var = dummy_locate (FVar x) in
-    let k2' =
-      single_ext (Kind.bsubst k2 y x_var) (dummy_locate (App(t, x_var))) in
-    Kind.mkPi x k1 k2'
-| Sigma f ->
-    Kind.mkSigma (single_ext_fields f t)
-
-and single_ext_fields f t = match f with
-| [] -> []
-| (lab, (x, k)) :: f ->
-    let t_lab = dummy_locate (Proj(t, dummy_locate lab)) in
-    let k' = single_ext k t_lab in
-    let y = Var.bfresh x in
-    let f' = single_ext_fields (Kind.bsubst_fields f x t_lab) t in
-    (lab, (y, k')) :: f'
-
 let rec wftype env t =
   let open Answer in
   match t.content with
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try single_ext (Env.Typ.get_var x env) t
+        try Single (t, Env.Typ.get_var x env)
         with Not_found ->
           Error.raise_error Error.type_wf t.startpos t.endpos
             (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
@@ -43,7 +22,7 @@ let rec wftype env t =
   | App(t1, t2) ->
       let k1 = wftype env t1 and k2 = wftype env t2 in 
       begin
-        match k1 with
+        match Normalize.simplify_kind k1 with
         | Pi(x, k2', k1') ->
             begin
               match sub_kind env k2 k2' with
@@ -53,7 +32,7 @@ let rec wftype env t =
                     (Printf.sprintf "Ill-kinded application:\n%s%!"
                        (error_msg reasons))
             end
-        | Base | Single _ | Sigma _ ->
+        | Base | Single (_,_) | Sigma _ ->
             Error.raise_error Error.type_wf t.startpos t.endpos
               "Non functional application."
       end
@@ -74,7 +53,7 @@ let rec wftype env t =
       in Kind.mkSigma f
   | Proj(t', lab) ->
       begin
-        match wftype env t' with
+        match Normalize.simplify_kind (wftype env t') with
         | Sigma f ->
             begin
               try Normalize.select_kind_field lab t' f
@@ -83,9 +62,10 @@ let rec wftype env t =
                   (Printf.sprintf
                      "Ill-formed projection: unknown label %s." lab.content)
             end
-        | Base | Single _ | Pi(_,_,_) ->
+        | Base | Single (_,Base) | Pi(_,_,_) ->
             Error.raise_error Error.type_wf t.startpos t.endpos
               "Ill-formed projection."
+        | Single (_,_) -> assert false
       end
   | BaseForall(x, k, u) | BaseExists(x, k, u) ->
       if wfkind env k.content
@@ -95,7 +75,7 @@ let rec wftype env t =
         let env' = Env.Typ.add_var x' k.content env in
         let k' = wftype env' u' in
         if sub_kind_b env' k' Base 
-        then Single t
+        then Single (t, Base)
         else Error.raise_error Error.type_wf k.startpos k.endpos
             "Ill-formed universal type: this kind is not a base kind."
       else Error.raise_error Error.kind_wf k.startpos k.endpos
@@ -104,7 +84,7 @@ let rec wftype env t =
       begin
         if sub_kind_b env (wftype env t1) Base
         then if sub_kind_b env (wftype env t2) Base
-        then Single t
+        then Single (t, Base)
         else Error.raise_error Error.type_wf t2.startpos t2.endpos
             "Ill-formed basic product type: this type has not a base kind."
         else Error.raise_error Error.type_wf t1.startpos t1.endpos
@@ -112,7 +92,7 @@ let rec wftype env t =
       end
   | BaseRecord m ->
       Label.Map.iter (fun _lab t -> ignore (wftype env t)) m ;
-      Single t
+      Single (t, Base)
 
 and wfkind env = function
   | Base -> true
@@ -122,12 +102,15 @@ and wfkind env = function
       let x = Var.bfresh y in
       let x_var = dummy_locate (FVar x) in
       wfkind (Env.Typ.add_var x k1 env) (Kind.bsubst k2 y x_var)
-  | Single t ->
-      match wftype env t with
-      | Single _ | Base -> true
-      | Pi(_,_,_) | Sigma _ ->
+  | Single (t, k) ->
+      let k' = wftype env t in
+      let open Answer in
+      match sub_kind env k' k with
+      | Yes -> true
+      | No reasons ->
           Error.raise_error Error.kind_wf t.startpos t.endpos
-            "Ill-formed singleton: this type has not a base kind."
+            (Printf.sprintf "Ill-formed singleton:\n%s%!"
+               (error_msg (WF_TYPE (t, k) :: reasons)))
 
 and wfkind_fields env = function
   | [] -> true

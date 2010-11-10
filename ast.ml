@@ -6,7 +6,7 @@ module Raw = struct
     | Base
     | Pi of string * 'a kind * 'a kind
     | Sigma of (string * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type typ = pre_typ located
   and pre_typ =
@@ -40,7 +40,7 @@ module Typ = struct
     | Base
     | Pi of Var.bound * 'a kind * 'a kind
     | Sigma of (Var.bound * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type typ = pre_typ located
   and pre_typ =
@@ -75,7 +75,8 @@ module Typ = struct
     | Sigma f -> h_sigmas (h_kind_rec h_typ) x f
     | Pi(y, k1, k2) ->
         Var.bmax (h_kind_rec h_typ x k1) (h_binder y (h_kind_rec h_typ x k2))
-    | Single t -> h_typ x t
+    | Single (t, k) ->
+        Var.bmax (h_typ x t) (h_kind_rec h_typ x k)
 
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
     | FVar y -> if Var.equal x y then Var.bone else Var.bzero
@@ -102,8 +103,8 @@ module Typ = struct
         Sigma
           (Label.AList.map
              (fun (x, k) -> (x, var_map_kind_rec var_map_typ f_free k)) f)
-    | Single t ->
-        Single (var_map_typ f_free t)
+    | Single (t, k) ->
+        Single (var_map_typ f_free t, var_map_kind_rec var_map_typ f_free k)
 
   let rec pre_var_map_typ_rec var_map_kind f_free = function
     | FVar x -> f_free x
@@ -163,8 +164,8 @@ module Typ = struct
       else Pi(y, k1', bsubst_kind_rec bsubst_typ k2 x u)
   | Sigma f ->
       Sigma (bsubst_kind_fields (bsubst_kind_rec bsubst_typ) f x u)
-  | Single t ->
-      Single (bsubst_typ t x u)
+  | Single (t, k) ->
+      Single (bsubst_typ t x u, bsubst_kind_rec bsubst_typ k x u)
 
   let rec pre_bsubst_typ_rec bsubst_kind t x u = match t with
   | (FVar _) as v -> v
@@ -219,9 +220,9 @@ module Typ = struct
       equal_kind_fields (equal_kind_rec equal_typ) f1 f2
   | (Pi(x,k1,k2), Pi(x',k1',k2')) ->
       Var.bequal x x' && equal_kind_rec equal_typ k1 k1' && equal_kind_rec equal_typ k2 k2'
-  | (Single t, Single t') ->
-      equal_typ t t'
-  | ((Base| Pi(_,_,_) | Sigma _ | Single _), _)-> false
+  | (Single (t, k), Single (t', k')) ->
+      equal_typ t t' && equal_kind_rec equal_typ k k'
+  | ((Base| Pi(_,_,_) | Sigma _ | Single (_,_)), _)-> false
 
   let rec equal_typ_rec equal_kind t1 t2 =
     pre_equal_typ_rec equal_kind t1.content t2.content
@@ -266,7 +267,7 @@ module Kind = struct
     | Base
     | Pi of Typ.Var.bound * 'a kind * 'a kind
     | Sigma of (Typ.Var.bound * 'a kind) Label.AList.t
-    | Single of 'a
+    | Single of 'a * 'a kind
 
   type t = Typ.t kind
 
