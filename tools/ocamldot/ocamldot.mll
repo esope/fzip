@@ -306,7 +306,7 @@ let addEdgeTk kernel tcKernel source target =
 (**********************************)
 let tk dag =
   let edges = edgesOfGraph dag in
-  let (kernel,tcKernel) =
+  let (kernel,_tcKernel) =
     List.fold_left
       (fun (k,tck) (s,t) -> addEdgeTk k tck s t)
       (emptyGraph,emptyGraph)
@@ -329,13 +329,13 @@ let getDependFromFile file =
     let lexbuf = Lexing.from_channel ic in
     processSource lexbuf;
     close_in ic
-  with Sys_error msg -> ()
+  with Sys_error _msg -> ()
   | Exit -> ()
 let getDependFromStdin () =
   try
     let lexbuf = Lexing.from_channel stdin in
     processSource lexbuf
-  with Sys_error msg -> ()
+  with Sys_error _msg -> ()
   | Exit -> ()
 
                           (***************)
