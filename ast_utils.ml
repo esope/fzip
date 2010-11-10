@@ -9,8 +9,8 @@ module Encode = struct
   module Typ = struct
     open Typ
 
-    let rec kind_rec typ = function
-      | Raw.Base -> Base
+    let rec kind_rec typ = let open Kind in function
+      | Raw.Base -> mkBase
       | Raw.Pi(x, k1, k2) ->
           let k1' = kind_rec typ k1
           and k2' = kind_rec typ k2 in
@@ -19,19 +19,19 @@ module Encode = struct
           let f = Label.AList.map
               (fun (x, k) -> (Var.make x, kind_rec typ k)) f in
           Kind.mkSigma f
-      | Raw.Single (t, k) -> Single (typ t, kind_rec typ k)
+      | Raw.Single (t, k) -> mkSingle (typ t) (kind_rec typ k)
 
     let rec typ_rec kind t =
       { t with content = pre_typ_rec kind t.content }
     and pre_typ_rec kind = function
-      | Raw.Var x -> FVar (Var.make x)
-      | Raw.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
+      | Raw.Var x -> mkVar (Var.make x)
+      | Raw.App (t, u) -> mkApp (typ_rec kind t) (typ_rec kind u)
       | Raw.Lam (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkLam (Var.make x) k' t'
-      | Raw.Record m -> Record (Label.Map.map (typ_rec kind) m)
-      | Raw.Proj (t, lab) -> Proj (typ_rec kind t, lab)
+      | Raw.Record m -> mkRecord (Label.Map.map (typ_rec kind) m)
+      | Raw.Proj (t, lab) -> mkProj (typ_rec kind t) lab
       | Raw.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
@@ -40,8 +40,8 @@ module Encode = struct
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
           mkBaseExists (Var.make x) k' t'
-      | Raw.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
-      | Raw.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
+      | Raw.BaseRecord m -> mkBaseRecord (Label.Map.map (typ_rec kind) m)
+      | Raw.BaseArrow (t, u) -> mkBaseArrow (typ_rec kind t) (typ_rec kind u)
 
 (* closing recursion *)
     let rec typ t = typ_rec kind t
@@ -55,19 +55,19 @@ module Encode = struct
     let rec term t =
       { t with content = pre_term t.content }
     and pre_term = function
-      | Raw.TeVar x -> FVar (Var.make x)
-      | Raw.TeApp (t, u) -> App (term t, term u)
+      | Raw.TeVar x -> mkVar (Var.make x)
+      | Raw.TeApp (t, u) -> mkApp (term t) (term u)
       | Raw.TeLam (x, tau, t) ->
           let tau' = Typ.typ tau
           and t' = term t in
-          mkLam (Var.make x)tau' t'
-      | Raw.TeRecord m -> Record (Label.AList.map term m)
-      | Raw.TeProj (t, lab) -> Proj (term t, lab)
+          mkLam (Var.make x) tau' t'
+      | Raw.TeRecord m -> mkRecord (Label.AList.map term m)
+      | Raw.TeProj (t, lab) -> mkProj (term t) lab
       | Raw.TeGen (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
           and t' = term t in
           mkGen (Ast.Typ.Var.make x) k' t'
-      | Raw.TeInst (t, tau) -> Inst(term t, Typ.typ tau)
+      | Raw.TeInst (t, tau) -> mkInst (term t) (Typ.typ tau)
   end
 end
 

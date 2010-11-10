@@ -14,7 +14,7 @@ let rec wftype env t =
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try Single (t, Env.Typ.get_var x env)
+        try Kind.mkSingle t (Env.Typ.get_var x env)
         with Not_found ->
           Error.raise_error Error.type_wf t.startpos t.endpos
             (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
@@ -40,7 +40,7 @@ let rec wftype env t =
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
-        let t' = bsubst t x (dummy_locate (FVar x')) in
+        let t' = bsubst t x (dummy_locate (mkVar x')) in
         let k' = wftype (Env.Typ.add_var x' k.content env) t' in
         Kind.mkPi x' k.content k'
       else
@@ -71,20 +71,22 @@ let rec wftype env t =
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
-        let u' = bsubst u x (dummy_locate (FVar x')) in
+        let u' = bsubst u x (dummy_locate (mkVar x')) in
         let env' = Env.Typ.add_var x' k.content env in
         let k' = wftype env' u' in
-        if sub_kind_b env' k' Base 
-        then Single (t, Base)
+        let open Kind in
+        if sub_kind_b env' k' mkBase 
+        then mkSingle t mkBase
         else Error.raise_error Error.type_wf k.startpos k.endpos
             "Ill-formed universal type: this kind is not a base kind."
       else Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind."
   | BaseArrow(t1, t2) ->
       begin
-        if sub_kind_b env (wftype env t1) Base
-        then if sub_kind_b env (wftype env t2) Base
-        then Single (t, Base)
+        let open Kind in
+        if sub_kind_b env (wftype env t1) mkBase
+        then if sub_kind_b env (wftype env t2) mkBase
+        then mkSingle t mkBase
         else Error.raise_error Error.type_wf t2.startpos t2.endpos
             "Ill-formed basic product type: this type has not a base kind."
         else Error.raise_error Error.type_wf t1.startpos t1.endpos
@@ -92,7 +94,7 @@ let rec wftype env t =
       end
   | BaseRecord m ->
       Label.Map.iter (fun _lab t -> ignore (wftype env t)) m ;
-      Single (t, Base)
+      Kind.(mkSingle t mkBase)
 
 and wfkind env = function
   | Base -> true
@@ -100,7 +102,7 @@ and wfkind env = function
   | Pi(y, k1, k2) ->
       wfkind env k1 &&
       let x = Var.bfresh y in
-      let x_var = dummy_locate (FVar x) in
+      let x_var = dummy_locate (mkVar x) in
       wfkind (Env.Typ.add_var x k1 env) (Kind.bsubst k2 y x_var)
   | Single (t, k) ->
       let k' = wftype env t in
@@ -117,7 +119,7 @@ and wfkind_fields env = function
   | (_lab, (x, k)) :: f ->
       wfkind env k &&
       let y = Var.bfresh x in
-      let y_var = dummy_locate (FVar y) in
+      let y_var = dummy_locate (mkVar y) in
       wfkind_fields (Env.Typ.add_var y k env) (Kind.bsubst_fields f x y_var)
 
 let rec try_sub_type env tau tau' =
@@ -132,7 +134,7 @@ let rec try_sub_type env tau tau' =
   | (BaseExists(a, k', t), BaseExists(a', k,  t')) ->
       sub_kind env k'.content k.content &*&
       let x = Var.bfresh a in
-      let x_var = dummy_locate (FVar x) in
+      let x_var = dummy_locate (mkVar x) in
       sub_type (Env.Typ.add_var x k'.content env)
         (bsubst t a x_var) (bsubst t' a' x_var)
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
@@ -147,15 +149,16 @@ let rec try_sub_type env tau tau' =
               sub_type env tau tau'
             with Not_found ->
               No [TYPES
-                    (dummy_locate (BaseRecord Label.Map.empty),
-                     dummy_locate (BaseRecord (Label.Map.singleton lab tau')))]
+                    (dummy_locate (mkBaseRecord Label.Map.empty),
+                     dummy_locate (mkBaseRecord (Label.Map.singleton lab tau')))
+                ]
             end
         | No reasons -> No reasons)
         m' Yes
   | (App(_,_), App(_,_)) | (Proj(_,_), Proj(_,_)) | (FVar _, FVar _) ->
       (* we already are in head normal form, so comparing
          for equivalence is enough *)
-      Normalize.equiv_typ env (dummy_locate tau) (dummy_locate tau') Base
+      Normalize.equiv_typ env (dummy_locate tau) (dummy_locate tau') Kind.mkBase
   | ((BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |
     BaseRecord _ | App(_,_) | Proj(_,_) | FVar _),
      (BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |

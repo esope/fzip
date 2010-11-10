@@ -205,7 +205,10 @@ module Typ = struct
   let rec bsubst_kind k x u = bsubst_kind_rec bsubst_typ k x u
   and bsubst_typ t x u = bsubst_typ_rec bsubst_kind t x u
 
-  let bsubst = bsubst_typ
+  let bsubst t x u =
+    if Var.bequal x Var.bzero
+    then t (* from Sato-Pollack, x is free iff it is not 0 *)
+    else bsubst_typ t x u
 
   let rec equal_kind_fields equal_kind f1 f2 = match(f1, f2) with
   | ([], []) -> true
@@ -249,9 +252,17 @@ module Typ = struct
   let equal = equal_typ
 
 (* smart constructors *)
+  let mkVar x = FVar x
+
+  let mkApp t1 t2 = App(t1, t2)
+
   let mkLam x tau t =
     let y = h_typ x t in
     Lam (y, tau, subst t x (BVar y))
+
+  let mkRecord m = Record m
+
+  let mkProj t l = Proj(t, l)
 
   let mkBaseForall x k t =
     let y = h_typ x t in
@@ -260,6 +271,10 @@ module Typ = struct
   let mkBaseExists x k t =
     let y = h_typ x t in
     BaseExists (y, k, subst t x (BVar y))
+
+  let mkBaseRecord m = BaseRecord m
+
+  let mkBaseArrow t1 t2 = BaseArrow(t1, t2)
 end
 
 module Kind = struct
@@ -281,11 +296,21 @@ module Kind = struct
   let subst_fields f x u =
     Label.AList.map (fun (y, k) -> (y, subst k x u)) f
 
-  let bsubst = Typ.bsubst_kind
+  let bsubst k x u =
+    if Typ.Var.bequal x Typ.Var.bzero
+    then k (* from Sato-Pollack, x is free iff it is not 0 *)
+    else Typ.bsubst_kind k x u
 
-  let bsubst_fields f x u = Typ.bsubst_kind_fields bsubst f x u
+  let bsubst_fields f x u =
+    if Typ.Var.bequal x Typ.Var.bzero
+    then f (* from Sato-Pollack, x is free iff it is not 0 *)
+    else Typ.bsubst_kind_fields bsubst f x u
 
   let equal = Typ.equal_kind
+
+  let mkBase = Base
+
+  let mkSingle t k = Single(t, k)
 
   let mkPi x k1 k2 =
     let y = Typ.h_kind x k2 in
@@ -438,6 +463,11 @@ module Term = struct
     { t with
       content = pre_bsubst_term_var t.content x u }
 
+  let bsubst_term_var t x u =
+    if Var.bequal x Var.bzero
+    then t (* from Sato-Pollack, x is free iff it is not 0 *)
+    else bsubst_term_var t x u
+
   let rec pre_bsubst_typ_var t x u = match t with
   | FVar _ | BVar _ -> t
   | App (t1, t2) ->
@@ -463,6 +493,11 @@ module Term = struct
     { t with
       content = pre_bsubst_typ_var t.content x u }
 
+  let bsubst_typ_var t x u =
+    if Typ.Var.bequal x Typ.Var.bzero
+    then t (* from Sato-Pollack, x is free iff it is not 0 *)
+    else bsubst_typ_var t x u
+
   let rec equal t1 t2 = pre_equal t1.content t2.content
   and pre_equal t1 t2 = match (t1, t2) with
   | (FVar x, FVar x') -> Var.equal x x'
@@ -483,12 +518,22 @@ module Term = struct
      | Gen(_,_,_) | App(_,_) | Inst(_,_)) ,_) -> false
 
 (* smart constructors *)
+  let mkVar x = FVar x
+
   let mkLam x tau t =
     let y = h_term_var x t in
     Lam (y, tau, subst_term_var t x (BVar y))
 
+  let mkApp t1 t2 = App(t1, t2)
+
+  let mkRecord m = Record m
+
+  let mkProj t lab = Proj(t, lab)
+
   let mkGen x k t =
     let y = h_typ_var x t in
     Gen (y, k, subst_typ_var t x (Typ.BVar y))
+
+  let mkInst t tau = Inst(t, tau)
 
 end

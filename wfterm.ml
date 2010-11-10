@@ -9,7 +9,7 @@ type env = (Typ.typ, Typ.typ Typ.kind) Env.t
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
   let k = wftype env t in
-  if sub_kind_b env k Typ.Base
+  if sub_kind_b env k Kind.mkBase
   then OK
   else KIND k
 
@@ -27,10 +27,10 @@ let rec wfterm env term = match term.content with
         match wfbasetype env t with
         | OK ->
             let x' = Var.bfresh x in
-            let x_var' = dummy_locate (FVar x') in
+            let x_var' = dummy_locate (mkVar x') in
             let t' =
               wfterm (Env.Term.add_var x' t env) (bsubst_term_var e x x_var') in
-            dummy_locate (Typ.BaseArrow(t, t'))
+            dummy_locate (Typ.mkBaseArrow t t')
         | KIND k ->
             Error.raise_error Error.term_wf t.startpos t.endpos
               (Printf.sprintf "This type should have kind ⋆, but has kind\n%s%!"
@@ -63,7 +63,7 @@ let rec wfterm env term = match term.content with
       if wfkind env k.content
       then
         let x' = Typ.Var.bfresh x in
-        let x_var' = dummy_locate (Typ.FVar x') in
+        let x_var' = dummy_locate (Typ.mkVar x') in
         let t' =
           wfterm (Env.Typ.add_var x' k.content env)
             (bsubst_typ_var e x x_var') in
@@ -99,7 +99,7 @@ let rec wfterm env term = match term.content with
             Label.Map.add lab (wfterm env e) acc)
           r Label.Map.empty
       in
-      dummy_locate (Typ.BaseRecord m)
+      dummy_locate (Typ.mkBaseRecord m)
   | Proj(e, lab) ->
       begin
         match (wfterm env e).content with

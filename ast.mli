@@ -38,14 +38,14 @@ end
 module Typ : sig
   module Var : Var.S
 
-  type 'a kind =
+  type 'a kind = private
     | Base
     | Pi of Var.bound * 'a kind * 'a kind
     | Sigma of (Var.bound * 'a kind) Label.AList.t
     | Single of 'a * 'a kind
 
   type typ = pre_typ located
-  and pre_typ =
+  and pre_typ = private
     | FVar of Var.free
     | BVar of Var.bound
     | App of typ * typ
@@ -72,13 +72,19 @@ module Typ : sig
   val equal: t -> t -> bool
 
 (** smart constructors *)
+  val mkVar: Var.free -> pre_typ
+  val mkApp: t -> t -> pre_typ
   val mkLam: Var.free -> t kind located -> t -> pre_typ
+  val mkRecord: typ Label.Map.t -> pre_typ
+  val mkProj: t -> Label.t located -> pre_typ
   val mkBaseForall: Var.free -> t kind located -> t -> pre_typ
   val mkBaseExists: Var.free -> t kind located -> t -> pre_typ
+  val mkBaseRecord: typ Label.Map.t -> pre_typ
+  val mkBaseArrow: t -> t -> pre_typ
 end
 
 module Kind : sig
-  type 'a kind = 'a Typ.kind =
+  type 'a kind = 'a Typ.kind = private
     | Base
     | Pi of Typ.Var.bound * 'a kind * 'a kind
     | Sigma of (Typ.Var.bound * 'a kind) Label.AList.t
@@ -105,6 +111,8 @@ module Kind : sig
   val equal: t -> t -> bool
 
 (** smart constructors *)
+  val mkBase: t
+  val mkSingle: Typ.t -> t -> t
   val mkPi: Typ.Var.free -> t -> t -> t
 (** non-dependent version of mkPi *)
   val mkArrow: t -> t -> t
@@ -116,15 +124,15 @@ module Term : sig
   module Var : Var.S
 
   type term = pre_term located
-  and pre_term =
+  and pre_term = private
     | FVar of Var.free
     | BVar of Var.bound
     | App of term * term
-    | Lam of Var.bound * Typ.typ * term
+    | Lam of Var.bound * Typ.t * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
-    | Inst of term * Typ.typ
+    | Inst of term * Typ.t
 
   type t = term
 
@@ -144,8 +152,13 @@ module Term : sig
   val equal: t -> t -> bool
 
 (** smart constructors *)
+  val mkVar: Var.free -> pre_term
+  val mkApp: t -> t -> pre_term
   val mkLam: Var.free -> Typ.typ -> t -> pre_term
+  val mkRecord: t Label.AList.t -> pre_term
+  val mkProj: t -> Label.t located -> pre_term
   val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> t -> pre_term
+  val mkInst: t -> Typ.t -> pre_term
 
 end
 
