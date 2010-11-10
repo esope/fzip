@@ -27,8 +27,7 @@ let list_errors () =
 let raise_error (n, cat) startpos endpos msg =
   let open Lexing in
   Printf.eprintf "File \"%s\", line %i, characters %i-%i:\n%!"
-    startpos.pos_fname startpos.pos_lnum
-    (startpos.pos_cnum - startpos.pos_bol)
-    (endpos.pos_cnum - startpos.pos_bol);
+    startpos.pos_fname startpos.pos_lnum startpos.pos_cnum
+    (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol));
   Printf.eprintf "%s error:\n%s\n%!" cat msg ;
   exit n
