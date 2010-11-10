@@ -9,7 +9,7 @@ module type S = sig
         (** bound variables *)
   type bound
         (** equality test *)
-  val eq: free -> free -> bool 
+  val equal: free -> free -> bool 
       (** creation of a free variable from a base name *)
   val make: string -> free
       (** for pretty printing purposes only, gets the base name *)
@@ -24,7 +24,7 @@ module type S = sig
   val bzero: bound
   val bone: bound
   val bsucc: bound -> bound
-  val beq: bound -> bound -> bool
+  val bequal: bound -> bound -> bool
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
 end
@@ -32,7 +32,7 @@ end
 module Make (Default: sig val fbase: string val bbase: string end) : S = struct
   type free = string * int
   type bound = int
-  let eq (x,n) (y,m) = MyString.equal x y && MyInt.equal n m
+  let equal (x,n) (y,m) = MyString.equal x y && MyInt.equal n m
   let make s = (s,0)
   let to_string (s,n) = if n = 0 then s else (s ^ (string_of_int n))
   module H = Hashtbl.Make(MyString)
@@ -47,7 +47,7 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
   let bzero = 0
   let bone = 1
   let bsucc = (+) 1
-  let beq: int -> int -> bool = (=)
+  let bequal: int -> int -> bool = (=)
   let bmax: int -> int -> int = max
   let bto_string n = Default.bbase ^ (string_of_int n)
 end

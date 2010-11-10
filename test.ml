@@ -9,19 +9,19 @@ let test_kind_parser k1 k2 =
   ("Parsing " ^ k1) >:: (fun () ->
     let k1 = String.parse_kind k1
     and k2 = String.parse_kind k2 in
-    assert_equal ~cmp:eq_kind k1 k2)
+    assert_equal ~cmp:equal_kind k1 k2)
 
 let test_typ_parser t1 t2 =
   ("Parsing " ^ t1) >:: (fun () ->
     let t1 = String.parse_typ t1
     and t2 = String.parse_typ t2 in
-    assert_equal ~cmp:eq_typ t1 t2)
+    assert_equal ~cmp:equal_typ t1 t2)
 
 let test_term_parser t1 t2 =
   ("Parsing " ^ t1) >:: (fun () ->
     let t1 = String.parse_term t1
     and t2 = String.parse_term t2 in
-    assert_equal ~cmp:Ast.Term.eq t1 t2)
+    assert_equal ~cmp:Ast.Term.equal t1 t2)
 
 let tests_parsing = "Tests about parsing" >:::
   [
@@ -78,7 +78,7 @@ let test_nf ~t ~nf () =
   let nf_e =
     let k = wftype Env.empty t in
     Normalize.typ_norm Env.empty t k in
-  assert_equal ~printer:PPrint.Typ.string ~cmp:eq_typ nf_e nf
+  assert_equal ~printer:PPrint.Typ.string ~cmp:equal_typ nf_e nf
 
 let test_equiv ?(neg=false) ~env ~t ~u ~k () =
   TestCase (fun () ->

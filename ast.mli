@@ -74,8 +74,8 @@ module Typ : sig
         -> (Var.bound * typ kind) Label.AList.t
 
 (** equality test *)
-  val eq_kind: typ kind -> typ kind -> bool
-  val eq_typ: typ -> typ -> bool
+  val equal_kind: typ kind -> typ kind -> bool
+  val equal_typ: typ -> typ -> bool
 
 (** smart constructors *)
   val mkLam: Var.free -> typ kind located -> typ -> pre_typ
@@ -114,7 +114,7 @@ module Term : sig
   val bsubst_typ_var: term -> Typ.Var.bound -> Typ.typ -> term
 
 (** equality test *)
-  val eq: term -> term -> bool
+  val equal: term -> term -> bool
 
 (** smart constructors *)
   val mkLam: Var.free -> Typ.typ -> term -> pre_term
