@@ -32,7 +32,13 @@ let rec wftype env t =
   let open Answer in
   match t.content with
   | BVar _ -> assert false
-  | FVar x -> single_ext (Env.get_typ_var x env) t
+  | FVar x ->
+      begin
+        try single_ext (Env.get_typ_var x env) t
+        with Not_found ->
+          Error.raise_error Error.type_wf t.startpos t.endpos
+            (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
+      end
   | App(t1, t2) ->
       let k1 = wftype env t1 and k2 = wftype env t2 in 
       begin

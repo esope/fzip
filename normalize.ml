@@ -27,9 +27,11 @@ let rec head_norm env t = match t.content with
     (t, Some Base)
 | FVar x ->
     begin
-      let k = Env.get_typ_var x env in
-      match k with Single u -> (u, Some k)
-      | (Base | Pi(_,_,_) | Sigma _) -> (t, Some k)
+      try
+        let k = Env.get_typ_var x env in
+        match k with Single u -> (u, Some k)
+        | (Base | Pi(_,_,_) | Sigma _) -> (t, Some k)
+      with Not_found -> assert false
     end
 | Lam(_,_,_) | Record _ -> (t, None)
 | BVar _ -> assert false
@@ -96,7 +98,11 @@ let rec path_norm env t = match t.content with
         typ_norm (Env.add_typ_var x' k1.content env)
           (bsubst_typ t1 x x_var') Base in
       ({ t with content = mkBaseForall x' k1' t1' }, Base)
-  | FVar x -> (t, Env.get_typ_var x env)
+  | FVar x ->
+      begin
+        try (t, Env.get_typ_var x env)
+        with Not_found -> assert false
+      end
   | BVar _ | Lam (_,_,_) | Record _ -> assert false
   | App(p, t) ->
       begin
@@ -227,7 +233,11 @@ and equiv_path env p1 p2 =
       end
   | (FVar x, FVar x') ->
       if x = x'
-      then WithValue.Yes (Env.get_typ_var x env)
+      then
+        begin
+          try WithValue.Yes (Env.get_typ_var x env)
+          with Not_found -> assert false
+        end
       else WithValue.No []
   | (App(p, t), App(p', t')) ->
       begin

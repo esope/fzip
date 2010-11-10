@@ -13,10 +13,15 @@ let wfbasetype env t =
   then OK
   else KIND k
 
-let rec wfterm env t = dummy_locate (pre_wfterm env t.content)
-and pre_wfterm env = function
+let rec wfterm env term = match term.content with
   | BVar _ -> assert false
-  | FVar x -> (Env.get_term_var x env).content
+  | FVar x ->
+      begin
+        try Env.get_term_var x env
+        with Not_found ->
+          Error.raise_error Error.term_wf term.startpos term.endpos
+            (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
+      end
   | Lam (x, t, e) ->
       begin
         match wfbasetype env t with
@@ -25,7 +30,7 @@ and pre_wfterm env = function
             let x_var' = dummy_locate (FVar x') in
             let t' =
               wfterm (Env.add_term_var x' t env) (bsubst_term_var e x x_var') in
-            Typ.BaseArrow(t, t')
+            dummy_locate (Typ.BaseArrow(t, t'))
         | KIND k ->
             Error.raise_error Error.term_wf t.startpos t.endpos
               (Printf.sprintf "This type should have kind ⋆, but has kind\n%s%!"
@@ -39,7 +44,7 @@ and pre_wfterm env = function
               let tau2 = wfterm env e2 in
               let open Answer in
               match sub_type env tau2 tau2' with
-              | Yes -> tau1'.content
+              | Yes -> tau1'
               | No reason ->
                   Error.raise_error Error.subtype e1.startpos e2.endpos
                     (Printf.sprintf "Ill-formed application\n%s%!"
@@ -60,7 +65,7 @@ and pre_wfterm env = function
         let x_var' = dummy_locate (Typ.FVar x') in
         let t' =
           wfterm (Env.add_typ_var x' k.content env) (bsubst_typ_var e x x_var') in
-        Typ.mkBaseForall x' k t'
+        dummy_locate (Typ.mkBaseForall x' k t')
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind at the bound of a generalization."
@@ -72,7 +77,7 @@ and pre_wfterm env = function
               let k = wftype env tau in
               let open Answer in
               match sub_kind env k k'.content with
-              | Yes -> (Typ.bsubst_typ tau' x tau).content
+              | Yes -> Typ.bsubst_typ tau' x tau
               | No reasons ->
                   Error.raise_error Error.subkind e.startpos tau.endpos
                     (Printf.sprintf "Ill-formed instantiation:\n%s%!"
@@ -92,13 +97,13 @@ and pre_wfterm env = function
             Label.Map.add lab (wfterm env e) acc)
           r Label.Map.empty
       in
-      Typ.BaseRecord m
+      dummy_locate (Typ.BaseRecord m)
   | Proj(e, lab) ->
       begin
         match (wfterm env e).content with
         | Typ.BaseRecord m ->
             begin
-              try (Label.Map.find lab.content m).content
+              try Label.Map.find lab.content m
               with Not_found ->
                 Error.raise_error Error.term_wf lab.startpos lab.endpos
                   ("Unknown label " ^ lab.content ^ ".")
