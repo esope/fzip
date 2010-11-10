@@ -2,15 +2,15 @@ OCB=ocamlbuild -use-ocamlfind -j 0
 DOTFILE=_project.dot
 
 bin:
-	$(OCB) main.native
-
-byte:
 	$(OCB) main.byte
 
-test:
-	$(OCB) -no-links test.native --
+native:
+	$(OCB) main.native
 
-test.byte:
+test:
+	$(OCB) -no-links test.byte --
+
+test.native:
 	$(OCB) -no-links test.native --
 
 doc:
