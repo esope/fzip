@@ -290,7 +290,7 @@ and sub_kind env k1 k2 =
   let x_var = dummy_locate (FVar x) in
   check_sub_kind (Env.add_typ_var x k1 env) x_var k1 k2
 
-and check_sub_kind env p k k' =
+and try_check_sub_kind env p k k' =
   let open Answer in match (k, k') with
   | ((Base | Single _), Base) -> Yes
   | (Base, Single t') -> equiv_typ env p t' Base
@@ -317,9 +317,13 @@ and check_sub_kind env p k k' =
             No [KINDS
                   (mkSigma [(lab, (Var.fresh (), k'_lab))], mkSigma [])])
         projections' Yes
-  | ((Base | Single _ | Sigma _ | Pi(_,_,_)), _) -> No [KINDS (k, k')]
+  | ((Base | Single _ | Sigma _ | Pi(_,_,_)), _) -> No []
 
-
+and check_sub_kind env p k k' =
+  let open Answer in
+  match try_check_sub_kind env p k k' with
+  | Yes -> Yes
+  | No reasons -> No (KINDS (k,k') :: reasons)
 
 
 let equiv_typ_b env t1 t2 k =
