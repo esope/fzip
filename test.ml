@@ -337,6 +337,18 @@ let tests_sub_kind = "Tests about sub_kind" >:::
      ~k2:"< type left as α :: * \
             type right :: < type innerL :: S(α) type innerR :: * > >" ;
 
+   test_sub_kind
+     ~k1:"< type A as a :: \
+              < type C :: * type D :: * >
+            type B :: \
+              < type E :: S(a.C) type F :: * > \
+          >"
+     ~k2:"< type B as b :: \
+              < type F :: * type E :: * > \
+            type A :: \
+              < type D :: * type C :: S(b.E) > \
+          >" ;
+
  ]
 
 (* all tests *)
