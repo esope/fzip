@@ -373,10 +373,40 @@ let tests_sub_kind = "Tests about sub_kind" >:::
 
  ]
 
+(* tests about equiv_typ *)
+let test_equiv_typ ~t1 ~t2 ~k =
+  (Printf.sprintf "⊢ %s ≡ %s :: %s ?" t1 t2 k) >:: (fun () ->
+    let t1 = String.Typ.parse t1
+    and t2 = String.Typ.parse t2
+    and k = String.Kind.parse k in
+    assert_equal
+      ~printer:PPrint.Typ.string
+      ~cmp:(fun t1 t2 -> Normalize.equiv_typ_b Env.empty t1 t2 k) t1 t2)
+
+let tests_equiv_typ = "Tests about equiv_typ" >:::
+  [
+   test_equiv_typ
+     ~t1:"∃ (α :: S (∀(β :: *) ∀(γ :: Π(δ::*) S(δ)) γ β)) α"
+     ~t2:"∃ (α :: S (∀(β :: *) ∀(γ :: Π(δ::*) S(δ)) β)) α"
+     ~k:"*" ;
+
+   test_equiv_typ
+     ~t1:"< type l = ∀(α::*)α  type q = ∀(α::*)∀(α::*)α >"
+     ~t2:"< type r = ∀(α::*)∀(α::*)α  type l = ∀(α::*)α >"
+     ~k:"< type l :: * >" ;
+
+   test_equiv_typ
+     ~t1:"< type l = ∀(α::*)α >"
+     ~t2:"< type r = ∀(α::*)∀(α::*)α >"
+     ~k:"< >" ;
+
+ ]
+
+
 (* all tests *)
 let tests = TestList
     [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm
-    ; tests_wfsubtype ; tests_sub_kind ]
+    ; tests_wfsubtype ; tests_sub_kind ; tests_equiv_typ ]
 
 (* running tests *)
 let () =
