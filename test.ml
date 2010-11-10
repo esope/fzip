@@ -339,7 +339,7 @@ let tests_sub_kind = "Tests about sub_kind" >:::
 
    test_sub_kind
      ~k1:"< type A as a :: \
-              < type C :: * type D :: * >
+              < type C :: * type D :: * > \
             type B :: \
               < type E :: S(a.C) type F :: * > \
           >"
