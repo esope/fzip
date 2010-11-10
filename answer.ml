@@ -1,7 +1,10 @@
 open Ast
 open Ast_utils
 
-type reason = TYPES of Typ.t * Typ.t | KINDS of Kind.t * Kind.t
+type reason =
+  | TYPES of Typ.t * Typ.t
+  | KINDS of Kind.t * Kind.t
+  | WF_TYPE of Typ.t * Kind.t
 type t = Yes | No of reason list
 
 let ( &*& ) r1 r2 = match r1 with
@@ -19,6 +22,9 @@ let rec error_msg = function
   | [ TYPES (t1, t2)] ->
       Printf.sprintf "%s\nis not a subtype of\n%s\n%!"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
+  | [ WF_TYPE (t, k)] ->
+      Printf.sprintf "%s\n cannot be given the kind\n%s\n%!"
+        (PPrint.Typ.string t) (PPrint.Kind.string k)
   | (KINDS (k1, k2)) :: l ->
       Printf.sprintf "%s\nis not a subkind of\n%s\nbecause\n%a"
         (PPrint.Kind.string k1) (PPrint.Kind.string k2)
@@ -26,6 +32,10 @@ let rec error_msg = function
   | (TYPES (t1, t2)) :: l ->
       Printf.sprintf "%s\nis not a subtype of\n%s\nbecause\n%a"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
+        (fun _ -> error_msg) l
+  | (WF_TYPE (t, k)) :: l ->
+      Printf.sprintf "%s\n cannot be given the kind\n%s\nbecause\n%a"
+        (PPrint.Typ.string t) (PPrint.Kind.string k)
         (fun _ -> error_msg) l
 
 module WithValue = struct
@@ -37,6 +47,10 @@ module WithValue = struct
   | No _ -> r1
 
   let to_bool = function Yes _ -> true | No _ -> false
+
+  let map f = function
+    | Yes x -> Yes (f x)
+    | No r -> No r
 
   let error_msg = error_msg
 
