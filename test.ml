@@ -320,6 +320,23 @@ let tests_sub_kind = "Tests about sub_kind" >:::
      ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
      ~k2:"< type right as α :: * type left :: S(α) >" ;
 
+   test_sub_kind
+     ~k1:"< type deeper ::\
+             < type other as α :: * type left :: S(α) type right :: S(α) > >"
+     ~k2:"< type deeper :: < type right as α :: * type left :: S(α) > >" ;
+
+   test_sub_kind
+     ~k1:"< type left as α :: * \
+            type right :: < type innerL :: S(α) type innerR :: * > >"
+     ~k2:"< type right as β :: < type innerR :: * type innerL :: * > \
+            type left :: S(β.innerL) >" ;
+
+   test_sub_kind
+     ~k1:"< type right as β :: < type innerR :: * type innerL :: * > \
+            type left :: S(β.innerL) >"
+     ~k2:"< type left as α :: * \
+            type right :: < type innerL :: S(α) type innerR :: * > >" ;
+
  ]
 
 (* all tests *)
