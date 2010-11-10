@@ -17,12 +17,16 @@ let rec single_ext k t = match k with
       single_ext (bsubst_kind k2 y x_var) (dummy_locate (App(t, x_var))) in
     mkPi x k1 k2'
 | Sigma f ->
-    Sigma
-      (Label.AList.mapi
-         (fun lab (x, k) ->
-           (lab, (x, single_ext k (dummy_locate (Proj(t, dummy_locate lab))))))
-         f)
-      (* We do not remove internal bindings on purpose. This is equivalent. *)
+    mkSigma (single_ext_fields f t)
+
+and single_ext_fields f t = match f with
+| [] -> []
+| (lab, (x, k)) :: f ->
+    let t_lab = dummy_locate (Proj(t, dummy_locate lab)) in
+    let k' = single_ext k t_lab in
+    let y = Var.bfresh x in
+    let f' = single_ext_fields (bsubst_kind_fields f x t_lab) t in
+    (lab, (y, k')) :: f'
 
 let rec wftype env t =
   let open Answer in
