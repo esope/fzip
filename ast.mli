@@ -27,6 +27,7 @@ module Raw : sig
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string * 'typ * ('kind, 'typ) term
+    | TeLet of string * ('kind, 'typ) term * ('kind, 'typ) term
     | TeRecord of (('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
@@ -139,6 +140,7 @@ module Term : sig
     | BVar of Var.bound
     | App of term * term
     | Lam of Var.bound * Typ.t * term
+    | Let of Var.bound * term * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
@@ -170,6 +172,7 @@ module Term : sig
   val mkVar: Var.free -> pre_term
   val mkApp: t -> t -> pre_term
   val mkLam: Var.free -> Typ.typ -> t -> pre_term
+  val mkLet: Var.free -> t -> t -> pre_term
   val mkRecord: t Label.AList.t -> pre_term
   val mkProj: t -> Label.t located -> pre_term
   val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> t -> pre_term

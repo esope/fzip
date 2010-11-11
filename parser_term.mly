@@ -29,6 +29,11 @@ undelimited_term(kind,typ):
 | LAMBDA b=typ_binding(kind) t=term(kind,typ)
   (* we allow the use of λ of Λ for type generalization *)
     { mkTeGen_binding b t $startpos $endpos }
+| LET x=ID EQ t1=term(kind,typ) IN t2=term(kind,typ)
+    { locate (TeLet (x, t1, t2)) $startpos $endpos }
+| LET x=ID COLON tau=typ EQ t1=term(kind,typ) IN t2=term(kind,typ)
+    { let t1' = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
+    locate (TeLet (x, t1', t2)) $startpos $endpos }
 
 delimited_term(kind,typ):
 | LPAR t=term(kind,typ) RPAR { locate t.Location.content $startpos $endpos }

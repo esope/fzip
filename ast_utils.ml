@@ -69,6 +69,10 @@ module Encode = struct
           let tau' = Typ.typ tau
           and t' = term t in
           mkLam (Var.make x) tau' t'
+      | Raw.TeLet (x, t1, t2) ->
+          let t1' = term t1
+          and t2' = term t2 in
+          mkLet (Var.make x) t1' t2'
       | Raw.TeRecord m -> mkRecord (Label.AList.map term m)
       | Raw.TeProj (t, lab) -> mkProj (term t) lab
       | Raw.TeGen (x, k, t) ->

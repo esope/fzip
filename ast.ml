@@ -26,6 +26,7 @@ module Raw = struct
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string * 'typ * ('kind, 'typ) term
+    | TeLet of string * ('kind, 'typ) term * ('kind, 'typ) term
     | TeRecord of (('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
@@ -351,6 +352,7 @@ module Term = struct
     | BVar of Var.bound
     | App of term * term
     | Lam of Var.bound * Typ.typ * term
+    | Let of Var.bound * term * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
@@ -386,6 +388,8 @@ module Term = struct
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) ->
         h_te_binder y (h_term_var x t)
+    | Let (y, t1, t2) ->
+        Var.bmax (h_term_var x t1) (h_te_binder y (h_term_var x t2))
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _) ->
         h_term_var x t
     | Record m -> h_term_max (h_term_var x) m
@@ -394,7 +398,7 @@ module Term = struct
 
   let rec pre_h_typ_var (x : Typ.Var.free) = function
     | FVar _ | BVar _ -> Typ.Var.bzero
-    | App (t,u) ->
+    | App (t,u) | Let (_, t, u) ->
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
     | Lam (_, tau, t) | Inst(t, tau) | Annot(t, tau) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
@@ -413,6 +417,8 @@ module Term = struct
             var_map_term_var f_free t2)
     | Lam (x, k, t) ->
         Lam (x, k, var_map_term_var f_free t)
+    | Let (x, t1, t2) ->
+        Let (x, var_map_term_var f_free t1, var_map_term_var f_free t2)
     | Record m ->
         Record (Label.AList.map (var_map_term_var f_free) m)
     | Proj (t, lab) ->
@@ -439,6 +445,8 @@ module Term = struct
             var_map_typ_var f_free t2)
     | Lam (x, k, t) ->
         Lam (x, Typ.var_map_typ f_free k, var_map_typ_var f_free t)
+    | Let (x, t1, t2) ->
+        Let (x, var_map_typ_var f_free t1, var_map_typ_var f_free t2)
     | Record m ->
         Record (Label.AList.map (var_map_typ_var f_free) m)
     | Proj (t, lab) ->
@@ -472,6 +480,11 @@ module Term = struct
       if Var.bequal x y
       then Lam(y, k, t)
       else Lam (y, k, bsubst_term_var t x u)
+  | Let (y, t1, t2) ->
+      let t1' = bsubst_term_var t1 x u in
+      if Var.bequal x y
+      then Let (y, t1', t2)
+      else Let (y, t1', bsubst_term_var t2 x u)
   | Record m ->
       Record (Label.AList.map (fun t -> bsubst_term_var t x u) m)
   | Proj (t, lab) ->
@@ -497,9 +510,9 @@ module Term = struct
       App(bsubst_typ_var t1 x u,
           bsubst_typ_var t2 x u)
   | Lam (y, tau, t) ->
-      Lam (y,
-          Typ.bsubst_typ tau x u,
-          bsubst_typ_var t x u)
+      Lam (y, Typ.bsubst_typ tau x u, bsubst_typ_var t x u)
+  | Let (y, t1, t2) ->
+      Let (y, bsubst_typ_var t1 x u, bsubst_typ_var t2 x u)
   | Record m ->
       Record (Label.AList.map (fun t -> bsubst_typ_var t x u) m)
   | Proj (t, lab) ->
@@ -528,6 +541,8 @@ module Term = struct
   | (BVar x, BVar x') -> Var.bequal x x'
   | (Lam(x,tau,t), Lam(x',tau',t')) ->
       Var.bequal x x' && Typ.equal_typ tau tau' && equal t t'
+  | (Let(x,t1,t2), Let(x',t1',t2')) ->
+      Var.bequal x x' && equal t1 t1' && equal t2 t2'
   | (App(t1,t2), App(t1',t2')) ->
       equal t1 t1' && equal t2 t2'
   | (Record m, Record m') ->
@@ -538,8 +553,9 @@ module Term = struct
       Typ.Var.bequal x x' && Typ.equal_kind k.content k'.content && equal t t'
   | (Inst(t,tau), Inst(t',tau')) | (Annot(t,tau), Annot(t',tau')) ->
       equal t t' && Typ.equal_typ tau tau'
-  | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_)
-     | Gen(_,_,_) | App(_,_) | Inst(_,_) | Annot(_,_)) ,_) -> false
+  | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_) |
+    Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Annot(_,_)) ,_) ->
+      false
 
 (* smart constructors *)
   let mkVar x = FVar x
@@ -549,6 +565,10 @@ module Term = struct
     Lam (y, tau, subst_term_var t x (BVar y))
 
   let mkApp t1 t2 = App(t1, t2)
+
+  let mkLet x t1 t2 =
+    let y = h_term_var x t2 in
+    Let (y, t1, subst_term_var t2 x (BVar y))
 
   let mkRecord m = Record m
 

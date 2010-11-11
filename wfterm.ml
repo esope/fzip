@@ -59,6 +59,11 @@ let rec wfterm env term = match term.content with
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
+  | Let(x, e1, e2) ->
+      let t1 = wfterm env e1 in
+      let y = Var.bfresh x in
+      let y_var = dummy_locate (mkVar y) in
+      wfterm (Env.Term.add_var y t1 env) (bsubst_term_var e2 x y_var)
   | Gen (x, k, e) ->
       if wfkind env k.content
       then
