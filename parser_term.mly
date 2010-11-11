@@ -41,6 +41,8 @@ delimited_term(kind,typ):
     { locate (TeProj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
 | t=delimited_term(kind,typ) LBRACKET tau=typ RBRACKET
     { locate (TeInst(t, tau)) $startpos $endpos }
+| LPAR t=term(kind,typ) COLON tau=typ RPAR
+    { locate (TeAnnot(t, tau)) $startpos $endpos }
 
 term(kind,typ):
 | t=undelimited_term(kind,typ) | t=delimited_term(kind,typ)

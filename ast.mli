@@ -31,6 +31,7 @@ module Raw : sig
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
+    | TeAnnot of ('kind, 'typ) term * 'typ
 
 end
 
@@ -142,6 +143,7 @@ module Term : sig
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.t
+    | Annot of term * Typ.t
 
   type t = term
 
@@ -172,6 +174,7 @@ module Term : sig
   val mkProj: t -> Label.t located -> pre_term
   val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> t -> pre_term
   val mkInst: t -> Typ.t -> pre_term
+  val mkAnnot: t -> Typ.t -> pre_term
 
 end
 

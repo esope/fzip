@@ -76,6 +76,7 @@ module Encode = struct
           and t' = term t in
           mkGen (Ast.Typ.Var.make x) k' t'
       | Raw.TeInst (t, tau) -> mkInst (term t) (Typ.typ tau)
+      | Raw.TeAnnot (t, tau) -> mkAnnot (term t) (Typ.typ tau)
   end
 end
 

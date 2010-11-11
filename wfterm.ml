@@ -119,6 +119,30 @@ let rec wfterm env term = match term.content with
                  "Ill-formed projection: this term should have a record type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
+  | Annot(e, t) ->
+      begin
+        let t' = wfterm env e
+        and k = wftype env t in
+        let open Answer in
+        match sub_kind env k Kind.mkBase with
+        | Yes ->
+            begin
+              match sub_type env t' t with
+              | Yes -> t
+              | No reasons ->
+                  Error.raise_error Error.subtype e.startpos e.endpos
+                    (Printf.sprintf
+                       "Ill-formed type annotation:\
+ this term cannot be given the required type.\n%s%!"
+       (error_msg reasons))
+            end
+        | No reasons ->
+            Error.raise_error Error.subkind t.startpos t.endpos
+              (Printf.sprintf
+                 "Ill-formed type annotation:\
+ this type should have a base kind.\n%s%!"
+       (error_msg reasons))
+      end
 
 let check_wfterm env e t =
   let t_min = wfterm env e in

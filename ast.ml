@@ -30,6 +30,7 @@ module Raw = struct
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
+    | TeAnnot of ('kind, 'typ) term * 'typ
 
 end
 
@@ -354,6 +355,7 @@ module Term = struct
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
+    | Annot of term * Typ.t
 
   type t = term
 
@@ -384,7 +386,8 @@ module Term = struct
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) ->
         h_te_binder y (h_term_var x t)
-    | Proj(t, _) | Inst(t, _) | Gen (_, _, t) -> h_term_var x t
+    | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _) ->
+        h_term_var x t
     | Record m -> h_term_max (h_term_var x) m
   and h_term_var (x : Var.free) t =
     pre_h_term_var x t.content
@@ -393,11 +396,11 @@ module Term = struct
     | FVar _ | BVar _ -> Typ.Var.bzero
     | App (t,u) ->
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
-    | Lam (_, tau, t) ->
+    | Lam (_, tau, t) | Inst(t, tau) | Annot(t, tau) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) ->
         Typ.Var.bmax (Typ.h_kind x k.content) (h_ty_binder y (h_typ_var x t))
-    | Proj(t, _) | Inst(t, _) -> h_typ_var x t
+    | Proj(t, _) -> h_typ_var x t
     | Record m -> h_typ_max (h_typ_var x) m
   and h_typ_var (x : Typ.Var.free) t =
     pre_h_typ_var x t.content
@@ -418,6 +421,8 @@ module Term = struct
         Gen (x, k, var_map_term_var f_free t)
     | Inst(t, tau) ->
         Inst (var_map_term_var f_free t, tau)
+    | Annot(t, tau) ->
+        Annot (var_map_term_var f_free t, tau)
   and var_map_term_var f_free t =
     { t with
       content = pre_var_map_term_var f_free t.content }
@@ -444,6 +449,9 @@ module Term = struct
              var_map_typ_var f_free t)
     | Inst(t, tau) ->
         Inst (var_map_typ_var f_free t,
+              Typ.var_map_typ f_free tau)
+    | Annot(t, tau) ->
+        Annot (var_map_typ_var f_free t,
               Typ.var_map_typ f_free tau)
   and var_map_typ_var f_free t =
     { t with
@@ -472,6 +480,8 @@ module Term = struct
       Gen (y, k, bsubst_term_var t x u)
   | Inst (t, tau) ->
       Inst (bsubst_term_var t x u, tau)
+  | Annot (t, tau) ->
+      Annot (bsubst_term_var t x u, tau)
   and bsubst_term_var t x u =
     { t with
       content = pre_bsubst_term_var t.content x u }
@@ -500,8 +510,9 @@ module Term = struct
       then Gen(y, k', t)
       else Gen (y, k', bsubst_typ_var t x u)
   | Inst(t, tau) ->
-      Inst(bsubst_typ_var t x u,
-           Typ.bsubst_typ tau x u)
+      Inst(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
+  | Annot(t, tau) ->
+      Annot(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
   and bsubst_typ_var t x u =
     { t with
       content = pre_bsubst_typ_var t.content x u }
@@ -525,10 +536,10 @@ module Term = struct
       equal t t' && Label.equal lab.content lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) ->
       Typ.Var.bequal x x' && Typ.equal_kind k.content k'.content && equal t t'
-  | (Inst(t,tau), Inst(t',tau')) ->
+  | (Inst(t,tau), Inst(t',tau')) | (Annot(t,tau), Annot(t',tau')) ->
       equal t t' && Typ.equal_typ tau tau'
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_)
-     | Gen(_,_,_) | App(_,_) | Inst(_,_)) ,_) -> false
+     | Gen(_,_,_) | App(_,_) | Inst(_,_) | Annot(_,_)) ,_) -> false
 
 (* smart constructors *)
   let mkVar x = FVar x
@@ -548,5 +559,7 @@ module Term = struct
     Gen (y, k, subst_typ_var t x (Typ.BVar y))
 
   let mkInst t tau = Inst(t, tau)
+
+  let mkAnnot t tau = Annot(t, tau)
 
 end
