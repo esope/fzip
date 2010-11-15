@@ -8,9 +8,15 @@ open Ast.Raw
 
 %%
 
-term_binding(typ):
-| LPAR x=ID COLON tau=typ RPAR
-    { (x, tau) }
+mixed_binding(typ,kind):
+| LPAR x=ID COLON t=typ RPAR
+    { TeBind ($startpos, x, t) }
+| LPAR a=ID DBLCOLON k=kind RPAR
+    { TyBind ($startpos, a, locate k $startpos(k) $endpos(k)) }
+
+mixed_bindings(typ,kind):
+| l=nonempty_list(mixed_binding(typ,kind))
+    { l }
 
 term_fields(kind,typ):
 | 
@@ -23,10 +29,9 @@ term_fields(kind,typ):
     else (Label.AList.add lab t fields, Label.Set.add lab labels) }
 
 undelimited_term(kind,typ):
-| LAMBDA b=term_binding(typ) t=term(kind,typ)
-    { mkTeLam_binding b t $startpos $endpos }
-| UPLAMBDA b=typ_binding(kind) t=term(kind,typ)
-| LAMBDA b=typ_binding(kind) t=term(kind,typ)
+| LAMBDA b=mixed_bindings(typ,kind) ARROW t=term(kind,typ)
+    { { (mkTe_mixed_bindings b t $endpos) with Location.startpos = $startpos } }
+| UPLAMBDA b=typ_binding(kind) ARROW t=term(kind,typ)
   (* we allow the use of λ of Λ for type generalization *)
     { mkTeGen_binding b t $startpos $endpos }
 | LET x=ID EQ t1=term(kind,typ) IN t2=term(kind,typ)

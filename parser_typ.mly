@@ -7,9 +7,13 @@
 
 %%
 
-%public %inline typ_binding(kind):
+%public typ_binding(kind):
 | LPAR x=ID DBLCOLON k=kind RPAR
     { (x, Location.locate k $startpos(k) $endpos(k)) }
+
+typ_bindings(kind):
+| l=nonempty_list(typ_binding(kind))
+    { l }
 
 kind_fields:
 | 
@@ -18,7 +22,7 @@ kind_fields:
     { Label.AList.add lab (a, k) f }
 
 undelimited_kind:
-| PI b=typ_binding(kind) k=kind { mkPi_binding b k }
+| PI b=typ_bindings(kind) DBLARROW k=kind { mkPi_bindings b k }
 
 delimited_kind:
 | STAR { Base }
@@ -54,7 +58,7 @@ typ_fields:
     else Label.Map.add lab t f }
 
 undelimited_typ:
-| LAMBDA b=typ_binding(kind) t=typ
+| LAMBDA b=typ_binding(kind) ARROW t=typ
     { mkLam_binding b t $startpos $endpos }
 | FORALL b=typ_binding(kind) t=typ
     { mkForall_binding b t $startpos $endpos }

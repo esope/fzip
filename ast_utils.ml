@@ -156,10 +156,11 @@ module PPrint = struct
   let rec kind_rec typ = let open Pprint in function
     | Base -> text "⋆"
     | Pi(Some x, k1, k2) ->
-        prefix "Π"
-          ((parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
+        (prefix "Π"
+           (parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^ 
+         string "⇒") ^^
            break1 ^^
-           (kind_rec typ k2))
+           (kind_rec typ k2)
     | Pi(None, k1, k2) ->
         infix "⇒"
           (if is_delimited k1 && not (is_non_dep_pi k1)
@@ -239,7 +240,7 @@ module PPrint = struct
     | Var x -> ident x
     | Lam(x, k, t) ->
         (prefix "λ"
-           (parens (infix "::" (ident x) (kind k.content)))) ^^
+           (parens (infix "::" (ident x) (kind k.content))) ^^ string "→") ^^
         break1 ^^
         (typ_rec kind t)
     | App(t1, t2) ->
