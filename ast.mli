@@ -33,6 +33,11 @@ module Raw : sig
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
     | TeAnnot of ('kind, 'typ) term * 'typ
+    | TeEx of string * 'kind located * ('kind, 'typ) term
+    | TeNu of string * 'kind located * ('kind, 'typ) term
+    | TeOpen of string located * ('kind, 'typ) term
+    | TeSigma of
+        string located * string * 'kind located * 'typ * ('kind, 'typ) term
 
 end
 
@@ -130,12 +135,13 @@ module Kind : sig
 
 end
 
-(** AST for terms *)
+(** AST for terms. *)
 module Term : sig
   module Var : Var.S
 
   type term = pre_term located
   and pre_term = private
+(** System F with records. *)
     | FVar of Var.free
     | BVar of Var.bound
     | App of term * term
@@ -143,9 +149,16 @@ module Term : sig
     | Let of Var.bound * term * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
-    | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
+    | Gen of Typ.Var.bound * (Kind.t) located * term
     | Inst of term * Typ.t
+(** Constructs for open existential types. *)
     | Annot of term * Typ.t
+    | Ex of Typ.Var.bound * Kind.t located * term
+    | Nu of Typ.Var.bound * Kind.t located * term
+    | Open of Typ.t * term (** the first argument is always a variable! *)
+    | Sigma of
+        Typ.t * Typ.Var.bound * Kind.t located * Typ.t * term
+          (** the first argument is always a variable! *)
 
   type t = term
 
@@ -171,13 +184,18 @@ module Term : sig
 (** smart constructors *)
   val mkVar: Var.free -> pre_term
   val mkApp: t -> t -> pre_term
-  val mkLam: Var.free -> Typ.typ -> t -> pre_term
+  val mkLam: Var.free -> Typ.t -> t -> pre_term
   val mkLet: Var.free -> t -> t -> pre_term
   val mkRecord: t Label.AList.t -> pre_term
   val mkProj: t -> Label.t located -> pre_term
-  val mkGen: Typ.Var.free -> Typ.typ Typ.kind located -> t -> pre_term
+  val mkGen: Typ.Var.free -> Kind.t located -> t -> pre_term
   val mkInst: t -> Typ.t -> pre_term
   val mkAnnot: t -> Typ.t -> pre_term
+  val mkEx: Typ.Var.free -> Kind.t located -> t -> pre_term
+  val mkNu: Typ.Var.free -> Kind.t located -> t -> pre_term
+  val mkOpen: Typ.Var.free located -> t -> pre_term
+  val mkSigma: Typ.Var.free located ->
+    Typ.Var.free -> Kind.t located -> Typ.t -> t -> pre_term
 
 end
 

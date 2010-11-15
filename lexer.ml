@@ -83,7 +83,9 @@ let rec token = lexer
 | "]" -> locate lexbuf RBRACKET
 | "=" -> locate lexbuf EQ
 | "Pi" | 928 (* Π *) -> locate lexbuf PI
-(* | "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA *)
+| "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA
+| "nu" |  957 (* ν *) -> locate lexbuf NU
+| "open" -> locate lexbuf OPEN
 | "S" -> locate lexbuf SINGLE
 | eof -> locate lexbuf EOF
 | id -> locate lexbuf (ID (utf8_lexeme lexbuf))
@@ -115,7 +117,9 @@ let string_of_token = function
   | RANGLE -> ">"
   | SINGLE -> "S"
   | PI -> "Π"
-(*  | SIGMA -> "Σ" *)
+  | SIGMA -> "Σ"
+  | NU -> "ν"
+  | OPEN -> "open"
   | COLON -> ":"
   | LBRACE -> "{"
   | RBRACE -> "}"

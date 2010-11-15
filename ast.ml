@@ -32,6 +32,11 @@ module Raw = struct
     | TeGen of string * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
     | TeAnnot of ('kind, 'typ) term * 'typ
+    | TeEx of string * 'kind located * ('kind, 'typ) term
+    | TeNu of string * 'kind located * ('kind, 'typ) term
+    | TeOpen of string located * ('kind, 'typ) term
+    | TeSigma of
+        string located * string * 'kind located * 'typ * ('kind, 'typ) term
 
 end
 
@@ -358,6 +363,12 @@ module Term = struct
     | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
     | Annot of term * Typ.t
+    | Ex of Typ.Var.bound * Kind.t located * term
+    | Nu of Typ.Var.bound * Kind.t located * term
+    | Open of Typ.t * term (* the first argument is always a variable! *)
+    | Sigma of
+        Typ.t * Typ.Var.bound * Kind.t located * Typ.t * term
+          (* the first argument is always a variable! *)
 
   type t = term
 
@@ -390,7 +401,8 @@ module Term = struct
         h_te_binder y (h_term_var x t)
     | Let (y, t1, t2) ->
         Var.bmax (h_term_var x t1) (h_te_binder y (h_term_var x t2))
-    | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _) ->
+    | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _)
+    | Sigma (_, _, _, _, t) | Open (_, t) | Nu (_, _, t) | Ex (_, _, t) ->
         h_term_var x t
     | Record m -> h_term_max (h_term_var x) m
   and h_term_var (x : Var.free) t =
@@ -402,10 +414,23 @@ module Term = struct
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
     | Lam (_, tau, t) | Inst(t, tau) | Annot(t, tau) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
-    | Gen (y, k, t) ->
+    | Gen (y, k, t) | Nu (y, k, t) | Ex (y, k, t) ->
         Typ.Var.bmax (Typ.h_kind x k.content) (h_ty_binder y (h_typ_var x t))
     | Proj(t, _) -> h_typ_var x t
     | Record m -> h_typ_max (h_typ_var x) m
+    | Sigma (y, z, k, tau, t) ->
+        Typ.Var.bmax
+          (Typ.h_typ x y)
+          (Typ.Var.bmax
+             (Typ.h_kind x k.content)
+             (Typ.Var.bmax
+                (Typ.h_typ x tau)
+                (h_ty_binder z (h_typ_var x t))))
+    | Open (y, t) ->
+        Typ.Var.bmax
+          (Typ.h_typ x y)
+          (h_typ_var x t) 
+          
   and h_typ_var (x : Typ.Var.free) t =
     pre_h_typ_var x t.content
 
@@ -429,6 +454,14 @@ module Term = struct
         Inst (var_map_term_var f_free t, tau)
     | Annot(t, tau) ->
         Annot (var_map_term_var f_free t, tau)
+    | Sigma (x, y, k, tau, t) ->
+        Sigma (x, y, k, tau, var_map_term_var f_free t)
+    | Open (x, t) ->
+        Open (x, var_map_term_var f_free t)
+    | Nu (x, k, t) ->
+        Nu (x, k, var_map_term_var f_free t)
+    | Ex (x, k, t) ->
+        Ex (x, k, var_map_term_var f_free t)
   and var_map_term_var f_free t =
     { t with
       content = pre_var_map_term_var f_free t.content }
@@ -460,7 +493,24 @@ module Term = struct
               Typ.var_map_typ f_free tau)
     | Annot(t, tau) ->
         Annot (var_map_typ_var f_free t,
-              Typ.var_map_typ f_free tau)
+               Typ.var_map_typ f_free tau)
+    | Sigma (x, y, k, tau, t) ->
+        Sigma (Typ.var_map_typ f_free x,
+               y,
+               { k with content = Typ.var_map_kind f_free k.content },
+               Typ.var_map_typ f_free tau,
+               var_map_typ_var f_free t)
+    | Open (x, t) ->
+        Open (Typ.var_map_typ f_free x,
+              var_map_typ_var f_free t)
+    | Nu (x, k, t) ->
+        Nu (x,
+            { k with content = Typ.var_map_kind f_free k.content },
+            var_map_typ_var f_free t)
+    | Ex (x, k, t) ->
+        Ex (x,
+            { k with content = Typ.var_map_kind f_free k.content },
+            var_map_typ_var f_free t)
   and var_map_typ_var f_free t =
     { t with
       content = pre_var_map_typ_var f_free t.content }
@@ -495,6 +545,14 @@ module Term = struct
       Inst (bsubst_term_var t x u, tau)
   | Annot (t, tau) ->
       Annot (bsubst_term_var t x u, tau)
+  | Sigma (y, z, k, tau, t) ->
+      Sigma (y, z, k, tau, bsubst_term_var t x u)
+  | Open (y, t) ->
+      Open (y, bsubst_term_var t x u)
+  | Nu (y, k, t) ->
+      Nu (y, k, bsubst_term_var t x u)
+  | Ex (y, k, t) ->
+      Ex (y, k, bsubst_term_var t x u)
   and bsubst_term_var t x u =
     { t with
       content = pre_bsubst_term_var t.content x u }
@@ -526,6 +584,24 @@ module Term = struct
       Inst(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
   | Annot(t, tau) ->
       Annot(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
+  | Sigma (y, z, k, tau, t) ->
+      Sigma (Typ.bsubst_typ y x u,
+             z,
+             { k with content = Typ.bsubst_kind k.content x u },
+             Typ.bsubst_typ tau x u,
+             if Typ.Var.bequal x z then t else bsubst_typ_var t x u)
+  | Open (y, t) ->
+      Open (Typ.bsubst_typ y x u,
+            bsubst_typ_var t x u)
+  | Nu (y, k, t) ->
+      Nu (y,
+          { k with content = Typ.bsubst_kind k.content x u },
+          if Typ.Var.bequal x y then t else bsubst_typ_var t x u)
+  | Ex (y, k, t) ->
+      Ex (y,
+          { k with content = Typ.bsubst_kind k.content x u },
+          if Typ.Var.bequal x y then t else bsubst_typ_var t x u)
+
   and bsubst_typ_var t x u =
     { t with
       content = pre_bsubst_typ_var t.content x u }
@@ -549,12 +625,20 @@ module Term = struct
       Label.AList.equal equal m m'
   | (Proj(t,lab), Proj(t',lab')) ->
       equal t t' && Label.equal lab.content lab'.content
-  | (Gen(x,k,t), Gen(x',k',t')) ->
+  | (Gen(x,k,t), Gen(x',k',t')) | (Nu(x,k,t), Nu(x',k',t'))
+  | (Ex(x,k,t), Ex(x',k',t')) ->
       Typ.Var.bequal x x' && Typ.equal_kind k.content k'.content && equal t t'
   | (Inst(t,tau), Inst(t',tau')) | (Annot(t,tau), Annot(t',tau')) ->
       equal t t' && Typ.equal_typ tau tau'
+  | (Open(x,t), Open(x',t')) ->
+      Typ.equal_typ x x' && equal t t'
+  | (Sigma(y,x,k,tau,t), Sigma(y',x',k',tau',t')) ->
+      Typ.equal_typ y y' && Typ.Var.bequal x x'
+        && Typ.equal_kind k.content k'.content
+        && Typ.equal_typ tau tau' && equal t t'
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_) |
-    Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Annot(_,_)) ,_) ->
+    Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Annot(_,_) |
+    Sigma(_,_,_,_,_) | Open(_,_) | Ex(_,_,_) | Nu(_,_,_)),_) ->
       false
 
 (* smart constructors *)
@@ -581,5 +665,21 @@ module Term = struct
   let mkInst t tau = Inst(t, tau)
 
   let mkAnnot t tau = Annot(t, tau)
+
+  let mkEx x k t =
+    let y = h_typ_var x t in
+    Ex (y, k, subst_typ_var t x (Typ.BVar y))
+
+  let mkNu x k t =
+    let y = h_typ_var x t in
+    Nu (y, k, subst_typ_var t x (Typ.BVar y))
+
+  let mkOpen { content = x ; startpos ; endpos } t =
+    Open ({ content = Typ.FVar x ; startpos ; endpos }, t)
+
+  let mkSigma { content = x ; startpos ; endpos } y k tau t =
+    let z = h_typ_var y t in
+    Sigma ({ content = Typ.FVar x ; startpos ; endpos },
+           z, k, tau, subst_typ_var t y (Typ.BVar z))
 
 end

@@ -45,6 +45,17 @@ undelimited_term(kind,typ):
 | LET x=ID COLON tau=typ EQ t1=term(kind,typ) IN t2=term(kind,typ)
     { let t1' = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
     locate (TeLet (x, t1', t2)) $startpos $endpos }
+| OPEN LBRACKET x=ID RBRACKET t=delimited_term(kind,typ)
+    { locate (TeOpen(locate x $startpos(x) $endpos(x), t)) $startpos $endpos }
+| NU LPAR x=ID DBLCOLON k=kind RPAR t=term(kind,typ)
+    { locate (TeNu(x, locate k $startpos(k) $endpos(k), t)) $startpos $endpos }
+| SIGMA LBRACE x=ID RBRACE
+    LPAR y=ID DBLCOLON k=kind EQ tau=typ RPAR t=term(kind,typ)
+    { locate
+        (TeSigma(locate x $startpos(x) $endpos(x),
+                 y, locate k $startpos(k) $endpos(k), tau, t))
+        $startpos $endpos }
+
 
 delimited_term(kind,typ):
 | LPAR t=term(kind,typ) RPAR { relocate t $startpos $endpos }

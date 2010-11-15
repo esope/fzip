@@ -57,6 +57,7 @@ let rec mkTe_mixed_bindings b e endpos = match b with
 %token STAR DBLARROW
 
 %token UPLAMBDA LAMBDA LPAR RPAR DBLCOLON FORALL ARROW APP EXISTS LET IN COMMA
+  SIGMA NU OPEN
 %token LANGLE RANGLE DOT
 %token SINGLE
 %token PI

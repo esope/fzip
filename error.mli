@@ -27,6 +27,9 @@ val subtype: t
 (** Kind wellformedness error. *)
 val subkind: t
 
+(** Incomplete implementation error. *)
+val not_implemented: t
+
 (** Gets the list of errors (error_id, error_msg) *)
 val list_errors: unit -> (int * string) list
 

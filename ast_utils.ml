@@ -81,6 +81,21 @@ module Encode = struct
           mkGen (Ast.Typ.Var.make x) k' t'
       | Raw.TeInst (t, tau) -> mkInst (term t) (Typ.typ tau)
       | Raw.TeAnnot (t, tau) -> mkAnnot (term t) (Typ.typ tau)
+      | Raw.TeSigma ({ content = y ; startpos ; endpos }, z, k, tau, t) ->
+          mkSigma (locate (Ast.Typ.Var.make y) startpos endpos)
+            (Ast.Typ.Var.make z)
+            { k with content = Typ.kind k.content }
+            (Typ.typ tau) (term t)
+      | Raw.TeOpen ({ content = y ; startpos ; endpos }, t) ->
+          mkOpen (locate (Ast.Typ.Var.make y) startpos endpos) (term t)
+      | Raw.TeNu (x, k, t) ->
+          let k' = { k with content = Typ.kind k.content }
+          and t' = term t in
+          mkNu (Ast.Typ.Var.make x) k' t'
+      | Raw.TeEx (x, k, t) ->
+          let k' = { k with content = Typ.kind k.content }
+          and t' = term t in
+          mkEx (Ast.Typ.Var.make x) k' t'
   end
 end
 

@@ -148,6 +148,12 @@ let rec wfterm env term = match term.content with
  this type should have a base kind.\n%s%!"
        (error_msg reasons))
       end
+  | Sigma (_,_,_,_,_)
+  | Open (_,_)
+  | Nu (_,_,_)
+  | Ex (_,_,_) ->
+      Error.raise_error Error.not_implemented term.startpos term.endpos
+        "Typechecking for open existential types."
 
 let check_wfterm env e t =
   let t_min = wfterm env e in
