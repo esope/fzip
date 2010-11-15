@@ -1,0 +1,28 @@
+This project implements the language that is described in the last
+part of Benoît Montagu's PhD thesis. It is an extension of System F
+with subtyping, singleton kinds and open existential types.
+
+To get an overview of the syntax, see the examples in the examples
+subdirectory. The files can use UTF-8 symbols: for instance, 'λ' can be
+used instead of 'fun', or '→' instead of '->'. The user is invited to
+read the file lexer.ml to get more info.
+
+Requirements:
+-------------
+* Objective Caml >= 3.12
+* ocamlfind
+* ULex
+* menhir
+* OUnit (for running tests)
+
+To build, type in a terminal
+  make
+
+To build a native version, type
+  make native
+
+To run tests, type
+  make test
+or (in native mode)
+  make test.native
+
