@@ -9,9 +9,9 @@
 
 %public typ_binding(kind):
 | LPAR x=ID DBLCOLON k=kind RPAR
-    { (x, Location.locate k $startpos(k) $endpos(k)) }
+    { ($startpos, x, Location.locate k $startpos(k) $endpos(k)) }
 
-typ_bindings(kind):
+%public typ_bindings(kind):
 | l=nonempty_list(typ_binding(kind))
     { l }
 
@@ -51,22 +51,24 @@ typ_base_fields:
 typ_fields:
 | 
     { Label.Map.empty }
-| TYPE lab=ID EQ t=typ f=typ_fields
+| TYPE lab=ID params=list(typ_binding(kind))
+  EQ t=typ f=typ_fields
     { if Label.Map.mem lab f
     then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
-    else Label.Map.add lab t f }
+    else Label.Map.add lab (mkLam_bindings params t $endpos(t)) f }
 
 undelimited_typ:
-| LAMBDA b=typ_binding(kind) ARROW t=typ
-    { mkLam_binding b t $startpos $endpos }
-| FORALL b=typ_binding(kind) t=typ
-    { mkForall_binding b t $startpos $endpos }
-| EXISTS b=typ_binding(kind) t=typ
-    { mkExists_binding b t $startpos $endpos }
+| LAMBDA b=typ_bindings(kind) ARROW t=typ
+    { relocate (mkLam_bindings b t $endpos) $startpos $endpos }
+| FORALL b=typ_bindings(kind) COMMA t=typ
+    { relocate (mkForall_bindings b t $endpos) $startpos $endpos }
+| EXISTS b=typ_bindings(kind) COMMA t=typ
+    { relocate (mkExists_bindings b t $endpos) $startpos $endpos }
+
 
 delimited_typ:
-| LPAR t=typ RPAR { locate t.Location.content $startpos $endpos }
+| LPAR t=typ RPAR { relocate t $startpos $endpos }
 | x=ID { locate (Var x) $startpos $endpos }
 | t1=delimited_typ t2=delimited_typ                 %prec APP
     { locate (App(t1, t2)) $startpos $endpos }

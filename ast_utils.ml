@@ -286,12 +286,14 @@ module PPrint = struct
              m [])
     | BaseForall(x, k, t) ->
         (prefix "∀"
-           (parens (infix_com "::" (ident x) (kind k.content)))) ^^
+           (parens (infix_com "::" (ident x) (kind k.content))) ^^
+         string ",") ^^
         break1 ^^
         (typ_rec kind t)
     | BaseExists(x, k, t) ->
         (prefix "∃"
-           (parens (infix_com "::" (ident x) (kind k.content)))) ^^
+           (parens (infix_com "::" (ident x) (kind k.content))) ^^
+         string ",") ^^
         break1 ^^
         (typ_rec kind t)
 

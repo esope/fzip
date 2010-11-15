@@ -74,6 +74,7 @@ let rec token = lexer
 | "(" -> locate lexbuf LPAR
 | ")" -> locate lexbuf RPAR
 | "." -> locate lexbuf DOT
+| "," -> locate lexbuf COMMA
 | "<" -> locate lexbuf LANGLE
 | ">" -> locate lexbuf RANGLE
 | "{" -> locate lexbuf LBRACE
@@ -109,6 +110,7 @@ let string_of_token = function
   | STAR -> "⋆"
   | DBLARROW -> "⇒"
   | DOT -> "."
+  | COMMA -> ","
   | LANGLE -> "<"
   | RANGLE -> ">"
   | SINGLE -> "S"

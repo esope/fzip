@@ -41,13 +41,13 @@ let tests_parsing = "Tests about parsing" >:::
    test_typ_parser
      "λ (a :: *) →  a { val B: b val C: c }"
      "λ (a :: *) → (a { val B: b val C: c })" ;
-   test_typ_parser "∀ (a :: *) a b" "forall (a :: *) (a b)" ;
-   test_typ_parser "∀ (a :: *) a . b" "∀ (a :: *) (a . b)" ;
-   test_typ_parser "∀ (a :: *) a < type B=b type C=c>"
-     "∀ (a :: *) (a < type B=b type C=c>)" ;
+   test_typ_parser "∀ (a :: *), a b" "forall (a :: *), (a b)" ;
+   test_typ_parser "∀ (a :: *), a . b" "∀ (a :: *), (a . b)" ;
+   test_typ_parser "∀ (a :: *), a < type B=b type C=c>"
+     "∀ (a :: *), (a < type B=b type C=c>)" ;
    test_typ_parser
-     "∀ (a :: *)  a { val B: b val C: c }"
-     "∀ (a :: *) (a { val B: b val C: c })" ;
+     "∀ (a :: *),  a { val B: b val C: c }"
+     "∀ (a :: *), (a { val B: b val C: c })" ;
    test_term_parser "Λ(a::*) → λ(x:a) → x" "Fun(a::*) -> fun(x:a) -> x" ;
    test_term_parser "λ (a::*)(x:a) → x" "fun(a::*)(x:a) -> x" ;
    test_term_parser "λ(x:a) → x y" "λ(x:a) → (x y)" ;
@@ -70,8 +70,8 @@ let tests_wftype = "Tests about wftype" >:::
   [
    test_wftype ~t:"fun (x::*) → x" ~k:"* => *" ;
    test_wftype ~t:"fun (x::*) → fun (y::*=>*) → y x" ~k:"* => (* => *) => *" ;
-   test_wftype ~t:"fun (x::*) → ∀ (y::*=>*) y x" ~k:"* => *" ;
-   test_wftype ~t:"fun (x::*) → ∃ (y::*=>*) y x" ~k:"* => *" ;
+   test_wftype ~t:"fun (x::*) → ∀ (y::*=>*), y x" ~k:"* => *" ;
+   test_wftype ~t:"fun (x::*) → ∃ (y::*=>*), y x" ~k:"* => *" ;
    test_wftype
      ~t:"fun (x::<type A::* type B::*>) → < type C= x.A type D=x.B >"
      ~k:"< type A::* type B::* > => < type C::* type D::* >" ;
@@ -217,14 +217,14 @@ let test_wfterm ~e ~t =
 let tests_wfterm = "Tests about wfterm" >:::
   [
    test_wfterm ~e:"fun (α:: *) (x : α) → x"
-     ~t:"∀ (a:: *) a -> a" ;
+     ~t:"∀ (a:: *), a -> a" ;
 
    test_wfterm ~e:"fun (α:: *) (x : { val A: α val B: α }) → x"
-     ~t:"∀ (a:: *) { val A:a val B: a } -> { val A: a val B: a }" ;
+     ~t:"∀ (a:: *), { val A:a val B: a } -> { val A: a val B: a }" ;
 
    test_wfterm
      ~e:"fun (α:: * => *) (β :: *) (x : { val A: α β  val B: α β }) → x"
-     ~t:"∀ (α:: *=>*) ∀ (β::*) { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
+     ~t:"∀ (α:: *=>*) (β::*), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
  ]
 
 (* tests about wfsubtype *)
@@ -239,44 +239,44 @@ let test_wfsubtype ~t ~u =
 let tests_wfsubtype = "Tests about wfsubtype" >:::
   [
    test_wfsubtype
-     ~t:"∀ (a:: *) a -> a"
-     ~u:"∀ (a:: *) a -> a" ;
+     ~t:"∀ (a:: *), a -> a"
+     ~u:"∀ (a:: *), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *) a -> a"
-     ~u:"∀ (a:: S (forall (b::*) b)) a -> a" ;
+     ~t:"∀ (a:: *), a -> a"
+     ~u:"∀ (a:: S (forall (b::*), b)), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *) a -> a"
-     ~u:"∀ (a:: S (forall (b::*) b)) (forall (b::*) b) -> a" ;
+     ~t:"∀ (a:: *), a -> a"
+     ~u:"∀ (a:: S (forall (b::*), b)), (forall (b::*), b) -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *) (forall (b::*) b) -> a"
-     ~u:"∀ (a:: S (forall (b::*) b)) a -> a" ;
+     ~t:"∀ (a:: *), (forall (b::*), b) -> a"
+     ~u:"∀ (a:: S (forall (b::*), b)), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *) {val A:a val B:a} -> {val A:a val B:a}"
-     ~u:"∀ (a:: *) {val B:a val A:a} -> {val B:a}" ;
+     ~t:"∀ (a:: *), {val A:a val B:a} -> {val A:a val B:a}"
+     ~u:"∀ (a:: *), {val B:a val A:a} -> {val B:a}" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: *) a -> a"
-     ~u:"∃ (a:: *) a -> a" ;
+     ~t:"∃ (a:: *), a -> a"
+     ~u:"∃ (a:: *), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*) b)) a -> a"
-     ~u:"∃ (a:: *) a -> a" ;
+     ~t:"∃ (a:: S (forall (b::*), b)), a -> a"
+     ~u:"∃ (a:: *), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*) b)) (forall (b::*) b) -> a"
-     ~u:"∃ (a:: *) a -> a" ;
+     ~t:"∃ (a:: S (forall (b::*), b)), (forall (b::*), b) -> a"
+     ~u:"∃ (a:: *), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*) b)) a -> a"
-     ~u:"∃ (a:: *) (forall (b::*) b) -> a" ;
+     ~t:"∃ (a:: S (forall (b::*), b)), a -> a"
+     ~u:"∃ (a:: *), (forall (b::*), b) -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: *) {val B:a val A:a} -> {val A:a val B:a}"
-     ~u:"∃ (a:: *) {val A:a val B:a} -> {val B:a}" ;
+     ~t:"∃ (a:: *), {val B:a val A:a} -> {val A:a val B:a}"
+     ~u:"∃ (a:: *), {val A:a val B:a} -> {val B:a}" ;
  ]
 
 (* tests about sub_kind *)
@@ -434,18 +434,18 @@ let test_equiv_typ ~t1 ~t2 ~k =
 let tests_equiv_typ = "Tests about equiv_typ" >:::
   [
    test_equiv_typ
-     ~t1:"∃ (α :: S (∀(β :: *) ∀(γ :: Π(δ::*) => S(δ)) γ β)) α"
-     ~t2:"∃ (α :: S (∀(β :: *) ∀(γ :: Π(δ::*) => S(δ)) β)) α"
+     ~t1:"∃ (α :: S (∀(β :: *) (γ :: Π(δ::*) => S(δ)), γ β)), α"
+     ~t2:"∃ (α :: S (∀(β :: *) (γ :: Π(δ::*) => S(δ)), β)), α"
      ~k:"*" ;
 
    test_equiv_typ
-     ~t1:"< type l = ∀(α::*)α  type q = ∀(α::*)∀(α::*)α >"
-     ~t2:"< type r = ∀(α::*)∀(α::*)α  type l = ∀(α::*)α >"
+     ~t1:"< type l = ∀(α::*),α  type q = ∀(α::*)(α::*),α >"
+     ~t2:"< type r = ∀(α::*)(α::*),α  type l = ∀(α::*),α >"
      ~k:"< type l :: * >" ;
 
    test_equiv_typ
-     ~t1:"< type l = ∀(α::*)α >"
-     ~t2:"< type r = ∀(α::*)∀(α::*)α >"
+     ~t1:"< type l = ∀(α::*),α >"
+     ~t2:"< type r = ∀(α::*)(α::*),α >"
      ~k:"< >" ;
 
  ]

@@ -6,6 +6,9 @@ type 'a located =
 let locate x startpos endpos =
   { content = x ; startpos = startpos ; endpos = endpos }
 
+let relocate r startpos endpos =
+  { r with startpos = startpos ; endpos = endpos }
+
 let dummy_locate x =
   let dummy = Lexing.dummy_pos in
   locate x dummy dummy

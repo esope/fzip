@@ -6,8 +6,9 @@ type 'a located =
       startpos : Lexing.position ;
       endpos : Lexing.position   }
 
-(** Helper function. *)
+(** Helper functions. *)
 val locate: 'a -> Lexing.position -> Lexing.position -> 'a located
+val relocate: 'a located -> Lexing.position -> Lexing.position -> 'a located
 
 (** Locating with dummy positions. *)
 val dummy_locate: 'a -> 'a located
