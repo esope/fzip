@@ -1,4 +1,7 @@
 * better pretty printing for bound variables
 * open existential types
 * examples, tests with files
-
+* support for datatypes
+* recursive types
+* better syntax for mixing types with terms
+* some form of partial type inference (implicit arguments?)
