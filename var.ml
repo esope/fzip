@@ -27,6 +27,9 @@ module type S = sig
   val bequal: bound -> bound -> bool
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
+
+  module Set : Set.S with type elt = free
+  module Map : Map.S with type key = free
 end
 
 module Make (Default: sig val fbase: string val bbase: string end) : S = struct
@@ -50,4 +53,14 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
   let bequal: int -> int -> bool = (=)
   let bmax: int -> int -> int = max
   let bto_string n = Default.bbase ^ (string_of_int n)
+
+  module Free = struct
+    type t = free
+    let compare (s1, i1) (s2, i2) =
+      let n_s = String.compare s1 s2 in
+      if n_s < 0 then n_s
+      else compare i1 i2
+  end
+  module Set = Set.Make(Free)
+  module Map = Map.Make(Free)
 end

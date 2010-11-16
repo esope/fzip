@@ -38,6 +38,9 @@ module type S = sig
   val bequal: bound -> bound -> bool
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
+
+  module Set : Set.S with type elt = free
+  module Map: Map.S with type key = free
 end
 
 module Make (Default: CONFIG) : S
