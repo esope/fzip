@@ -13,12 +13,12 @@ module Raw : sig
   and pre_typ =
     | Var of string
     | App of typ * typ
-    | Lam of string * (typ kind) located * typ
+    | Lam of string located * (typ kind) located * typ
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
 (** base types *)
-    | BaseForall of string * (typ kind) located * typ
-    | BaseExists of string * (typ kind) located * typ
+    | BaseForall of string located * (typ kind) located * typ
+    | BaseExists of string located * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -26,18 +26,18 @@ module Raw : sig
   and ('kind, 'typ) pre_term =
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
-    | TeLam of string * 'typ * ('kind, 'typ) term
-    | TeLet of string * ('kind, 'typ) term * ('kind, 'typ) term
+    | TeLam of string located * 'typ * ('kind, 'typ) term
+    | TeLet of string located * ('kind, 'typ) term * ('kind, 'typ) term
     | TeRecord of (('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
-    | TeGen of string * 'kind located * ('kind, 'typ) term
+    | TeGen of string located * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
     | TeAnnot of ('kind, 'typ) term * 'typ
-    | TeEx of string * 'kind located * ('kind, 'typ) term
-    | TeNu of string * 'kind located * ('kind, 'typ) term
+    | TeEx of string located * 'kind located * ('kind, 'typ) term
+    | TeNu of string located * 'kind located * ('kind, 'typ) term
     | TeOpen of string located * ('kind, 'typ) term
-    | TeSigma of
-        string located * string * 'kind located * 'typ * ('kind, 'typ) term
+    | TeSigma of string located *
+          string located * 'kind located * 'typ * ('kind, 'typ) term
 
 end
 
@@ -56,11 +56,11 @@ module Typ : sig
     | FVar of Var.free
     | BVar of Var.bound
     | App of typ * typ
-    | Lam of Var.bound * (typ kind) located * typ
+    | Lam of Var.bound located * (typ kind) located * typ
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
-    | BaseForall of Var.bound * (typ kind) located * typ
-    | BaseExists of Var.bound * (typ kind) located * typ
+    | BaseForall of Var.bound located * (typ kind) located * typ
+    | BaseExists of Var.bound located * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -84,11 +84,11 @@ module Typ : sig
 (** smart constructors *)
   val mkVar: Var.free -> pre_typ
   val mkApp: t -> t -> pre_typ
-  val mkLam: Var.free -> t kind located -> t -> pre_typ
+  val mkLam: Var.free located -> t kind located -> t -> pre_typ
   val mkRecord: typ Label.Map.t -> pre_typ
   val mkProj: t -> Label.t located -> pre_typ
-  val mkBaseForall: Var.free -> t kind located -> t -> pre_typ
-  val mkBaseExists: Var.free -> t kind located -> t -> pre_typ
+  val mkBaseForall: Var.free located -> t kind located -> t -> pre_typ
+  val mkBaseExists: Var.free located -> t kind located -> t -> pre_typ
   val mkBaseRecord: typ Label.Map.t -> pre_typ
   val mkBaseArrow: t -> t -> pre_typ
 end
@@ -145,19 +145,19 @@ module Term : sig
     | FVar of Var.free
     | BVar of Var.bound
     | App of term * term
-    | Lam of Var.bound * Typ.t * term
-    | Let of Var.bound * term * term
+    | Lam of Var.bound located * Typ.t * term
+    | Let of Var.bound located * term * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
-    | Gen of Typ.Var.bound * (Kind.t) located * term
+    | Gen of Typ.Var.bound located * (Kind.t) located * term
     | Inst of term * Typ.t
 (** Constructs for open existential types. *)
     | Annot of term * Typ.t
-    | Ex of Typ.Var.bound * Kind.t located * term
-    | Nu of Typ.Var.bound * Kind.t located * term
+    | Ex of Typ.Var.bound located * Kind.t located * term
+    | Nu of Typ.Var.bound located * Kind.t located * term
     | Open of Typ.t * term (** the first argument is always a variable! *)
     | Sigma of
-        Typ.t * Typ.Var.bound * Kind.t located * Typ.t * term
+        Typ.t * Typ.Var.bound located * Kind.t located * Typ.t * term
           (** the first argument is always a variable! *)
 
   type t = term
@@ -184,18 +184,18 @@ module Term : sig
 (** smart constructors *)
   val mkVar: Var.free -> pre_term
   val mkApp: t -> t -> pre_term
-  val mkLam: Var.free -> Typ.t -> t -> pre_term
-  val mkLet: Var.free -> t -> t -> pre_term
+  val mkLam: Var.free located -> Typ.t -> t -> pre_term
+  val mkLet: Var.free located -> t -> t -> pre_term
   val mkRecord: t Label.AList.t -> pre_term
   val mkProj: t -> Label.t located -> pre_term
-  val mkGen: Typ.Var.free -> Kind.t located -> t -> pre_term
+  val mkGen: Typ.Var.free located -> Kind.t located -> t -> pre_term
   val mkInst: t -> Typ.t -> pre_term
   val mkAnnot: t -> Typ.t -> pre_term
-  val mkEx: Typ.Var.free -> Kind.t located -> t -> pre_term
-  val mkNu: Typ.Var.free -> Kind.t located -> t -> pre_term
+  val mkEx: Typ.Var.free located -> Kind.t located -> t -> pre_term
+  val mkNu: Typ.Var.free located -> Kind.t located -> t -> pre_term
   val mkOpen: Typ.Var.free located -> t -> pre_term
   val mkSigma: Typ.Var.free located ->
-    Typ.Var.free -> Kind.t located -> Typ.t -> t -> pre_term
+    Typ.Var.free located -> Kind.t located -> Typ.t -> t -> pre_term
 
 end
 

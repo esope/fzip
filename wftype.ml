@@ -14,7 +14,7 @@ let rec wftype env t =
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try Kind.mkSingle t (Env.Typ.get_var x env)
+        try Kind.mkSingle t (snd (Env.Typ.get_var x env))
         with Not_found ->
           Error.raise_error Error.type_wf t.startpos t.endpos
             (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
@@ -36,12 +36,15 @@ let rec wftype env t =
             Error.raise_error Error.type_wf t.startpos t.endpos
               "Non functional application."
       end
-  | Lam(x, k, t) ->
+  | Lam({ content = x ; _ } as x_loc, k, t) ->
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
         let t' = bsubst t x (dummy_locate (mkVar x')) in
-        let k' = wftype (Env.Typ.add_var x' k.content env) t' in
+        let k' =
+          wftype
+            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env)
+            t' in
         Kind.mkPi x' k.content k'
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos "Ill-formed kind."
@@ -67,12 +70,14 @@ let rec wftype env t =
               "Ill-formed projection."
         | Single (_,_) -> assert false
       end
-  | BaseForall(x, k, u) | BaseExists(x, k, u) ->
+  | BaseForall({ content = x ; _ } as x_loc, k, u)
+  | BaseExists({ content = x ; _ } as x_loc, k, u) ->
       if wfkind env k.content
       then
         let x' = Var.bfresh x in
         let u' = bsubst u x (dummy_locate (mkVar x')) in
-        let env' = Env.Typ.add_var x' k.content env in
+        let env' =
+          Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env in
         let k' = wftype env' u' in
         let open Kind in
         if sub_kind_b env' k' mkBase 
@@ -103,7 +108,9 @@ and wfkind env = function
       wfkind env k1 &&
       let x = Var.bfresh y in
       let x_var = dummy_locate (mkVar x) in
-      wfkind (Env.Typ.add_var x k1 env) (Kind.bsubst k2 y x_var)
+      wfkind
+        (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+        (Kind.bsubst k2 y x_var)
   | Single (t, k) ->
       let k' = wftype env t in
       let open Answer in
@@ -120,7 +127,9 @@ and wfkind_fields env = function
       wfkind env k &&
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      wfkind_fields (Env.Typ.add_var y k env) (Kind.bsubst_fields f x y_var)
+      wfkind_fields
+        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
+        (Kind.bsubst_fields f x y_var)
 
 let rec try_sub_type env tau tau' =
   let open Answer in
@@ -130,12 +139,15 @@ let rec try_sub_type env tau tau' =
       assert false (* only types that have the base kind are compared *)
   | (BVar _, _) | (_, BVar _) ->
       assert false
-  | (BaseForall(a, k,  t), BaseForall(a', k', t'))
-  | (BaseExists(a, k', t), BaseExists(a', k,  t')) ->
+  | (BaseForall({ content = a ; _ } as a_loc, k,  t),
+     BaseForall({ content = a' ; _ }, k', t'))
+  | (BaseExists({ content = a ; _ } as a_loc, k', t),
+     BaseExists({ content = a' ; _ }, k,  t')) ->
       sub_kind env k'.content k.content &*&
       let x = Var.bfresh a in
       let x_var = dummy_locate (mkVar x) in
-      sub_type (Env.Typ.add_var x k'.content env)
+      sub_type
+        (Env.Typ.add_var (locate_with Env.Typ.U a_loc) x k'.content env)
         (bsubst t a x_var) (bsubst t' a' x_var)
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       sub_type env t1' t1 &*& sub_type env t2 t2'

@@ -22,7 +22,7 @@ let rec wfterm env term = match term.content with
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
       end
-  | Lam (x, t, e) ->
+  | Lam ({ content = x ; _ }, t, e) ->
       begin
         match wfbasetype env t with
         | OK ->
@@ -59,27 +59,28 @@ let rec wfterm env term = match term.content with
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
-  | Let(x, e1, e2) ->
+  | Let({ content = x ; _ }, e1, e2) ->
       let t1 = wfterm env e1 in
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       wfterm (Env.Term.add_var y t1 env) (bsubst_term_var e2 x y_var)
-  | Gen (x, k, e) ->
+  | Gen ({ content = x ; _ } as x_loc, k, e) ->
       if wfkind env k.content
       then
         let x' = Typ.Var.bfresh x in
-        let x_var' = dummy_locate (Typ.mkVar x') in
+        let x_var' = locate_with (Typ.mkVar x') x_loc in
         let t' =
-          wfterm (Env.Typ.add_var x' k.content env)
+          wfterm
+            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env)
             (bsubst_typ_var e x x_var') in
-        dummy_locate (Typ.mkBaseForall x' k t')
+        dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t')
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind at the bound of a generalization."
   | Inst(e, tau) ->
       begin
         match (wfterm env e).content with
-        | Typ.BaseForall(x, k', tau') ->
+        | Typ.BaseForall({content = x ; _ }, k', tau') ->
             begin
               let k = wftype env tau in
               let open Answer in

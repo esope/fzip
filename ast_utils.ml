@@ -37,17 +37,17 @@ module Encode = struct
       | Raw.Lam (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          mkLam (Var.make x) k' t'
+          mkLam (map Var.make x) k' t'
       | Raw.Record m -> mkRecord (Label.Map.map (typ_rec kind) m)
       | Raw.Proj (t, lab) -> mkProj (typ_rec kind t) lab
       | Raw.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          mkBaseForall (Var.make x) k' t'
+          mkBaseForall (map Var.make x) k' t'
       | Raw.BaseExists (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          mkBaseExists (Var.make x) k' t'
+          mkBaseExists (map Var.make x) k' t'
       | Raw.BaseRecord m -> mkBaseRecord (Label.Map.map (typ_rec kind) m)
       | Raw.BaseArrow (t, u) -> mkBaseArrow (typ_rec kind t) (typ_rec kind u)
 
@@ -68,34 +68,34 @@ module Encode = struct
       | Raw.TeLam (x, tau, t) ->
           let tau' = Typ.typ tau
           and t' = term t in
-          mkLam (Var.make x) tau' t'
+          mkLam (map Var.make x) tau' t'
       | Raw.TeLet (x, t1, t2) ->
           let t1' = term t1
           and t2' = term t2 in
-          mkLet (Var.make x) t1' t2'
+          mkLet (map Var.make x) t1' t2'
       | Raw.TeRecord m -> mkRecord (Label.AList.map term m)
       | Raw.TeProj (t, lab) -> mkProj (term t) lab
       | Raw.TeGen (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
           and t' = term t in
-          mkGen (Ast.Typ.Var.make x) k' t'
+          mkGen (map Ast.Typ.Var.make x) k' t'
       | Raw.TeInst (t, tau) -> mkInst (term t) (Typ.typ tau)
       | Raw.TeAnnot (t, tau) -> mkAnnot (term t) (Typ.typ tau)
-      | Raw.TeSigma ({ content = y ; startpos ; endpos }, z, k, tau, t) ->
-          mkSigma (locate (Ast.Typ.Var.make y) startpos endpos)
-            (Ast.Typ.Var.make z)
+      | Raw.TeSigma (y, z, k, tau, t) ->
+          mkSigma (map Ast.Typ.Var.make y)
+            (map Ast.Typ.Var.make z)
             { k with content = Typ.kind k.content }
             (Typ.typ tau) (term t)
-      | Raw.TeOpen ({ content = y ; startpos ; endpos }, t) ->
-          mkOpen (locate (Ast.Typ.Var.make y) startpos endpos) (term t)
+      | Raw.TeOpen (y, t) ->
+          mkOpen (map Ast.Typ.Var.make y) (term t)
       | Raw.TeNu (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
           and t' = term t in
-          mkNu (Ast.Typ.Var.make x) k' t'
+          mkNu (map Ast.Typ.Var.make x) k' t'
       | Raw.TeEx (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
           and t' = term t in
-          mkEx (Ast.Typ.Var.make x) k' t'
+          mkEx (map Ast.Typ.Var.make x) k' t'
   end
 end
 
@@ -132,17 +132,17 @@ module Decode = struct
       | Typ.Lam (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          Lam(Typ.Var.bto_string x, k', t')
+          Lam(map Typ.Var.bto_string x, k', t')
       | Typ.Record m -> Record (Label.Map.map (typ_rec kind) m)
       | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
       | Typ.BaseForall (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          BaseForall(Typ.Var.bto_string x, k', t')
+          BaseForall(map Typ.Var.bto_string x, k', t')
       | Typ.BaseExists (x, k, t) ->
           let k' = { k with content = kind k.content }
           and t' = typ_rec kind t in
-          BaseExists(Typ.Var.bto_string x, k', t')
+          BaseExists(map Typ.Var.bto_string x, k', t')
       | Typ.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
       | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
 
@@ -253,7 +253,7 @@ module PPrint = struct
 
   let rec pre_typ_rec kind = let open Pprint in function
     | Var x -> ident x
-    | Lam(x, k, t) ->
+    | Lam({ content = x ; _ }, k, t) ->
         (prefix "λ"
            (parens (infix "::" (ident x) (kind k.content))) ^^ string "→") ^^
         break1 ^^
@@ -299,13 +299,13 @@ module PPrint = struct
                   (typ_rec kind ty))
                :: acc)
              m [])
-    | BaseForall(x, k, t) ->
+    | BaseForall({ content = x ; _ }, k, t) ->
         (prefix "∀"
            (parens (infix_com "::" (ident x) (kind k.content))) ^^
          string ",") ^^
         break1 ^^
         (typ_rec kind t)
-    | BaseExists(x, k, t) ->
+    | BaseExists({ content = x ; _ }, k, t) ->
         (prefix "∃"
            (parens (infix_com "::" (ident x) (kind k.content))) ^^
          string ",") ^^

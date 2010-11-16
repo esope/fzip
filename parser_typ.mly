@@ -9,7 +9,8 @@
 
 %public typ_binding(kind):
 | LPAR x=ID DBLCOLON k=kind RPAR
-    { ($startpos, x, Location.locate k $startpos(k) $endpos(k)) }
+    { ($startpos, locate x $startpos(x) $endpos(x),
+       Location.locate k $startpos(k) $endpos(k)) }
 
 %public typ_bindings(kind):
 | l=nonempty_list(typ_binding(kind))

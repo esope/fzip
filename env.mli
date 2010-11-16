@@ -26,15 +26,19 @@ end
 module Typ: sig
 
   type var = Ast.Typ.Var.free
+  type mode =
+    | U (** Universal variable. *)
+    | E (** Existential variable. *)
+    | EQ of Ast.Typ.t (** Variable with an equation. *)
 
 (** [get_var x env] returns the info (usually a kind) associated
     to [x] in [env].
     @raise Not_found if the variable is not present. *)
-  val get_var: var -> ('a, 'b) t -> 'b
+  val get_var: var -> ('a, 'b) t -> mode Location.located * 'b
 
 
 (** [add_var x k env] returns the environment [env] with the extra
     binding [(x, k)]. *)
-  val add_var: var -> 'b -> ('a, 'b) t -> ('a, 'b) t
+  val add_var: mode Location.located -> var -> 'b -> ('a, 'b) t -> ('a, 'b) t
 
 end

@@ -60,7 +60,7 @@ let rec head_norm env t = match t.content with
 | FVar x ->
     begin
       try
-        let k = simplify_kind (Env.Typ.get_var x env) in
+        let k = simplify_kind (snd (Env.Typ.get_var x env)) in
         match k with
         | Single (u, Base) -> (u, Some k)
         | Single (_, _) -> assert false
@@ -73,7 +73,7 @@ let rec head_norm env t = match t.content with
     begin
       let (t1', k) = head_norm env t1 in
       match (t1'.content, option_map simplify_kind k) with
-      | (Lam (x, _tau, t), None) ->
+      | (Lam ({ content = x ; _ }, _tau, t), None) ->
           head_norm env (bsubst t x t2)
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
@@ -127,25 +127,29 @@ let rec path_norm env t = match t.content with
       let t1' = typ_norm env t1 Kind.mkBase
       and t2' = typ_norm env t2 Kind.mkBase in
       ({ t with content = mkBaseArrow t1' t2' }, Kind.mkBase)
-  | BaseForall (x, k1, t1) ->
+  | BaseForall ({ content = x ; _ } as x_loc, k1, t1) ->
       let k1' = { k1 with content = kind_norm env k1.content } in
       let x' = Var.bfresh x in
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
-        typ_norm (Env.Typ.add_var x' k1.content env)
+        typ_norm
+          (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
-      ({ t with content = mkBaseForall x' k1' t1' }, Kind.mkBase)
-  | BaseExists (x, k1, t1) ->
+      ({ t with content = mkBaseForall (locate_with x' x_loc) k1' t1' },
+       Kind.mkBase)
+  | BaseExists ({ content = x ; _ } as x_loc, k1, t1) ->
       let k1' = { k1 with content = kind_norm env k1.content } in
       let x' = Var.bfresh x in
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
-        typ_norm (Env.Typ.add_var x' k1.content env)
+        typ_norm
+          (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
-      ({ t with content = mkBaseExists x' k1' t1' }, Kind.mkBase)
+      ({ t with content = mkBaseExists (locate_with x' x_loc) k1' t1' },
+       Kind.mkBase)
   | FVar x ->
       begin
-        try (t, Env.Typ.get_var x env)
+        try (t, snd (Env.Typ.get_var x env))
         with Not_found -> assert false
       end
   | BVar _ | Lam (_,_,_) | Record _ -> assert false
@@ -186,8 +190,9 @@ and typ_norm env t k = match simplify_kind k with
     let x_var = dummy_locate (mkVar x) in
     let t_ext = dummy_locate (mkApp t x_var) in
     let t' =
-      typ_norm (Env.Typ.add_var x k1 env) t_ext (Kind.bsubst k2 y x_var) in
-    { t with content = mkLam x k1' t' }
+      typ_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+        t_ext (Kind.bsubst k2 y x_var) in
+    { t with content = mkLam (dummy_locate x) k1' t' }
 | Sigma f ->
     let projections = select_all_fields t f in
     { t with content = mkRecord
@@ -201,7 +206,8 @@ and kind_norm env = let open Kind in function
       let k1' = kind_norm env k1
       and y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      let k2' = kind_norm (Env.Typ.add_var y k1 env) (Kind.bsubst k2 x y_var) in
+      let k2' = kind_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
+          (Kind.bsubst k2 x y_var) in
       Kind.mkPi y k1' k2'
   | Sigma f ->
       let f' = kind_fields_norm env f in
@@ -214,7 +220,7 @@ and kind_fields_norm env = function
       and y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       let f' =
-        kind_fields_norm (Env.Typ.add_var y k env)
+        kind_fields_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
           (Kind.bsubst_fields f x y_var)
       in (lab, (y, k')) :: f'
 
@@ -234,7 +240,7 @@ let rec try_equiv_typ env t1 t2 k =
   | Pi(x, k1, k2) ->
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      equiv_typ (Env.Typ.add_var y k1 env)
+      equiv_typ (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
         (dummy_locate (mkApp t1 y_var))
         (dummy_locate (mkApp t2 y_var))
         (Kind.bsubst k2 x y_var)
@@ -267,14 +273,17 @@ and equiv_path env p1 p2 =
         | Yes -> WithValue.Yes mkBase
         | No reasons -> WithValue.No reasons
       end
-  | (BaseForall(x, k, t), BaseForall(x', k', t'))
-  | (BaseExists(x, k, t), BaseExists(x', k', t')) ->
+  | (BaseForall({ content = x ; _ } as x_loc, k, t),
+     BaseForall({ content = x' ; _ }, k', t'))
+  | (BaseExists({ content = x ; _ } as x_loc, k, t),
+     BaseExists({ content = x' ; _ }, k', t')) ->
       begin
         match
           equiv_kind env k.content k'.content &*&
           let y = Var.bfresh x in
           let y_var = dummy_locate (mkVar y) in
-          equiv_typ (Env.Typ.add_var y k.content env)
+          equiv_typ
+            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) y k.content env)
             (bsubst t x y_var) (bsubst t' x' y_var) Kind.mkBase
         with
         | Yes -> WithValue.Yes Kind.mkBase
@@ -284,7 +293,7 @@ and equiv_path env p1 p2 =
       if Var.equal x x'
       then
         begin
-          try WithValue.Yes (Env.Typ.get_var x env)
+          try WithValue.Yes (snd (Env.Typ.get_var x env))
           with Not_found -> assert false
         end
       else WithValue.No []
@@ -348,7 +357,7 @@ and equiv_kind env k1 k2 =
 and sub_kind env k1 k2 =
   let x = Var.fresh () in
   let x_var = dummy_locate (mkVar x) in
-  check_sub_kind (Env.Typ.add_var x k1 env) x_var
+  check_sub_kind (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env) x_var
     (simplify_kind k1) (simplify_kind k2)
 
 and try_check_sub_kind env p k k' =
@@ -363,7 +372,7 @@ and try_check_sub_kind env p k k' =
       sub_kind env k1' k1 &*&
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      check_sub_kind (Env.Typ.add_var y k1' env)
+      check_sub_kind (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1' env)
         (dummy_locate (mkApp p y_var))
         (Kind.bsubst k2  x  y_var)
         (Kind.bsubst k2' x' y_var)

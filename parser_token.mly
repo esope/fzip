@@ -4,7 +4,8 @@ open Ast.Raw
 let locate = Location.locate
 let relocate = Location.relocate
 
-let mkPi_binding (_startpos,x,k) k' = Pi(Some x, k.Location.content, k')
+let mkPi_binding (_startpos,x,k) k' =
+  Pi(Some x.Location.content, k.Location.content, k')
 
 let rec mkPi_bindings bs t = match bs with
 | [] -> t
@@ -39,8 +40,9 @@ let rec mkTeGen_bindings bs t endpos = match bs with
     mkTeGen_binding b (mkTeGen_bindings bs t endpos) startpos endpos
 
 type mixed_binding =
-  | TeBind of Lexing.position * string * typ
-  | TyBind of Lexing.position * string * (typ kind) Location.located
+  | TeBind of Lexing.position * string Location.located * typ
+  | TyBind of
+      Lexing.position * string Location.located * (typ kind) Location.located
 
 let rec mkTe_mixed_bindings b e endpos = match b with
 | [] -> e

@@ -183,8 +183,9 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"Π(c :: *) => S(c) => *" () ;
 
    (let env =
-     Env.Typ.add_var (Ast.Typ.Var.make "f") (String.Kind.parse "(* => *) => *")
-       (Env.Typ.add_var (Ast.Typ.Var.make "c")
+     Env.Typ.add_var (Location.dummy_locate Env.Typ.U)
+       (Ast.Typ.Var.make "f") (String.Kind.parse "(* => *) => *")
+       (Env.Typ.add_var (Location.dummy_locate Env.Typ.U) (Ast.Typ.Var.make "c")
           (String.Kind.parse "*") Env.empty) in
    test_equiv
      ~neg:true
@@ -194,9 +195,9 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"*" ()) ;
 
    (let env =
-     Env.Typ.add_var (Ast.Typ.Var.make "f")
+     Env.Typ.add_var (Location.dummy_locate Env.Typ.U) (Ast.Typ.Var.make "f")
        (String.Kind.parse "(S(c) => *) => *")
-       (Env.Typ.add_var (Ast.Typ.Var.make "c")
+       (Env.Typ.add_var (Location.dummy_locate Env.Typ.U) (Ast.Typ.Var.make "c")
           (String.Kind.parse "*") Env.empty) in
    test_equiv
      ~env

@@ -12,12 +12,12 @@ module Raw = struct
   and pre_typ =
     | Var of string
     | App of typ * typ
-    | Lam of string * (typ kind) located * typ
+    | Lam of string located * (typ kind) located * typ
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
 (* base types *)
-    | BaseForall of string * (typ kind) located * typ
-    | BaseExists of string * (typ kind) located * typ
+    | BaseForall of string located * (typ kind) located * typ
+    | BaseExists of string located * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -25,18 +25,18 @@ module Raw = struct
   and ('kind, 'typ) pre_term =
     | TeVar of string
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
-    | TeLam of string * 'typ * ('kind, 'typ) term
-    | TeLet of string * ('kind, 'typ) term * ('kind, 'typ) term
+    | TeLam of string located * 'typ * ('kind, 'typ) term
+    | TeLet of string located * ('kind, 'typ) term * ('kind, 'typ) term
     | TeRecord of (('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
-    | TeGen of string * 'kind located * ('kind, 'typ) term
+    | TeGen of string located * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
     | TeAnnot of ('kind, 'typ) term * 'typ
-    | TeEx of string * 'kind located * ('kind, 'typ) term
-    | TeNu of string * 'kind located * ('kind, 'typ) term
+    | TeEx of string located * 'kind located * ('kind, 'typ) term
+    | TeNu of string located * 'kind located * ('kind, 'typ) term
     | TeOpen of string located * ('kind, 'typ) term
-    | TeSigma of
-        string located * string * 'kind located * 'typ * ('kind, 'typ) term
+    | TeSigma of string located * 
+          string located * 'kind located * 'typ * ('kind, 'typ) term
 
 end
 
@@ -54,11 +54,11 @@ module Typ = struct
     | FVar of Var.free
     | BVar of Var.bound
     | App of typ * typ
-    | Lam of Var.bound * (typ kind) located * typ
+    | Lam of Var.bound located * (typ kind) located * typ
     | Record of typ Label.Map.t
     | Proj of typ * Label.t located
-    | BaseForall of Var.bound * (typ kind) located * typ
-    | BaseExists of Var.bound * (typ kind) located * typ
+    | BaseForall of Var.bound located * (typ kind) located * typ
+    | BaseExists of Var.bound located * (typ kind) located * typ
     | BaseRecord of typ Label.Map.t
     | BaseArrow of typ * typ
 
@@ -94,7 +94,8 @@ module Typ = struct
     | App (t,u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) | BaseExists(y, k, t) ->
-        Var.bmax (h_kind x k.content) (h_binder y (h_typ_rec h_kind x t))
+        Var.bmax (h_kind x k.content)
+          (h_binder y.content (h_typ_rec h_kind x t))
     | Proj(t, _) -> h_typ_rec h_kind x t
     | BaseRecord m | Record m -> h_max (h_typ_rec h_kind x) m
   and h_typ_rec h_kind (x : Var.free) t =
@@ -185,7 +186,7 @@ module Typ = struct
           bsubst_typ_rec bsubst_kind t2 x u)
   | Lam (y, k, t) ->
       let k' = { k with content = bsubst_kind k.content x u } in
-      if Var.bequal x y
+      if Var.bequal x y.content
       then Lam(y, k', t)
       else Lam (y, k', bsubst_typ_rec bsubst_kind t x u)
   | Record m ->
@@ -194,12 +195,12 @@ module Typ = struct
       Proj(bsubst_typ_rec bsubst_kind t x u, lab)
   | BaseForall (y, k, t) ->
       let k' = { k with content = bsubst_kind k.content x u } in
-      if Var.bequal x y
+      if Var.bequal x y.content
       then BaseForall (y, k', t)
       else BaseForall (y, k', bsubst_typ_rec bsubst_kind t x u)
   | BaseExists (y, k, t) ->
       let k' = { k with content = bsubst_kind k.content x u } in
-      if Var.bequal x y
+      if Var.bequal x y.content
       then BaseExists (y, k', t)
       else BaseExists (y, k', bsubst_typ_rec bsubst_kind t x u)
   | BaseRecord m ->
@@ -244,7 +245,8 @@ module Typ = struct
   | (BVar x, BVar x') -> Var.bequal x x'
   | (Lam(x,k,t), Lam(x',k',t')) | (BaseForall(x,k,t), BaseForall(x',k',t'))
   | (BaseExists(x,k,t), BaseExists(x',k',t')) ->
-      Var.bequal x x' && equal_kind k.content k'.content && equal_typ_rec equal_kind t t'
+      Var.bequal x.content x'.content &&
+      equal_kind k.content k'.content && equal_typ_rec equal_kind t t'
   | (App(t1,t2), App(t1',t2')) | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       equal_typ_rec equal_kind t1 t1' && equal_typ_rec equal_kind t2 t2'
   | (BaseRecord m, BaseRecord m') | (Record m, Record m') ->
@@ -267,20 +269,20 @@ module Typ = struct
   let mkApp t1 t2 = App(t1, t2)
 
   let mkLam x tau t =
-    let y = h_typ x t in
-    Lam (y, tau, subst t x (BVar y))
+    let y = h_typ x.content t in
+    Lam (locate_with y x, tau, subst t x.content (BVar y))
 
   let mkRecord m = Record m
 
   let mkProj t l = Proj(t, l)
 
   let mkBaseForall x k t =
-    let y = h_typ x t in
-    BaseForall (y, k, subst t x (BVar y))
+    let y = h_typ x.content t in
+    BaseForall (locate_with y x, k, subst t x.content (BVar y))
 
   let mkBaseExists x k t =
-    let y = h_typ x t in
-    BaseExists (y, k, subst t x (BVar y))
+    let y = h_typ x.content t in
+    BaseExists (locate_with y x, k, subst t x.content (BVar y))
 
   let mkBaseRecord m = BaseRecord m
 
@@ -356,18 +358,18 @@ module Term = struct
     | FVar of Var.free
     | BVar of Var.bound
     | App of term * term
-    | Lam of Var.bound * Typ.typ * term
-    | Let of Var.bound * term * term
+    | Lam of Var.bound located * Typ.typ * term
+    | Let of Var.bound located * term * term
     | Record of term Label.AList.t
     | Proj of term * Label.t located
-    | Gen of Typ.Var.bound * (Typ.typ Typ.kind) located * term
+    | Gen of Typ.Var.bound located * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
     | Annot of term * Typ.t
-    | Ex of Typ.Var.bound * Kind.t located * term
-    | Nu of Typ.Var.bound * Kind.t located * term
+    | Ex of Typ.Var.bound located * Kind.t located * term
+    | Nu of Typ.Var.bound located * Kind.t located * term
     | Open of Typ.t * term (* the first argument is always a variable! *)
     | Sigma of
-        Typ.t * Typ.Var.bound * Kind.t located * Typ.t * term
+        Typ.t * Typ.Var.bound located * Kind.t located * Typ.t * term
           (* the first argument is always a variable! *)
 
   type t = term
@@ -398,9 +400,9 @@ module Term = struct
     | BVar _ -> Var.bzero
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) ->
-        h_te_binder y (h_term_var x t)
+        h_te_binder y.content (h_term_var x t)
     | Let (y, t1, t2) ->
-        Var.bmax (h_term_var x t1) (h_te_binder y (h_term_var x t2))
+        Var.bmax (h_term_var x t1) (h_te_binder y.content (h_term_var x t2))
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _)
     | Sigma (_, _, _, _, t) | Open (_, t) | Nu (_, _, t) | Ex (_, _, t) ->
         h_term_var x t
@@ -415,7 +417,8 @@ module Term = struct
     | Lam (_, tau, t) | Inst(t, tau) | Annot(t, tau) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) | Nu (y, k, t) | Ex (y, k, t) ->
-        Typ.Var.bmax (Typ.h_kind x k.content) (h_ty_binder y (h_typ_var x t))
+        Typ.Var.bmax (Typ.h_kind x k.content)
+          (h_ty_binder y.content (h_typ_var x t))
     | Proj(t, _) -> h_typ_var x t
     | Record m -> h_typ_max (h_typ_var x) m
     | Sigma (y, z, k, tau, t) ->
@@ -425,7 +428,7 @@ module Term = struct
              (Typ.h_kind x k.content)
              (Typ.Var.bmax
                 (Typ.h_typ x tau)
-                (h_ty_binder z (h_typ_var x t))))
+                (h_ty_binder z.content (h_typ_var x t))))
     | Open (y, t) ->
         Typ.Var.bmax
           (Typ.h_typ x y)
@@ -527,12 +530,12 @@ module Term = struct
       App(bsubst_term_var t1 x u,
           bsubst_term_var t2 x u)
   | Lam (y, k, t) ->
-      if Var.bequal x y
+      if Var.bequal x y.content
       then Lam(y, k, t)
       else Lam (y, k, bsubst_term_var t x u)
   | Let (y, t1, t2) ->
       let t1' = bsubst_term_var t1 x u in
-      if Var.bequal x y
+      if Var.bequal x y.content
       then Let (y, t1', t2)
       else Let (y, t1', bsubst_term_var t2 x u)
   | Record m ->
@@ -577,7 +580,7 @@ module Term = struct
       Proj(bsubst_typ_var t x u, lab)
   | Gen(y, k, t) ->
       let k' = { k with content = Typ.bsubst_kind k.content x u } in
-      if Typ.Var.bequal x y
+      if Typ.Var.bequal x y.content
       then Gen(y, k', t)
       else Gen (y, k', bsubst_typ_var t x u)
   | Inst(t, tau) ->
@@ -589,18 +592,18 @@ module Term = struct
              z,
              { k with content = Typ.bsubst_kind k.content x u },
              Typ.bsubst_typ tau x u,
-             if Typ.Var.bequal x z then t else bsubst_typ_var t x u)
+             if Typ.Var.bequal x z.content then t else bsubst_typ_var t x u)
   | Open (y, t) ->
       Open (Typ.bsubst_typ y x u,
             bsubst_typ_var t x u)
   | Nu (y, k, t) ->
       Nu (y,
           { k with content = Typ.bsubst_kind k.content x u },
-          if Typ.Var.bequal x y then t else bsubst_typ_var t x u)
+          if Typ.Var.bequal x y.content then t else bsubst_typ_var t x u)
   | Ex (y, k, t) ->
       Ex (y,
           { k with content = Typ.bsubst_kind k.content x u },
-          if Typ.Var.bequal x y then t else bsubst_typ_var t x u)
+          if Typ.Var.bequal x y.content then t else bsubst_typ_var t x u)
 
   and bsubst_typ_var t x u =
     { t with
@@ -616,9 +619,9 @@ module Term = struct
   | (FVar x, FVar x') -> Var.equal x x'
   | (BVar x, BVar x') -> Var.bequal x x'
   | (Lam(x,tau,t), Lam(x',tau',t')) ->
-      Var.bequal x x' && Typ.equal_typ tau tau' && equal t t'
+      Var.bequal x.content x'.content && Typ.equal_typ tau tau' && equal t t'
   | (Let(x,t1,t2), Let(x',t1',t2')) ->
-      Var.bequal x x' && equal t1 t1' && equal t2 t2'
+      Var.bequal x.content x'.content && equal t1 t1' && equal t2 t2'
   | (App(t1,t2), App(t1',t2')) ->
       equal t1 t1' && equal t2 t2'
   | (Record m, Record m') ->
@@ -627,13 +630,14 @@ module Term = struct
       equal t t' && Label.equal lab.content lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) | (Nu(x,k,t), Nu(x',k',t'))
   | (Ex(x,k,t), Ex(x',k',t')) ->
-      Typ.Var.bequal x x' && Typ.equal_kind k.content k'.content && equal t t'
+      Typ.Var.bequal x.content x'.content &&
+      Typ.equal_kind k.content k'.content && equal t t'
   | (Inst(t,tau), Inst(t',tau')) | (Annot(t,tau), Annot(t',tau')) ->
       equal t t' && Typ.equal_typ tau tau'
   | (Open(x,t), Open(x',t')) ->
       Typ.equal_typ x x' && equal t t'
   | (Sigma(y,x,k,tau,t), Sigma(y',x',k',tau',t')) ->
-      Typ.equal_typ y y' && Typ.Var.bequal x x'
+      Typ.equal_typ y y' && Typ.Var.bequal x.content x'.content
         && Typ.equal_kind k.content k'.content
         && Typ.equal_typ tau tau' && equal t t'
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_) |
@@ -645,41 +649,41 @@ module Term = struct
   let mkVar x = FVar x
 
   let mkLam x tau t =
-    let y = h_term_var x t in
-    Lam (y, tau, subst_term_var t x (BVar y))
+    let y = h_term_var x.content t in
+    Lam (locate_with y x, tau, subst_term_var t x.content (BVar y))
 
   let mkApp t1 t2 = App(t1, t2)
 
   let mkLet x t1 t2 =
-    let y = h_term_var x t2 in
-    Let (y, t1, subst_term_var t2 x (BVar y))
+    let y = h_term_var x.content t2 in
+    Let (locate_with y x, t1, subst_term_var t2 x.content (BVar y))
 
   let mkRecord m = Record m
 
   let mkProj t lab = Proj(t, lab)
 
   let mkGen x k t =
-    let y = h_typ_var x t in
-    Gen (y, k, subst_typ_var t x (Typ.BVar y))
+    let y = h_typ_var x.content t in
+    Gen (locate_with y x, k, subst_typ_var t x.content (Typ.BVar y))
 
   let mkInst t tau = Inst(t, tau)
 
   let mkAnnot t tau = Annot(t, tau)
 
   let mkEx x k t =
-    let y = h_typ_var x t in
-    Ex (y, k, subst_typ_var t x (Typ.BVar y))
+    let y = h_typ_var x.content t in
+    Ex (locate_with y x, k, subst_typ_var t x.content (Typ.BVar y))
 
   let mkNu x k t =
-    let y = h_typ_var x t in
-    Nu (y, k, subst_typ_var t x (Typ.BVar y))
+    let y = h_typ_var x.content t in
+    Nu (locate_with y x, k, subst_typ_var t x.content (Typ.BVar y))
 
-  let mkOpen { content = x ; startpos ; endpos } t =
-    Open ({ content = Typ.FVar x ; startpos ; endpos }, t)
+  let mkOpen x t =
+    Open (map Typ.mkVar x, t)
 
-  let mkSigma { content = x ; startpos ; endpos } y k tau t =
-    let z = h_typ_var y t in
-    Sigma ({ content = Typ.FVar x ; startpos ; endpos },
-           z, k, tau, subst_typ_var t y (Typ.BVar z))
+  let mkSigma x y k tau t =
+    let z = h_typ_var y.content t in
+    Sigma (map Typ.mkVar x,
+           locate_with z y, k, tau, subst_typ_var t y.content (Typ.BVar z))
 
 end

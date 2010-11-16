@@ -10,7 +10,7 @@ open Ast.Raw
 
 term_binding(typ):
 | LPAR x=ID COLON t=typ RPAR
-    { ($startpos, x, t) }
+    { ($startpos, locate x $startpos(x) $endpos(x), t) }
 
 mixed_binding(typ,kind):
 | b=term_binding(typ)
@@ -41,19 +41,25 @@ undelimited_term(kind,typ):
   (* we allow the use of λ of Λ for type generalization *)
     { relocate (mkTeGen_bindings b t $endpos) $startpos $endpos }
 | LET x=ID EQ t1=term(kind,typ) IN t2=term(kind,typ)
-    { locate (TeLet (x, t1, t2)) $startpos $endpos }
+    { locate
+        (TeLet (locate x $startpos(x) $endpos(x), t1, t2)) $startpos $endpos }
 | LET x=ID COLON tau=typ EQ t1=term(kind,typ) IN t2=term(kind,typ)
     { let t1' = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
-    locate (TeLet (x, t1', t2)) $startpos $endpos }
+    locate
+      (TeLet (locate x $startpos(x) $endpos(x), t1', t2)) $startpos $endpos }
 | OPEN LBRACKET x=ID RBRACKET t=delimited_term(kind,typ)
     { locate (TeOpen(locate x $startpos(x) $endpos(x), t)) $startpos $endpos }
 | NU LPAR x=ID DBLCOLON k=kind RPAR t=term(kind,typ)
-    { locate (TeNu(x, locate k $startpos(k) $endpos(k), t)) $startpos $endpos }
+    { locate
+        (TeNu (locate x $startpos(x) $endpos(x),
+               locate k $startpos(k) $endpos(k), t))
+        $startpos $endpos }
 | SIGMA LBRACE x=ID RBRACE
     LPAR y=ID DBLCOLON k=kind EQ tau=typ RPAR t=term(kind,typ)
     { locate
         (TeSigma(locate x $startpos(x) $endpos(x),
-                 y, locate k $startpos(k) $endpos(k), tau, t))
+                 locate y $startpos(y) $endpos(y),
+                 locate k $startpos(k) $endpos(k), tau, t))
         $startpos $endpos }
 
 
