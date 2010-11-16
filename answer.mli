@@ -12,6 +12,18 @@ type reason =
   | WF_TYPE of Typ.t * Kind.t
         (** [WF_TYPE(t,k)] means that [t] cannot be given the kind [k]. *)
 
+  | E_TYP_VAR_PURE of Typ.Var.free Location.located
+        (** [E_TYP_VAR_PURE a] means that [a] is an existential variable that is
+            present in the current typing context. *)
+
+  | TERM_VAR_DISAGREE of Term.Var.free Location.located
+        (** [TERM_VAR_DISAGREE x] means that [x] is assigned two different types
+            while zipping two contexts. *)
+
+  | TYP_VAR_DISAGREE of Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE (mode, a)] means that [a] is assigned two
+            different kinds or modes while zipping two contexts. *)
+
 type t = Yes | No of reason list
 
 (** Chains two answers.

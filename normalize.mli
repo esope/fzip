@@ -2,7 +2,7 @@
 
 open Ast
 
-type env = (Typ.t, Kind.t) Env.t
+type env = Env.t
 
 (** given a type [ty] of kind [Sigma f] and a projection label [l],
     [select_kind_field l ty f] computes the kind of [ty.l] *)

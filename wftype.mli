@@ -1,7 +1,7 @@
 (** Checking types. *)
 open Ast
 
-type env = (Typ.t, Kind.t) Env.t
+type env = Env.t
 
 (** Decides kind wellformedness. *)
 val wfkind: env -> Kind.t -> bool

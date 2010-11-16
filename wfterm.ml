@@ -4,7 +4,7 @@ open Wftype
 open Location
 open Ast_utils
 
-type env = (Typ.typ, Typ.typ Typ.kind) Env.t
+type env = Env.t
 
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
@@ -71,7 +71,7 @@ let rec wfterm env term = match term.content with
         let x_var' = locate_with (Typ.mkVar x') x_loc in
         let t' =
           wfterm
-            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env)
+            (Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env)
             (bsubst_typ_var e x x_var') in
         dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t')
       else

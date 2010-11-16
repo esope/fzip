@@ -3,10 +3,16 @@
 (** The type of environments.
     It is generic with respect to the types of the information associated
     to term variables and to type variables. *)
-type ('a, 'b) t
+type t
 
 (** The empty environment. *)
-val empty: ('a, 'b) t
+val empty: t
+
+(** Purity test of an environment. *)
+val is_pure: t -> Answer.t
+
+(** Zipping of two contexts. *)
+val zip: t -> t -> (t) Answer.WithValue.t
 
 module Term: sig
 
@@ -15,30 +21,27 @@ module Term: sig
 (** [get_var x env] returns the info (usually a type) associated
     to [x] in [env].
     @raise Not_found if the variable is not present. *)
-  val get_var: var -> ('a, 'b) t -> 'a
+  val get_var: var -> t -> Ast.Typ.t
 
 (** [add_var x t env] returns the environment [env] with the extra
     binding [(x, t)]. *)
-  val add_var: var -> 'a -> ('a, 'b) t -> ('a, 'b) t
+  val add_var: var -> Ast.Typ.t -> t -> t
 
 end
 
 module Typ: sig
 
   type var = Ast.Typ.Var.free
-  type mode =
-    | U (** Universal variable. *)
-    | E (** Existential variable. *)
-    | EQ of Ast.Typ.t (** Variable with an equation. *)
+  type mode = Mode.mode
 
 (** [get_var x env] returns the info (usually a kind) associated
     to [x] in [env].
     @raise Not_found if the variable is not present. *)
-  val get_var: var -> ('a, 'b) t -> mode Location.located * 'b
+  val get_var: var -> t -> mode Location.located * Ast.Kind.t
 
 
 (** [add_var x k env] returns the environment [env] with the extra
     binding [(x, k)]. *)
-  val add_var: mode Location.located -> var -> 'b -> ('a, 'b) t -> ('a, 'b) t
+  val add_var: mode Location.located -> var -> Ast.Kind.t -> t -> t
 
 end

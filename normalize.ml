@@ -6,7 +6,7 @@ let option_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-type env = (typ, typ kind) Env.t
+type env = Env.t
 
 (* given a type [ty] of kind [Sigma f] and a projection label [l],
    [select_kind_field l ty f] computes the kind of [ty.l] *)
@@ -67,7 +67,7 @@ let rec head_norm ~unfold_eq env t = match t.content with
         | Single (_, _) -> assert false
         | (Base | Pi(_,_,_) | Sigma _) ->
             begin
-              let open Env.Typ in
+              let open Mode in
               match (unfold_eq, mode) with
               | (true, { content = EQ tau ; _ }) -> (tau, Some k) 
               | (true, { content = (U | E) ; _ }) | (false, _) -> (t, Some k)
@@ -141,7 +141,7 @@ let rec path_norm ~unfold_eq env t = match t.content with
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
         typ_norm ~unfold_eq
-          (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
+          (Env.Typ.add_var (locate_with Mode.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
       ({ t with content = mkBaseForall (locate_with x' x_loc) k1' t1' },
        Kind.mkBase)
@@ -151,7 +151,7 @@ let rec path_norm ~unfold_eq env t = match t.content with
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
         typ_norm ~unfold_eq
-          (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
+          (Env.Typ.add_var (locate_with Mode.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
       ({ t with content = mkBaseExists (locate_with x' x_loc) k1' t1' },
        Kind.mkBase)
@@ -198,7 +198,7 @@ and typ_norm ~unfold_eq env t k = match simplify_kind k with
     let x_var = dummy_locate (mkVar x) in
     let t_ext = dummy_locate (mkApp t x_var) in
     let t' =
-      typ_norm ~unfold_eq (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+      typ_norm ~unfold_eq (Env.Typ.add_var (dummy_locate Mode.U) x k1 env)
         t_ext (Kind.bsubst k2 y x_var) in
     { t with content = mkLam (dummy_locate x) k1' t' }
 | Sigma f ->
@@ -216,7 +216,7 @@ and kind_norm ~unfold_eq env = let open Kind in function
       and y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       let k2' = kind_norm ~unfold_eq
-          (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
+          (Env.Typ.add_var (dummy_locate Mode.U) y k1 env)
           (Kind.bsubst k2 x y_var) in
       Kind.mkPi y k1' k2'
   | Sigma f ->
@@ -231,7 +231,7 @@ and kind_fields_norm ~unfold_eq env = function
       let y_var = dummy_locate (mkVar y) in
       let f' =
         kind_fields_norm ~unfold_eq
-          (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
+          (Env.Typ.add_var (dummy_locate Mode.U) y k env)
           (Kind.bsubst_fields f x y_var)
       in (lab, (y, k')) :: f'
 
@@ -252,7 +252,7 @@ let rec try_equiv_typ ~unfold_eq env t1 t2 k =
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       equiv_typ ~unfold_eq
-        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
+        (Env.Typ.add_var (dummy_locate Mode.U) y k1 env)
         (dummy_locate (mkApp t1 y_var))
         (dummy_locate (mkApp t2 y_var))
         (Kind.bsubst k2 x y_var)
@@ -296,7 +296,7 @@ and equiv_path ~unfold_eq env p1 p2 =
           let y = Var.bfresh x in
           let y_var = dummy_locate (mkVar y) in
           equiv_typ ~unfold_eq
-            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) y k.content env)
+            (Env.Typ.add_var (locate_with Mode.U x_loc) y k.content env)
             (bsubst t x y_var) (bsubst t' x' y_var) Kind.mkBase
         with
         | Yes -> WithValue.Yes Kind.mkBase
@@ -370,7 +370,7 @@ and equiv_kind ~unfold_eq env k1 k2 =
 and sub_kind ~unfold_eq env k1 k2 =
   let x = Var.fresh () in
   let x_var = dummy_locate (mkVar x) in
-  check_sub_kind ~unfold_eq (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+  check_sub_kind ~unfold_eq (Env.Typ.add_var (dummy_locate Mode.U) x k1 env)
     x_var (simplify_kind k1) (simplify_kind k2)
 
 and try_check_sub_kind ~unfold_eq env p k k' =
@@ -388,7 +388,7 @@ and try_check_sub_kind ~unfold_eq env p k k' =
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       check_sub_kind ~unfold_eq
-        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1' env)
+        (Env.Typ.add_var (dummy_locate Mode.U) y k1' env)
         (dummy_locate (mkApp p y_var))
         (Kind.bsubst k2  x  y_var)
         (Kind.bsubst k2' x' y_var)

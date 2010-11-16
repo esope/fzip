@@ -3,7 +3,7 @@ open Ast.Typ
 open Ast_utils
 open Location
 
-type env = (typ, typ kind) Env.t
+type env = Env.t
 
 let sub_kind = Normalize.sub_kind
 let sub_kind_b = Normalize.sub_kind_b
@@ -43,7 +43,7 @@ let rec wftype env t =
         let t' = bsubst t x (dummy_locate (mkVar x')) in
         let k' =
           wftype
-            (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env)
+            (Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env)
             t' in
         Kind.mkPi x' k.content k'
       else
@@ -77,7 +77,7 @@ let rec wftype env t =
         let x' = Var.bfresh x in
         let u' = bsubst u x (dummy_locate (mkVar x')) in
         let env' =
-          Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env in
+          Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env in
         let k' = wftype env' u' in
         let open Kind in
         if sub_kind_b ~unfold_eq:false env' k' mkBase 
@@ -109,7 +109,7 @@ and wfkind env = function
       let x = Var.bfresh y in
       let x_var = dummy_locate (mkVar x) in
       wfkind
-        (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+        (Env.Typ.add_var (dummy_locate Mode.U) x k1 env)
         (Kind.bsubst k2 y x_var)
   | Single (t, k) ->
       let k' = wftype env t in
@@ -128,7 +128,7 @@ and wfkind_fields env = function
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       wfkind_fields
-        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
+        (Env.Typ.add_var (dummy_locate Mode.U) y k env)
         (Kind.bsubst_fields f x y_var)
 
 let rec try_sub_type ~unfold_eq env tau tau' =
@@ -147,7 +147,7 @@ let rec try_sub_type ~unfold_eq env tau tau' =
       let x = Var.bfresh a in
       let x_var = dummy_locate (mkVar x) in
       sub_type ~unfold_eq
-        (Env.Typ.add_var (locate_with Env.Typ.U a_loc) x k'.content env)
+        (Env.Typ.add_var (locate_with Mode.U a_loc) x k'.content env)
         (bsubst t a x_var) (bsubst t' a' x_var)
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
       sub_type ~unfold_eq env t1' t1 &*& sub_type ~unfold_eq env t2 t2'
