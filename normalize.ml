@@ -54,27 +54,34 @@ let simplify_kind = function
   | Single(t, k) -> hd_norm_singleton k t
   | (Base | Pi(_,_,_) | Sigma _) as k -> k
 
-let rec head_norm env t = match t.content with
+let rec head_norm ~unfold_eq env t = match t.content with
 | BaseForall(_, _, _) | BaseExists (_,_,_) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Kind.mkBase)
 | FVar x ->
     begin
       try
-        let k = simplify_kind (snd (Env.Typ.get_var x env)) in
+        let (mode, k) = Env.Typ.get_var x env in
+        let k = simplify_kind k in
         match k with
         | Single (u, Base) -> (u, Some k)
         | Single (_, _) -> assert false
-        | (Base | Pi(_,_,_) | Sigma _) -> (t, Some k)
+        | (Base | Pi(_,_,_) | Sigma _) ->
+            begin
+              let open Env.Typ in
+              match (unfold_eq, mode) with
+              | (true, { content = EQ tau ; _ }) -> (tau, Some k) 
+              | (true, { content = (U | E) ; _ }) | (false, _) -> (t, Some k)
+            end
       with Not_found -> assert false
     end
 | Lam(_,_,_) | Record _ -> (t, None)
 | BVar _ -> assert false
 | App(t1, t2) ->
     begin
-      let (t1', k) = head_norm env t1 in
+      let (t1', k) = head_norm ~unfold_eq env t1 in
       match (t1'.content, option_map simplify_kind k) with
       | (Lam ({ content = x ; _ }, _tau, t), None) ->
-          head_norm env (bsubst t x t2)
+          head_norm ~unfold_eq env (bsubst t x t2)
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
             match Kind.bsubst k1 x t2 with
@@ -91,11 +98,11 @@ let rec head_norm env t = match t.content with
     end
 | Proj(t', lab) ->
     begin
-      let (t', k) = head_norm env t' in
+      let (t', k) = head_norm ~unfold_eq env t' in
       match (t'.content, option_map simplify_kind k) with
       | (Record m, None) ->
           begin
-            try head_norm env (Label.Map.find lab.content m)
+            try head_norm ~unfold_eq env (Label.Map.find lab.content m)
             with Not_found ->
               Error.raise_error Error.syntax t.startpos t.endpos
                 ("Illegal label projection: " ^ lab.content ^ ".")
@@ -119,30 +126,31 @@ let rec head_norm env t = match t.content with
          Some (Base | Single (_,_) | Pi(_,_,_) | Sigma _))) -> assert false
     end
 
-let rec path_norm env t = match t.content with
+let rec path_norm ~unfold_eq env t = match t.content with
   | BaseRecord m ->
-      let m' = Label.Map.map (fun t -> typ_norm env t Kind.mkBase) m in
+      let m' =
+        Label.Map.map (fun t -> typ_norm ~unfold_eq env t Kind.mkBase) m in
       ({ t with content = mkBaseRecord m' }, Kind.mkBase)
   | BaseArrow(t1, t2) ->
-      let t1' = typ_norm env t1 Kind.mkBase
-      and t2' = typ_norm env t2 Kind.mkBase in
+      let t1' = typ_norm ~unfold_eq env t1 Kind.mkBase
+      and t2' = typ_norm ~unfold_eq env t2 Kind.mkBase in
       ({ t with content = mkBaseArrow t1' t2' }, Kind.mkBase)
   | BaseForall ({ content = x ; _ } as x_loc, k1, t1) ->
-      let k1' = { k1 with content = kind_norm env k1.content } in
+      let k1' = { k1 with content = kind_norm ~unfold_eq env k1.content } in
       let x' = Var.bfresh x in
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
-        typ_norm
+        typ_norm ~unfold_eq
           (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
       ({ t with content = mkBaseForall (locate_with x' x_loc) k1' t1' },
        Kind.mkBase)
   | BaseExists ({ content = x ; _ } as x_loc, k1, t1) ->
-      let k1' = { k1 with content = kind_norm env k1.content } in
+      let k1' = { k1 with content = kind_norm ~unfold_eq env k1.content } in
       let x' = Var.bfresh x in
       let x_var' = dummy_locate (mkVar x') in
       let t1' =
-        typ_norm
+        typ_norm ~unfold_eq
           (Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k1.content env)
           (bsubst t1 x x_var') Kind.mkBase in
       ({ t with content = mkBaseExists (locate_with x' x_loc) k1' t1' },
@@ -155,16 +163,16 @@ let rec path_norm env t = match t.content with
   | BVar _ | Lam (_,_,_) | Record _ -> assert false
   | App(p, t) ->
       begin
-        let (p', k) = path_norm env p in
+        let (p', k) = path_norm ~unfold_eq env p in
         match simplify_kind k with
         | Pi(x, k1, k2) ->
-            let t' = typ_norm env t k1 in
+            let t' = typ_norm ~unfold_eq env t k1 in
             ({ t with content = mkApp p' t' }, Kind.bsubst k2 x t)
         | Base | Single (_,_) | Sigma _ -> assert false
       end
   | Proj(p, lab) ->
       begin
-        let (p', k) = path_norm env p in
+        let (p', k) = path_norm ~unfold_eq env p in
         match simplify_kind k with
         | Sigma f ->
             begin
@@ -177,61 +185,64 @@ let rec path_norm env t = match t.content with
         | Base | Single (_,_) | Pi(_,_,_) -> assert false
       end
 
-and typ_norm env t k = match simplify_kind k with
+and typ_norm ~unfold_eq env t k = match simplify_kind k with
 | Base | Single (_,Base) ->
-    let (t', _) = head_norm env t in
-    let (t'', k'') = path_norm env t' in
+    let (t', _) = head_norm ~unfold_eq env t in
+    let (t'', k'') = path_norm ~unfold_eq env t' in
     assert (Ast.Kind.equal k'' Kind.mkBase) ;
     t''
 | Single (_, _) -> assert false
 | Pi(y, k1, k2) ->
-    let k1' = dummy_locate (kind_norm env k1) in
+    let k1' = dummy_locate (kind_norm ~unfold_eq env k1) in
     let x = Var.bfresh y in
     let x_var = dummy_locate (mkVar x) in
     let t_ext = dummy_locate (mkApp t x_var) in
     let t' =
-      typ_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+      typ_norm ~unfold_eq (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
         t_ext (Kind.bsubst k2 y x_var) in
     { t with content = mkLam (dummy_locate x) k1' t' }
 | Sigma f ->
     let projections = select_all_fields t f in
     { t with content = mkRecord
-        (Label.Map.map (fun (t_l, k_l) -> typ_norm env t_l k_l) projections) }
+        (Label.Map.map
+           (fun (t_l, k_l) -> typ_norm ~unfold_eq env t_l k_l) projections) }
 
-and kind_norm env = let open Kind in function
+and kind_norm ~unfold_eq env = let open Kind in function
   | Base -> mkBase
-  | Single (t, Base) -> mkSingle (typ_norm env t mkBase) mkBase
-  | Single (t, k) -> kind_norm env (hd_norm_singleton k t)
+  | Single (t, Base) -> mkSingle (typ_norm ~unfold_eq env t mkBase) mkBase
+  | Single (t, k) -> kind_norm ~unfold_eq env (hd_norm_singleton k t)
   | Pi(x, k1, k2) ->
-      let k1' = kind_norm env k1
+      let k1' = kind_norm ~unfold_eq env k1
       and y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      let k2' = kind_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
+      let k2' = kind_norm ~unfold_eq
+          (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
           (Kind.bsubst k2 x y_var) in
       Kind.mkPi y k1' k2'
   | Sigma f ->
-      let f' = kind_fields_norm env f in
+      let f' = kind_fields_norm ~unfold_eq env f in
       Kind.mkSigma f'
 
-and kind_fields_norm env = function
+and kind_fields_norm ~unfold_eq env = function
   | [] -> []
   | (lab, (x, k)) :: f ->
-      let k' = kind_norm env k
+      let k' = kind_norm ~unfold_eq env k
       and y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       let f' =
-        kind_fields_norm (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
+        kind_fields_norm ~unfold_eq
+          (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
           (Kind.bsubst_fields f x y_var)
       in (lab, (y, k')) :: f'
 
-let rec try_equiv_typ env t1 t2 k =
+let rec try_equiv_typ ~unfold_eq env t1 t2 k =
   let open Answer in
   match k with
   | Base ->
-      let (p1, _) = head_norm env t1
-      and (p2, _) = head_norm env t2 in
+      let (p1, _) = head_norm ~unfold_eq env t1
+      and (p2, _) = head_norm ~unfold_eq env t2 in
       begin
-        match equiv_path env p1 p2 with
+        match equiv_path ~unfold_eq env p1 p2 with
         | WithValue.Yes Base -> Yes
         | WithValue.Yes (Single (_,_) | Pi(_,_,_) | Sigma _) -> assert false
         | WithValue.No reasons -> No reasons
@@ -240,7 +251,8 @@ let rec try_equiv_typ env t1 t2 k =
   | Pi(x, k1, k2) ->
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      equiv_typ (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
+      equiv_typ ~unfold_eq
+        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1 env)
         (dummy_locate (mkApp t1 y_var))
         (dummy_locate (mkApp t2 y_var))
         (Kind.bsubst k2 x y_var)
@@ -250,26 +262,27 @@ let rec try_equiv_typ env t1 t2 k =
         (fun lab (t1_lab, k_lab) acc ->
           acc &*&
           let t2_lab = dummy_locate (mkProj t2 (dummy_locate lab)) in
-          equiv_typ env t1_lab t2_lab k_lab)
+          equiv_typ ~unfold_eq env t1_lab t2_lab k_lab)
         projections Yes
 
-and equiv_typ env t1 t2 k =
+and equiv_typ ~unfold_eq env t1 t2 k =
   let open Answer in
-  match try_equiv_typ env t1 t2 k with
+  match try_equiv_typ ~unfold_eq env t1 t2 k with
   | Yes -> Yes
   | No reasons -> No (TYPES (t1, t2) :: reasons)
 
 
-and equiv_path env p1 p2 =
+and equiv_path ~unfold_eq env p1 p2 =
   let open Answer in
   match (p1.content, p2.content) with
   | (BaseRecord m, BaseRecord m') ->
-      equiv_bindings env (Label.Map.bindings m) (Label.Map.bindings m')
+      equiv_bindings ~unfold_eq env
+        (Label.Map.bindings m) (Label.Map.bindings m')
   | (BaseArrow(t1, t2), BaseArrow(t1', t2')) ->
       begin
         let open Kind in
-        match equiv_typ env t1 t1' mkBase &*&
-          equiv_typ env t2 t2' mkBase with
+        match equiv_typ ~unfold_eq env t1 t1' mkBase &*&
+          equiv_typ ~unfold_eq env t2 t2' mkBase with
         | Yes -> WithValue.Yes mkBase
         | No reasons -> WithValue.No reasons
       end
@@ -279,10 +292,10 @@ and equiv_path env p1 p2 =
      BaseExists({ content = x' ; _ }, k', t')) ->
       begin
         match
-          equiv_kind env k.content k'.content &*&
+          equiv_kind ~unfold_eq env k.content k'.content &*&
           let y = Var.bfresh x in
           let y_var = dummy_locate (mkVar y) in
-          equiv_typ
+          equiv_typ ~unfold_eq
             (Env.Typ.add_var (locate_with Env.Typ.U x_loc) y k.content env)
             (bsubst t x y_var) (bsubst t' x' y_var) Kind.mkBase
         with
@@ -299,10 +312,10 @@ and equiv_path env p1 p2 =
       else WithValue.No []
   | (App(p, t), App(p', t')) ->
       begin
-        match WithValue.map simplify_kind (equiv_path env p p') with
+        match WithValue.map simplify_kind (equiv_path ~unfold_eq env p p') with
         | WithValue.Yes (Pi(x, k1, k2)) ->
             begin
-              match equiv_typ env t t' k1 with
+              match equiv_typ ~unfold_eq env t t' k1 with
               | Yes -> WithValue.Yes (Kind.bsubst k2 x t)
               | No reasons -> WithValue.No reasons
             end
@@ -311,7 +324,7 @@ and equiv_path env p1 p2 =
       end
   | (Proj(t, lab), Proj(t', lab')) when Label.equal lab.content lab'.content ->
       begin
-        match WithValue.map simplify_kind (equiv_path env t t') with
+        match WithValue.map simplify_kind (equiv_path ~unfold_eq env t t') with
         | WithValue.Yes (Sigma f) -> WithValue.Yes (select_kind_field lab t f)
         | WithValue.Yes (Base | Single (_,_) | Pi(_,_,_)) -> assert false
         | WithValue.No reasons -> WithValue.No reasons
@@ -321,7 +334,7 @@ and equiv_path env p1 p2 =
     BaseArrow (_, _) | BaseRecord _),
      _) -> WithValue.No []
 
-and equiv_bindings env b1 b2 =
+and equiv_bindings ~unfold_eq env b1 b2 =
   let open Answer in match (b1, b2) with
   | ([], []) -> WithValue.Yes Kind.mkBase
   | ([], b) | (b, []) ->
@@ -340,8 +353,8 @@ and equiv_bindings env b1 b2 =
             dummy_locate (mkBaseRecord (Label.Map.singleton lab1 t2)))]
   | ((lab1, t1) :: b1, (lab2, t2) :: b2) (* lab1 = lab2 *) ->
       begin
-        match equiv_typ env t1 t2 Kind.mkBase with
-        | Yes -> equiv_bindings env b1 b2
+        match equiv_typ ~unfold_eq env t1 t2 Kind.mkBase with
+        | Yes -> equiv_bindings ~unfold_eq env b1 b2
         | No reasons ->
             WithValue.No
               (TYPES
@@ -350,29 +363,32 @@ and equiv_bindings env b1 b2 =
                :: reasons)
       end
 
-and equiv_kind env k1 k2 =
+and equiv_kind ~unfold_eq env k1 k2 =
   let open Answer in
-  sub_kind env k1 k2 &*& sub_kind env k2 k1
+  sub_kind ~unfold_eq env k1 k2 &*& sub_kind ~unfold_eq env k2 k1
 
-and sub_kind env k1 k2 =
+and sub_kind ~unfold_eq env k1 k2 =
   let x = Var.fresh () in
   let x_var = dummy_locate (mkVar x) in
-  check_sub_kind (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env) x_var
-    (simplify_kind k1) (simplify_kind k2)
+  check_sub_kind ~unfold_eq (Env.Typ.add_var (dummy_locate Env.Typ.U) x k1 env)
+    x_var (simplify_kind k1) (simplify_kind k2)
 
-and try_check_sub_kind env p k k' =
+and try_check_sub_kind ~unfold_eq env p k k' =
   let open Answer in
   match (simplify_kind k, simplify_kind k') with
   | ((Base | Single (_, Base)), Base) -> Yes
-  | (Base, Single (t', Base)) -> equiv_typ env p t' Kind.mkBase
-  | (Single (t, Base), Single (t', Base)) -> equiv_typ env t t' Kind.mkBase
+  | (Base, Single (t', Base)) ->
+      equiv_typ ~unfold_eq env p t' Kind.mkBase
+  | (Single (t, Base), Single (t', Base)) ->
+      equiv_typ ~unfold_eq env t t' Kind.mkBase
   | (Single (_, (Single(_,_) | Pi(_,_,_) | Sigma _)), _)
   | (_, Single (_,_)) -> assert false (* kinds are simplified by sub_kind *)
   | (Pi(x, k1, k2), Pi(x', k1', k2')) ->
-      sub_kind env k1' k1 &*&
+      sub_kind ~unfold_eq env k1' k1 &*&
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      check_sub_kind (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1' env)
+      check_sub_kind ~unfold_eq
+        (Env.Typ.add_var (dummy_locate Env.Typ.U) y k1' env)
         (dummy_locate (mkApp p y_var))
         (Kind.bsubst k2  x  y_var)
         (Kind.bsubst k2' x' y_var)
@@ -385,7 +401,7 @@ and try_check_sub_kind env p k k' =
           acc &*&
           try
             let (_, k_lab) = Label.Map.find lab projections in
-            check_sub_kind env p_lab k_lab k'_lab
+            check_sub_kind ~unfold_eq env p_lab k_lab k'_lab
           with Not_found ->
             No [KINDS
                   (Kind.mkSigma
@@ -393,16 +409,16 @@ and try_check_sub_kind env p k k' =
         projections' Yes
   | ((Base | Single (_, Base) | Sigma _ | Pi(_,_,_)), _) -> No []
 
-and check_sub_kind env p k k' =
+and check_sub_kind ~unfold_eq env p k k' =
   let open Answer in
-  match try_check_sub_kind env p k k' with
+  match try_check_sub_kind ~unfold_eq env p k k' with
   | Yes -> Yes
   | No reasons -> No (KINDS (k,k') :: reasons)
 
 
-let equiv_typ_b env t1 t2 k =
-  Answer.to_bool (equiv_typ env t1 t2 k)
-let equiv_kind_b env k1 k2 =
-  Answer.to_bool (equiv_kind env k1 k2)
-let sub_kind_b env k1 k2 =
-  Answer.to_bool (sub_kind env k1 k2)
+let equiv_typ_b ~unfold_eq env t1 t2 k =
+  Answer.to_bool (equiv_typ ~unfold_eq env t1 t2 k)
+let equiv_kind_b ~unfold_eq env k1 k2 =
+  Answer.to_bool (equiv_kind ~unfold_eq env k1 k2)
+let sub_kind_b ~unfold_eq env k1 k2 =
+  Answer.to_bool (sub_kind ~unfold_eq env k1 k2)

@@ -64,7 +64,7 @@ let test_wftype ~t ~k =
     and k = String.Kind.parse k in
     assert_equal
       ~printer:PPrint.Kind.string
-      ~cmp:(sub_kind_b Env.empty) (wftype Env.empty t) k)
+      ~cmp:(sub_kind_b ~unfold_eq:false Env.empty) (wftype Env.empty t) k)
 
 let tests_wftype = "Tests about wftype" >:::
   [
@@ -98,7 +98,7 @@ let test_nf ~t ~nf () =
   and nf = String.Typ.parse nf in
   let nf_e =
     let k = wftype Env.empty t in
-    Normalize.typ_norm Env.empty t k in
+    Normalize.typ_norm ~unfold_eq:false Env.empty t k in
   assert_equal ~printer:PPrint.Typ.string ~cmp:Typ.equal nf_e nf
 
 let test_equiv ?(neg=false) ~env ~t ~u ~k () =
@@ -107,7 +107,7 @@ let test_equiv ?(neg=false) ~env ~t ~u ~k () =
       (let t = String.Typ.parse t
       and u = String.Typ.parse u
       and k = String.Kind.parse k in
-      let b = Normalize.equiv_typ_b env t u k in
+      let b = Normalize.equiv_typ_b ~unfold_eq:false env t u k in
       if neg then not b else b))
 
 let mknum_string n =
@@ -213,7 +213,8 @@ let test_wfterm ~e ~t =
     and t = String.Typ.parse t in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(sub_type_b Env.empty) (Wfterm.wfterm Env.empty e) t)
+      ~cmp:(sub_type_b ~unfold_eq:false Env.empty)
+      (Wfterm.wfterm Env.empty e) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [
@@ -235,7 +236,7 @@ let test_wfsubtype ~t ~u =
     and u = String.Typ.parse u in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(sub_type_b Env.empty) t u)
+      ~cmp:(sub_type_b ~unfold_eq:false Env.empty) t u)
 
 let tests_wfsubtype = "Tests about wfsubtype" >:::
   [
@@ -287,7 +288,7 @@ let test_sub_kind ~k1 ~k2 =
     and k2 = String.Kind.parse k2 in
     assert_equal
       ~printer:PPrint.Kind.string
-      ~cmp:(sub_kind_b Env.empty) k1 k2)
+      ~cmp:(sub_kind_b ~unfold_eq:false Env.empty) k1 k2)
 
 let tests_sub_kind = "Tests about sub_kind" >:::
   [
@@ -430,7 +431,9 @@ let test_equiv_typ ~t1 ~t2 ~k =
     and k = String.Kind.parse k in
     assert_equal
       ~printer:PPrint.Typ.string
-      ~cmp:(fun t1 t2 -> Normalize.equiv_typ_b Env.empty t1 t2 k) t1 t2)
+      ~cmp:(fun t1 t2 ->
+        Normalize.equiv_typ_b ~unfold_eq:false Env.empty t1 t2 k)
+      t1 t2)
 
 let tests_equiv_typ = "Tests about equiv_typ" >:::
   [

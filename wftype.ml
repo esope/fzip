@@ -25,7 +25,7 @@ let rec wftype env t =
         match Normalize.simplify_kind k1 with
         | Pi(x, k2', k1') ->
             begin
-              match sub_kind env k2 k2' with
+              match sub_kind ~unfold_eq:false env k2 k2' with
               | Yes -> Kind.bsubst k1' x t2
               | No reasons ->
                   Error.raise_error Error.type_wf t.startpos t.endpos
@@ -80,7 +80,7 @@ let rec wftype env t =
           Env.Typ.add_var (locate_with Env.Typ.U x_loc) x' k.content env in
         let k' = wftype env' u' in
         let open Kind in
-        if sub_kind_b env' k' mkBase 
+        if sub_kind_b ~unfold_eq:false env' k' mkBase 
         then mkSingle t mkBase
         else Error.raise_error Error.type_wf k.startpos k.endpos
             "Ill-formed universal type: this kind is not a base kind."
@@ -89,8 +89,8 @@ let rec wftype env t =
   | BaseArrow(t1, t2) ->
       begin
         let open Kind in
-        if sub_kind_b env (wftype env t1) mkBase
-        then if sub_kind_b env (wftype env t2) mkBase
+        if sub_kind_b ~unfold_eq:false env (wftype env t1) mkBase
+        then if sub_kind_b ~unfold_eq:false env (wftype env t2) mkBase
         then mkSingle t mkBase
         else Error.raise_error Error.type_wf t2.startpos t2.endpos
             "Ill-formed basic product type: this type has not a base kind."
@@ -114,7 +114,7 @@ and wfkind env = function
   | Single (t, k) ->
       let k' = wftype env t in
       let open Answer in
-      match sub_kind env k' k with
+      match sub_kind ~unfold_eq:false env k' k with
       | Yes -> true
       | No reasons ->
           Error.raise_error Error.kind_wf t.startpos t.endpos
@@ -131,7 +131,7 @@ and wfkind_fields env = function
         (Env.Typ.add_var (dummy_locate Env.Typ.U) y k env)
         (Kind.bsubst_fields f x y_var)
 
-let rec try_sub_type env tau tau' =
+let rec try_sub_type ~unfold_eq env tau tau' =
   let open Answer in
   match (tau, tau') with
   | (Record _, _) | (_, Record _)
@@ -143,14 +143,14 @@ let rec try_sub_type env tau tau' =
      BaseForall({ content = a' ; _ }, k', t'))
   | (BaseExists({ content = a ; _ } as a_loc, k', t),
      BaseExists({ content = a' ; _ }, k,  t')) ->
-      sub_kind env k'.content k.content &*&
+      sub_kind ~unfold_eq env k'.content k.content &*&
       let x = Var.bfresh a in
       let x_var = dummy_locate (mkVar x) in
-      sub_type
+      sub_type ~unfold_eq
         (Env.Typ.add_var (locate_with Env.Typ.U a_loc) x k'.content env)
         (bsubst t a x_var) (bsubst t' a' x_var)
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
-      sub_type env t1' t1 &*& sub_type env t2 t2'
+      sub_type ~unfold_eq env t1' t1 &*& sub_type ~unfold_eq env t2 t2'
   | (BaseRecord m, BaseRecord m') ->
       (* for every lab ∈ dom m', Γ ⊢ m(l) ≤ m'(l) must hold *)
       Label.Map.fold
@@ -158,7 +158,7 @@ let rec try_sub_type env tau tau' =
         | Yes ->
             begin try
               let tau = Label.Map.find lab m in
-              sub_type env tau tau'
+              sub_type ~unfold_eq env tau tau'
             with Not_found ->
               No [TYPES
                     (dummy_locate (mkBaseRecord Label.Map.empty),
@@ -170,20 +170,23 @@ let rec try_sub_type env tau tau' =
   | (App(_,_), App(_,_)) | (Proj(_,_), Proj(_,_)) | (FVar _, FVar _) ->
       (* we already are in head normal form, so comparing
          for equivalence is enough *)
-      Normalize.equiv_typ env (dummy_locate tau) (dummy_locate tau') Kind.mkBase
+      Normalize.equiv_typ ~unfold_eq env
+        (dummy_locate tau) (dummy_locate tau') Kind.mkBase
   | ((BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |
     BaseRecord _ | App(_,_) | Proj(_,_) | FVar _),
      (BaseForall (_,_,_) | BaseExists (_,_,_) | BaseArrow (_,_) |
      BaseRecord _ | App(_,_) | Proj(_,_) | FVar _)) -> No []
 
-and sub_type env tau tau' =
-  let (tau,  _) = Normalize.head_norm env tau
-  and (tau', _) = Normalize.head_norm env tau' in
+and sub_type ~unfold_eq env tau tau' =
+  let (tau,  _) = Normalize.head_norm ~unfold_eq env tau
+  and (tau', _) = Normalize.head_norm ~unfold_eq env tau' in
   let open Answer in
-  match try_sub_type env tau.content tau'.content with
+  match try_sub_type ~unfold_eq env tau.content tau'.content with
   | Yes -> Yes
   | No reasons -> No (TYPES (tau, tau') :: reasons)
 
-let sub_type_b env k1 k2 = Answer.to_bool (sub_type env k1 k2)
+let sub_type_b ~unfold_eq env k1 k2 =
+  Answer.to_bool (sub_type ~unfold_eq env k1 k2)
 
-let check_wftype env t k = Normalize.sub_kind_b env (wftype env t) k
+let check_wftype env t k =
+  Normalize.sub_kind_b ~unfold_eq:false env (wftype env t) k

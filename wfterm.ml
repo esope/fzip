@@ -9,7 +9,7 @@ type env = (Typ.typ, Typ.typ Typ.kind) Env.t
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
   let k = wftype env t in
-  if sub_kind_b env k Kind.mkBase
+  if sub_kind_b ~unfold_eq:false env k Kind.mkBase
   then OK
   else KIND k
 
@@ -43,7 +43,7 @@ let rec wfterm env term = match term.content with
             begin
               let tau2 = wfterm env e2 in
               let open Answer in
-              match sub_type env tau2 tau2' with
+              match sub_type ~unfold_eq:false env tau2 tau2' with
               | Yes -> tau1'
               | No reason ->
                   Error.raise_error Error.subtype e1.startpos e2.endpos
@@ -84,7 +84,7 @@ let rec wfterm env term = match term.content with
             begin
               let k = wftype env tau in
               let open Answer in
-              match sub_kind env k k'.content with
+              match sub_kind ~unfold_eq:false env k k'.content with
               | Yes -> Typ.bsubst tau' x tau
               | No reasons ->
                   Error.raise_error Error.subkind e.startpos tau.endpos
@@ -130,10 +130,10 @@ let rec wfterm env term = match term.content with
         let t' = wfterm env e
         and k = wftype env t in
         let open Answer in
-        match sub_kind env k Kind.mkBase with
+        match sub_kind ~unfold_eq:false env k Kind.mkBase with
         | Yes ->
             begin
-              match sub_type env t' t with
+              match sub_type ~unfold_eq:true env t' t with
               | Yes -> t
               | No reasons ->
                   Error.raise_error Error.subtype e.startpos e.endpos
@@ -158,4 +158,4 @@ let rec wfterm env term = match term.content with
 
 let check_wfterm env e t =
   let t_min = wfterm env e in
-  sub_type_b env t_min t
+  sub_type_b ~unfold_eq:false env t_min t
