@@ -3,6 +3,7 @@
 open Ast.Raw
 let locate = Location.locate
 let relocate = Location.relocate
+let dummy_locate = Location.dummy_locate
 
 let mkPi_binding (_startpos,x,k) k' =
   Pi(Some x.Location.content, k.Location.content, k')

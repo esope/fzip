@@ -54,6 +54,19 @@ undelimited_term(kind,typ):
         (TeNu (locate x $startpos(x) $endpos(x),
                locate k $startpos(k) $endpos(k), t))
         $startpos $endpos }
+| EXISTS LPAR x=ID DBLCOLON k=kind RPAR t=term(kind,typ)
+    { locate
+        (TeEx (locate x $startpos(x) $endpos(x),
+               locate k $startpos(k) $endpos(k), t))
+        $startpos $endpos }
+| EXISTS LPAR x=ID DBLCOLON k=kind EQ tau=typ RPAR t=term(kind,typ)
+    { let x = locate x $startpos(x) $endpos(x)
+    and k = locate k $startpos(k) $endpos(k)
+    and y = dummy_locate (Ast.Typ.Var.to_string (Ast.Typ.Var.fresh ())) in
+    locate
+      (TeEx (y, k,
+             locate (TeSigma (y, x, k, tau, t)) $startpos $endpos))
+      $startpos $endpos }
 | SIGMA LBRACE x=ID RBRACE
     LPAR y=ID DBLCOLON k=kind EQ tau=typ RPAR t=term(kind,typ)
     { locate
