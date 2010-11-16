@@ -206,29 +206,6 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
      ~k:"*" ()) ;
  ]
 
-(* tests about wfterm *)
-let test_wfterm ~e ~t =
-  (Printf.sprintf "⊢ %s : %s?" e t) >:: (fun () ->
-    let e = String.Term.parse e
-    and t = String.Typ.parse t in
-    assert_equal
-      ~printer:PPrint.Typ.string
-      ~cmp:(sub_type_b ~unfold_eq:false Env.empty)
-      (Wfterm.wfterm Env.empty e) t)
-
-let tests_wfterm = "Tests about wfterm" >:::
-  [
-   test_wfterm ~e:"fun (α:: *) (x : α) → x"
-     ~t:"∀ (a:: *), a -> a" ;
-
-   test_wfterm ~e:"fun (α:: *) (x : { val A: α val B: α }) → x"
-     ~t:"∀ (a:: *), { val A:a val B: a } -> { val A: a val B: a }" ;
-
-   test_wfterm
-     ~e:"fun (α:: * => *) (β :: *) (x : { val A: α β  val B: α β }) → x"
-     ~t:"∀ (α:: *=>*) (β::*), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
- ]
-
 (* tests about wfsubtype *)
 let test_wfsubtype ~t ~u =
   (Printf.sprintf "⊢ %s ≤ %s?" t u) >:: (fun () ->
@@ -454,11 +431,104 @@ let tests_equiv_typ = "Tests about equiv_typ" >:::
 
  ]
 
+(* tests about zip *)
+let test_zip ~succeeds e1 e2 =
+  "zip test" >:: (fun () ->
+    assert_equal
+      ~cmp:(let modify x = if succeeds then x else not x in
+      fun e1 e2 ->
+        modify (match Env.zip e1 e2 with
+        | Answer.WithValue.Yes _ -> true
+        | Answer.WithValue.No _ -> false))
+      e1 e2)
+
+let tests_zip = "Tests about zip" >:::
+  [
+   test_zip ~succeeds:true Env.empty Env.empty ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     Env.empty
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)
+     Env.empty) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     (Env.Typ.add_var (Location.dummy_locate Mode.E) a Ast.Kind.mkBase
+        Env.empty)
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:false
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)
+     (Env.Typ.add_var (Location.dummy_locate Mode.E) a Ast.Kind.mkBase
+        Env.empty)) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     (Env.Typ.add_var (Location.dummy_locate Mode.E) a Ast.Kind.mkBase
+        Env.empty)
+     Env.empty) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:true
+     Env.empty
+     (Env.Typ.add_var (Location.dummy_locate Mode.E) a Ast.Kind.mkBase
+        Env.empty)) ;
+
+   (let a = Ast.Typ.Var.make "a" in
+   test_zip ~succeeds:false
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a Ast.Kind.mkBase
+        Env.empty)
+     (Env.Typ.add_var (Location.dummy_locate Mode.U) a
+        (Ast.Kind.mkArrow Ast.Kind.mkBase Ast.Kind.mkBase)
+        Env.empty)) ;
+
+ ]
+
+
+(* tests about wfterm *)
+let test_wfterm ~e ~t =
+  (Printf.sprintf "⊢ %s : %s?" e t) >:: (fun () ->
+    let e = String.Term.parse e
+    and t = String.Typ.parse t in
+    assert_equal
+      ~printer:PPrint.Typ.string
+      ~cmp:(sub_type_b ~unfold_eq:false Env.empty)
+      (Wfterm.wfterm Env.empty e) t)
+
+let tests_wfterm = "Tests about wfterm" >:::
+  [
+   test_wfterm ~e:"fun (α:: *) (x : α) → x"
+     ~t:"∀ (a:: *), a -> a" ;
+
+   test_wfterm ~e:"fun (α:: *) (x : { val A: α val B: α }) → x"
+     ~t:"∀ (a:: *), { val A:a val B: a } -> { val A: a val B: a }" ;
+
+   test_wfterm
+     ~e:"fun (α:: * => *) (β :: *) (x : { val A: α β  val B: α β }) → x"
+     ~t:"∀ (α:: *=>*) (β::*), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
+ ]
 
 (* all tests *)
 let tests = TestList
-    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfterm
-    ; tests_wfsubtype ; tests_sub_kind ; tests_equiv_typ ]
+    [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfsubtype ;
+      tests_sub_kind ; tests_equiv_typ ; tests_zip ; tests_wfterm ]
 
 (* running tests *)
 let () =
