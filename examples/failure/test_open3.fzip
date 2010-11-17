@@ -1,0 +1,4 @@
+λ (a::*) (x : ∃ (b::*), b) →
+   open [a] x
+
+(* impure body of a λ *)

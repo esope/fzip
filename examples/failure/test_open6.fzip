@@ -1,0 +1,4 @@
+λ (b :: *) (x : ∃ (a :: < type t :: * >), a.t) →
+∃ (a :: < type t :: S(b) >) open [a] x
+
+(* bad kind for existentials *)

@@ -1,0 +1,4 @@
+λ (a::*) (x : ∃ (b::*), { val l1 : b val l2 : a}) →
+   ν (a :: *) (open [a] x)
+
+(* escaping type variable *)

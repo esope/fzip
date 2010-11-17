@@ -1,0 +1,4 @@
+λ (x : ∃ (a :: < type t :: * >), a.t) →
+∃ (a :: *) open [a] x
+
+(* bad kinds *)

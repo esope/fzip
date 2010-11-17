@@ -1,0 +1,3 @@
+λ (x : ∃ (a::⋆) (b::S(a)), a) ->
+  ∃ (a::⋆) let y = open [a] x in
+  ∃ (b :: S(a)) let z = open [b] y in z
