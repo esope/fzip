@@ -81,6 +81,9 @@ module Typ : sig
 (** equality test *)
   val equal: t -> t -> bool
 
+(** computes the set of free type variables *)
+  val fv: t -> Var.Set.t
+
 (** smart constructors *)
   val mkVar: Var.free -> pre_typ
   val mkApp: t -> t -> pre_typ
@@ -124,6 +127,9 @@ module Kind : sig
 
 (** equality test *)
   val equal: t -> t -> bool
+
+(** computes the set of free type variables *)
+  val fv: t -> Typ.Var.Set.t
 
 (** smart constructors *)
   val mkBase: t
@@ -180,6 +186,12 @@ module Term : sig
 
 (** equality test *)
   val equal: t -> t -> bool
+
+(** computes the set of free type variables *)
+  val fv_typ: t -> Typ.Var.Set.t
+
+(** computes the set of free term variables *)
+  val fv_term: t -> Var.Set.t
 
 (** smart constructors *)
   val mkVar: Var.free -> pre_term

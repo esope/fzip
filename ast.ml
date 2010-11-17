@@ -263,6 +263,40 @@ module Typ = struct
 
   let equal = equal_typ
 
+(* free variables *)
+let rec fv_kind_rec fv_typ = let open Var.Set in
+function
+  | Base -> empty
+  | Single(t, k) ->
+      union (fv_typ t) (fv_kind_rec fv_typ k)
+  | Pi(_x, k1, k2) ->
+      union (fv_kind_rec fv_typ k1) (fv_kind_rec fv_typ k2)
+  | Sigma f ->
+      Label.AList.fold
+        (fun _lab (_x, k) acc -> union (fv_kind_rec fv_typ k) acc)
+        f empty
+
+let rec fv_typ_rec fv_kind t = pre_fv_typ_rec fv_kind t.content
+and pre_fv_typ_rec fv_kind = let open Var.Set in
+function
+  | BVar _ -> empty
+  | FVar x -> singleton x
+  | Lam(_x, k, t) | BaseForall(_x, k, t) | BaseExists(_x, k, t) ->
+      union (fv_kind k.content) (fv_typ_rec fv_kind t)
+  | App(t1, t2) | BaseArrow(t1, t2) ->
+      union (fv_typ_rec fv_kind t1) (fv_typ_rec fv_kind t2)
+  | Proj(t, _lab) -> fv_typ_rec fv_kind t
+  | Record m | BaseRecord m ->
+      Label.Map.fold 
+        (fun _lab t acc -> union (fv_typ_rec fv_kind t) acc)
+        m empty
+
+(* closing recursion *)
+let rec fv_typ t = fv_typ_rec fv_kind t
+and fv_kind k = fv_kind_rec fv_typ k
+
+let fv = fv_typ
+
 (* smart constructors *)
   let mkVar x = FVar x
 
@@ -324,6 +358,8 @@ module Kind = struct
     else f
 
   let equal = Typ.equal_kind
+
+  let fv = Typ.fv_kind
 
   let mkBase = Base
 
@@ -644,6 +680,37 @@ module Term = struct
     Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Annot(_,_) |
     Sigma(_,_,_,_,_) | Open(_,_) | Ex(_,_,_) | Nu(_,_,_)),_) ->
       false
+
+  let rec fv_typ t = let open Typ.Var.Set in
+  match t.content with
+  | BVar _ | FVar _ -> empty
+  | App(e1, e2) | Let(_, e1, e2) -> union (fv_typ e1) (fv_typ e2)
+  | Lam(_, t, e) | Inst(e, t) | Annot(e, t) | Open(t, e) ->
+      union (Typ.fv t) (fv_typ e)
+  | Proj(e, _) -> fv_typ e
+  | Nu(_, k, e) | Ex(_, k, e) | Gen(_, k, e) ->
+      union (Kind.fv k.content) (fv_typ e)
+  | Sigma(b, _, k, t, e) ->
+      union (Typ.fv b)
+        (union (Kind.fv k.content)
+           (union (Typ.fv t) (fv_typ e)))
+  | Record m ->
+      Label.AList.fold
+        (fun _lab e acc -> union (fv_typ e) acc)
+        m empty
+
+  let rec fv_term t = let open Var.Set in
+  match t.content with
+  | BVar _ -> empty
+  | FVar x -> singleton x
+  | App(e1, e2) | Let(_, e1, e2) -> union (fv_term e1) (fv_term e2)
+  | Lam(_, _, e) | Inst(e, _) | Annot(e, _) | Open(_, e) | Proj(e, _)
+  | Nu(_, _, e) | Ex(_, _, e) | Gen(_, _, e) | Sigma(_, _, _, _, e) ->
+      fv_term e
+  | Record m ->
+      Label.AList.fold
+        (fun _lab e acc -> union (fv_term e) acc)
+        m empty
 
 (* smart constructors *)
   let mkVar x = FVar x
