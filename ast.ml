@@ -297,6 +297,39 @@ and fv_kind k = fv_kind_rec fv_typ k
 
 let fv = fv_typ
 
+(* occurrence of a free type variable *)
+let rec is_fv_kind_rec is_fv_typ y = function
+  | Base -> false
+  | Single(t, k) ->
+      (is_fv_typ y t) || (is_fv_kind_rec is_fv_typ y k)
+  | Pi(_x, k1, k2) ->
+      (is_fv_kind_rec is_fv_typ y k1) || (is_fv_kind_rec is_fv_typ y k2)
+  | Sigma f ->
+      Label.AList.exists
+        (fun _lab (_x, k) -> is_fv_kind_rec is_fv_typ y k)
+        f
+
+let rec is_fv_typ_rec is_fv_kind y t = pre_is_fv_typ_rec is_fv_kind y t.content
+and pre_is_fv_typ_rec is_fv_kind y = function
+  | BVar _ -> false
+  | FVar x -> Var.equal x y
+  | Lam(_x, k, t) | BaseForall(_x, k, t) | BaseExists(_x, k, t) ->
+      (is_fv_kind y k.content) || (is_fv_typ_rec is_fv_kind y t)
+  | App(t1, t2) | BaseArrow(t1, t2) ->
+      (is_fv_typ_rec is_fv_kind y t1) || (is_fv_typ_rec is_fv_kind y t2)
+  | Proj(t, _lab) -> is_fv_typ_rec is_fv_kind y t
+  | Record m | BaseRecord m ->
+      Label.Map.exists
+        (fun _lab t -> is_fv_typ_rec is_fv_kind y t)
+        m
+
+(* closing recursion *)
+let rec is_fv_typ y t = is_fv_typ_rec is_fv_kind y t
+and is_fv_kind y k = is_fv_kind_rec is_fv_typ y k
+
+let is_fv = is_fv_typ
+
+
 (* smart constructors *)
   let mkVar x = FVar x
 
@@ -360,6 +393,8 @@ module Kind = struct
   let equal = Typ.equal_kind
 
   let fv = Typ.fv_kind
+
+  let is_fv = Typ.is_fv_kind
 
   let mkBase = Base
 
@@ -699,6 +734,22 @@ module Term = struct
         (fun _lab e acc -> union (fv_typ e) acc)
         m empty
 
+  let rec is_fv_typ y t = match t.content with
+  | BVar _ | FVar _ -> false
+  | App(e1, e2) | Let(_, e1, e2) -> (is_fv_typ y e1) || (is_fv_typ y e2)
+  | Lam(_, t, e) | Inst(e, t) | Annot(e, t) | Open(t, e) ->
+      (Typ.is_fv y t) || (is_fv_typ y e)
+  | Proj(e, _) -> is_fv_typ y e
+  | Nu(_, k, e) | Ex(_, k, e) | Gen(_, k, e) ->
+      (Kind.is_fv y k.content) || (is_fv_typ y e)
+  | Sigma(b, _, k, t, e) ->
+      (Typ.is_fv y b) || (Kind.is_fv y k.content) ||
+      (Typ.is_fv y t) || (is_fv_typ y e)
+  | Record m ->
+      Label.AList.exists
+        (fun _lab e -> is_fv_typ y e)
+        m
+
   let rec fv_term t = let open Var.Set in
   match t.content with
   | BVar _ -> empty
@@ -711,6 +762,18 @@ module Term = struct
       Label.AList.fold
         (fun _lab e acc -> union (fv_term e) acc)
         m empty
+
+  let rec is_fv_term y t = match t.content with
+  | BVar _ -> false
+  | FVar x -> Var.equal y x
+  | App(e1, e2) | Let(_, e1, e2) -> (is_fv_term y e1) || (is_fv_term y e2)
+  | Lam(_, _, e) | Inst(e, _) | Annot(e, _) | Open(_, e) | Proj(e, _)
+  | Nu(_, _, e) | Ex(_, _, e) | Gen(_, _, e) | Sigma(_, _, _, _, e) ->
+      is_fv_term y e
+  | Record m ->
+      Label.AList.exists
+        (fun _lab e -> is_fv_term y e)
+        m
 
 (* smart constructors *)
   let mkVar x = FVar x

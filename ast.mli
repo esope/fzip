@@ -84,6 +84,9 @@ module Typ : sig
 (** computes the set of free type variables *)
   val fv: t -> Var.Set.t
 
+(** decides whether a type variable is free in a type *)
+  val is_fv: Var.free -> t -> bool
+
 (** smart constructors *)
   val mkVar: Var.free -> pre_typ
   val mkApp: t -> t -> pre_typ
@@ -130,6 +133,9 @@ module Kind : sig
 
 (** computes the set of free type variables *)
   val fv: t -> Typ.Var.Set.t
+
+(** decides whether a type variable is free in a kind *)
+  val is_fv: Typ.Var.free -> t -> bool
 
 (** smart constructors *)
   val mkBase: t
@@ -190,8 +196,14 @@ module Term : sig
 (** computes the set of free type variables *)
   val fv_typ: t -> Typ.Var.Set.t
 
+(** decides whether a type variable is free in a term *)
+  val is_fv_typ: Typ.Var.free -> t -> bool
+
 (** computes the set of free term variables *)
   val fv_term: t -> Var.Set.t
+
+(** decides whether a term variable is free in a term *)
+  val is_fv_term: Var.free -> t -> bool
 
 (** smart constructors *)
   val mkVar: Var.free -> pre_term
