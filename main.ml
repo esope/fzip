@@ -6,5 +6,5 @@ let () =
     | _ -> assert false
   in
   let term = Parser_utils.Channel.Term.parse input name in
-  let typ = Wfterm.wfterm Env.empty term in
+  let (_, typ) = Wfterm.wfterm Env.empty term in
   Ast_utils.PPrint.Typ.channel stdout typ ; print_newline ()

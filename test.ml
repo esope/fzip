@@ -510,7 +510,7 @@ let test_wfterm ~e ~t =
     assert_equal
       ~printer:PPrint.Typ.string
       ~cmp:(sub_type_b ~unfold_eq:false Env.empty)
-      (Wfterm.wfterm Env.empty e) t)
+      (snd (Wfterm.wfterm Env.empty e)) t)
 
 let tests_wfterm = "Tests about wfterm" >:::
   [

@@ -15,7 +15,7 @@ let rec wfterm env term = match term.content with
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try Env.Term.get_var x env
+        try (env, Env.Term.get_var x env) (* TODO: weakening *)
         with Not_found ->
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
@@ -26,9 +26,20 @@ let rec wfterm env term = match term.content with
         | OK ->
             let x' = Var.bfresh x in
             let x_var' = dummy_locate (mkVar x') in
-            let t' =
+            let (env', t') =
               wfterm (Env.Term.add_var x' t env) (bsubst_term_var e x x_var') in
-            dummy_locate (Typ.mkBaseArrow t t')
+            begin
+              let open Answer in
+              match Env.is_pure env' with
+              | Yes ->
+                  (Env.Term.remove_var x' env',
+                   dummy_locate (Typ.mkBaseArrow t t'))
+              | No reason ->
+                  Error.raise_error Error.purity e.startpos e.endpos
+                    (Printf.sprintf
+                       "This term is a body of a function and is not pure.\n%s%!"
+                       (error_msg reason))
+            end
         | KIND k ->
             Error.raise_error Error.term_wf t.startpos t.endpos
               (Printf.sprintf "This type should have kind ⋆, but has kind\n%s%!"
@@ -36,56 +47,91 @@ let rec wfterm env term = match term.content with
       end
   | App(e1, e2) ->
       begin
-        match (wfterm env e1).content with
+        let (env1, tau1) = wfterm env e1 in
+        match tau1.content with
         | Typ.BaseArrow(tau2', tau1') ->
             begin
-              let tau2 = wfterm env e2 in
-              let open Answer in
-              match sub_type ~unfold_eq:false env tau2 tau2' with
-              | Yes -> tau1'
+              let (env2, tau2) = wfterm env e2 in
+              let open Answer.WithValue in
+              match Env.zip env1 env2 with
+              | Yes env12 ->
+                  begin
+                    let open Answer in
+                    match sub_type ~unfold_eq:false env tau2 tau2' with
+                    | Yes -> (env12, tau1')
+                    | No reason ->
+                        Error.raise_error
+                          Error.subtype term.startpos term.endpos
+                          (Printf.sprintf "Ill-formed application\n%s%!"
+                             (error_msg reason))
+                  end
               | No reason ->
-                  Error.raise_error Error.subtype e1.startpos e2.endpos
-                    (Printf.sprintf "Ill-formed application\n%s%!"
+                  Error.raise_error Error.zip term.startpos term.endpos
+                    (Printf.sprintf
+                       "Ill-formed application because of inconsistent zip\n%s%!"
                        (error_msg reason))
             end
         | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
           Typ.BaseForall (_, _, _) | Typ.BaseExists (_,_,_) |
           Typ.Proj (_, _) | Typ.Record _ |
           Typ.Lam (_, _, _) | Typ.App (_, _)) as tau ->
-            Error.raise_error Error.term_wf e1.startpos e2.startpos
+            Error.raise_error Error.term_wf e1.startpos e1.endpos
               (Printf.sprintf
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
   | Let({ content = x ; _ }, e1, e2) ->
-      let t1 = wfterm env e1 in
+      let (env1, t1) = wfterm env e1 in
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
-      wfterm (Env.Term.add_var y t1 env) (bsubst_term_var e2 x y_var)
+      let (env2, t2) =
+        wfterm (Env.Term.add_var y t1 env) (bsubst_term_var e2 x y_var) in
+      begin
+        let open Answer.WithValue in
+        match Env.zip env1 (Env.Term.remove_var y env2) with
+        | Yes env12 -> (env12, t2)
+        | No reason ->
+            Error.raise_error Error.zip term.startpos term.endpos
+              (Printf.sprintf
+                 "Ill-formed let binding because of inconsistent zip\n%s%!"
+                 (error_msg reason))
+      end
   | Gen ({ content = x ; _ } as x_loc, k, e) ->
       if wfkind env k.content
       then
         let x' = Typ.Var.bfresh x in
         let x_var' = locate_with (Typ.mkVar x') x_loc in
-        let t' =
+        let (env', t') =
           wfterm
             (Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env)
             (bsubst_typ_var e x x_var') in
-        dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t')
+        begin
+          let open Answer in
+          match Env.is_pure env' with
+          | Yes ->
+              (Env.Typ.remove_var x' env',
+               dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t'))
+          | No reason ->
+              Error.raise_error Error.purity e.startpos e.endpos
+                (Printf.sprintf
+                   "This term is a body of a generalization and is not pure.\n%s%!"
+                   (error_msg reason))
+        end
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind at the bound of a generalization."
   | Inst(e, tau) ->
       begin
-        match (wfterm env e).content with
+        let (env', t') = wfterm env e in
+        match t'.content with
         | Typ.BaseForall({content = x ; _ }, k', tau') ->
             begin
               let k = wftype env tau in
               let open Answer in
               match sub_kind ~unfold_eq:false env k k'.content with
-              | Yes -> Typ.bsubst tau' x tau
+              | Yes -> (env', Typ.bsubst tau' x tau)
               | No reasons ->
-                  Error.raise_error Error.subkind e.startpos tau.endpos
+                  Error.raise_error Error.subkind term.startpos term.endpos
                     (Printf.sprintf "Ill-formed instantiation:\n%s%!"
                        (error_msg reasons))
             end
@@ -98,18 +144,29 @@ let rec wfterm env term = match term.content with
                  (PPrint.Typ.string (dummy_locate tau')))
       end
   | Record r ->
-      let m = Label.AList.fold
-          (fun lab e acc ->
-            Label.Map.add lab (wfterm env e) acc)
-          r Label.Map.empty
+      let (env', m) = Label.AList.fold
+          (fun lab e (env_acc, m) ->
+            let (env', tau) = wfterm env e in
+            let open Answer.WithValue in
+            match Env.zip env' env_acc with
+            | Yes env_zip ->
+                (env_zip, Label.Map.add lab tau m)
+            | No reason ->
+                Error.raise_error Error.zip term.startpos term.endpos
+                  (Printf.sprintf
+                     "Ill-formed record because of inconsistent zip\n%s%!"
+                     (error_msg reason))
+          )
+          r (Env.empty, Label.Map.empty)
       in
-      dummy_locate (Typ.mkBaseRecord m)
+      (env', dummy_locate (Typ.mkBaseRecord m))
   | Proj(e, lab) ->
+      let (env', tau') = wfterm env e in
       begin
-        match (wfterm env e).content with
+        match tau'.content with
         | Typ.BaseRecord m ->
             begin
-              try Label.Map.find lab.content m
+              try (env', Label.Map.find lab.content m)
               with Not_found ->
                 Error.raise_error Error.term_wf lab.startpos lab.endpos
                   ("Unknown label " ^ lab.content ^ ".")
@@ -125,14 +182,14 @@ let rec wfterm env term = match term.content with
       end
   | Annot(e, t) ->
       begin
-        let t' = wfterm env e
+        let (env', t') = wfterm env e
         and k = wftype env t in
         let open Answer in
         match sub_kind ~unfold_eq:false env k Kind.mkBase with
         | Yes ->
             begin
               match sub_type ~unfold_eq:true env t' t with
-              | Yes -> t
+              | Yes -> (env', t)
               | No reasons ->
                   Error.raise_error Error.subtype e.startpos e.endpos
                     (Printf.sprintf
@@ -155,5 +212,5 @@ let rec wfterm env term = match term.content with
         "Typechecking for open existential types."
 
 let check_wfterm env e t =
-  let t_min = wfterm env e in
+  let (_, t_min) = wfterm env e in
   sub_type_b ~unfold_eq:false env t_min t
