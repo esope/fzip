@@ -20,6 +20,8 @@ let kind_wf = make_id "Kind wellformedness"
 let term_wf = make_id "Term wellformedness"
 let subtype = make_id "Subtyping"
 let subkind = make_id "Subkinding"
+let zip = make_id "Zip"
+let purity = make_id "Purity"
 let not_implemented = make_id "Not implemented"
 
 let list_errors () =

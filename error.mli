@@ -27,6 +27,12 @@ val subtype: t
 (** Kind wellformedness error. *)
 val subkind: t
 
+(** Zipping of environment error. *)
+val zip: t
+
+(** Purity of environment error. *)
+val purity: t
+
 (** Incomplete implementation error. *)
 val not_implemented: t
 
