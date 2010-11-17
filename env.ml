@@ -172,4 +172,13 @@ module Typ = struct
   let remove_var x e =
     { e with typ_vars = remove_assoc Ast.Typ.Var.equal x e.typ_vars }
 
+  let is_fv y e =
+    List.exists (fun (_x, t) -> Ast.Typ.is_fv y t) e.term_vars ||
+    List.exists
+      (fun (_x, ({ Location.content = mode ; _ }, k)) ->
+        Ast.Kind.is_fv y k ||
+        (match mode with
+        | Mode.EQ tau -> Ast.Typ.is_fv y tau
+        | Mode.E | Mode.U -> false))
+      e.typ_vars
 end

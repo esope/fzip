@@ -30,6 +30,7 @@ module Term: sig
 (** [remove_var x env] returns [env] from which the first binding of [x]
     has been removed, if any. Otherwise, it returns [env]. *)
   val remove_var: var -> t -> t
+
 end
 
 module Typ: sig
@@ -51,4 +52,7 @@ module Typ: sig
     has been removed, if any. Otherwise, it returns [env].
     TODO: remove the bindings that depend on [a] as well. *)
   val remove_var: var -> t -> t
+
+(** decides whether a type variable occurs in an environment *)
+  val is_fv: Ast.Typ.Var.free -> t -> bool
 end
