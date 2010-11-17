@@ -13,6 +13,8 @@ module AList = struct
   let map f = List.map (fun (lab, x) -> (lab, f x))
   let mapi f = List.map (fun (lab, x) -> f lab x)
   let fold f l acc = List.fold_left (fun acc (k,x) -> f k x acc) acc l
+  let for_all f = List.for_all (fun (l, x) -> f l x)
+  let exists f = List.exists (fun (l, x) -> f l x)
   let equal eq l1 l2 =
     try
       List.for_all2 (fun (k1, x1) (k2, x2) -> equal k1 k2 && eq x1 x2) l1 l2

@@ -13,5 +13,7 @@ module AList : sig
   val map: ('a -> 'b) -> 'a t -> 'b t
   val mapi: (key -> 'a -> key * 'b) -> 'a t -> 'b t
   val fold: (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val for_all: (key -> 'a -> bool) -> 'a t -> bool
+  val exists: (key -> 'a -> bool) -> 'a t -> bool
   val equal: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
 end
