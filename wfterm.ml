@@ -11,6 +11,9 @@ let wfbasetype env t =
   then OK
   else KIND k
 
+let elim_typ_var_in_typ _env _y _t = None
+    (* TODO *)
+
 let rec wfterm env term = match term.content with
   | BVar _ -> assert false
   | FVar x ->
@@ -109,6 +112,7 @@ let rec wfterm env term = match term.content with
           let open Answer in
           match Env.is_pure env' with
           | Yes ->
+              assert (not (Env.Typ.is_fv x' env')) ;
               (Env.Typ.remove_var x' env',
                dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t'))
           | No reason ->
@@ -204,12 +208,173 @@ let rec wfterm env term = match term.content with
  this type should have a base kind.\n%s%!"
        (error_msg reasons))
       end
-  | Sigma (_,_,_,_,_)
-  | Open (_,_)
-  | Nu (_,_,_)
-  | Ex (_,_,_) ->
-      Error.raise_error Error.not_implemented term.startpos term.endpos
-        "Typechecking for open existential types."
+  | Sigma ({ content = Typ.FVar x ; _ } as x_loc,
+           ({ content = y ; _ } as y_loc), k, t, e) ->
+      assert (not (Env.Typ.is_fv x env)) ; (* TODO: weakening *)
+      let ({ content = mode ; _ }, k_x) =
+        try Env.Typ.get_var x env
+        with Not_found ->
+          Error.raise_error Error.term_wf x_loc.startpos x_loc.endpos
+            (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
+      in begin
+      (* checking mode *)
+          match mode with
+          | Mode.U -> (* normal case *)
+              begin (* check k_x ≡ k !! *)
+                let open Answer in
+                match
+                  Normalize.equiv_kind ~unfold_eq:false env k.content k_x
+                with
+                | Yes ->
+                    let y' = Typ.Var.bfresh y in
+                    let y_var' =  locate_with (Typ.mkVar y') y_loc in
+                    let (env', t') =
+                      let env = Env.Typ.add_var
+                          (locate_with (Mode.EQ t) y_loc) y' k.content
+                          (Env.Typ.remove_var x env) in
+                      wfterm env (bsubst_typ_var e y y_var') in
+                    assert (not (Env.Typ.is_fv y' env')) ;
+                    (Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
+                       (Env.Typ.remove_var y' env'),
+                     Typ.subst t' y' x_loc.content)
+                | No reason ->
+                    Error.raise_error Error.subkind
+                      x_loc.startpos x_loc.endpos
+                      (Printf.sprintf "This kind of this type variable is not equivalent to the kind that is provided as argument to the Σ.\n%s%!"
+                         (error_msg reason))
+              end
+          | Mode.E -> assert false
+          | Mode.EQ _ ->
+              Error.raise_error Error.misused_typ_var
+                x_loc.startpos x_loc.endpos
+                "This variable is equipped with an equation, hence it cannot be used by Σ."
+      end
+  | Sigma ({ content =
+             (Typ.BVar _ | Typ.App _ | Typ.Lam _ | Typ.Record _ | Typ.Proj _ |
+             Typ.BaseArrow _ | Typ.BaseRecord _ | Typ.BaseForall _ |
+             Typ.BaseExists _) ; _ }, _, _, _, _) ->
+               (* This case is not supported by the syntax *)
+               assert false
+  | Open ({ content = Typ.FVar x ; _ } as x_loc, e) ->
+      assert (not (Env.Typ.is_fv x env)) ; (* TODO: weakening *)
+      let ({ content = mode ; _ }, k_x) =
+        try Env.Typ.get_var x env
+        with Not_found ->
+          Error.raise_error Error.term_wf x_loc.startpos x_loc.endpos
+            (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
+      in begin
+        (* checking mode *)
+          match mode with
+          | Mode.U -> (* normal case *)
+              begin
+                let (env', t') = wfterm (Env.Typ.remove_var x env) e in
+                (* TODO: weakening *)
+                match t'.content with
+                | Typ.BaseExists({ content = y ; _ }, k, t') ->
+                    begin
+                      assert (not (Env.Typ.is_fv x env')) ;
+                      (* checking env ⊢ k ≡ k_x *)
+                      let open Answer in
+                      match 
+                        Normalize.equiv_kind ~unfold_eq:false env k_x k.content
+                      with
+                      | Yes ->
+                          (Env.Typ.add_var (locate_with Mode.E x_loc)
+                             x k.content env',
+                           Typ.bsubst t' y x_loc)
+                      | No reason ->
+                          Error.raise_error Error.subkind
+                            x_loc.startpos x_loc.endpos
+                            (Printf.sprintf "This kind of this type variable is not equivalent to the kind at the bound of the existential type of the argument.\n%s%!"
+                               (error_msg reason))
+                    end
+                | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
+                  Typ.BaseForall (_, _, _) | Typ.BaseArrow (_,_) |
+                  Typ.Proj (_, _) | Typ.Record _ |
+                  Typ.Lam (_, _, _) | Typ.App (_, _)) ->
+                    Error.raise_error Error.term_wf e.startpos e.endpos
+                      (Printf.sprintf "Ill-formed opening: this term should have an existential type, but has type\n%s%!"
+                         (Ast_utils.PPrint.Typ.string t'))
+                    end
+          | Mode.E -> assert false
+          | Mode.EQ _ ->
+              Error.raise_error Error.misused_typ_var
+                x_loc.startpos x_loc.endpos
+                "This variable is equipped with an equation, hence it cannot be used by open."
+      end
+  | Open ({ content =
+            (Typ.BVar _ | Typ.App _ | Typ.Lam _ | Typ.Record _ | Typ.Proj _ |
+            Typ.BaseArrow _ | Typ.BaseRecord _ | Typ.BaseForall _ |
+            Typ.BaseExists _) ; _ }, _) ->
+      (* this case is not supported by the syntax *)
+      assert false
+  | Nu ({ content = x ; _ } as x_loc, k, e) ->
+      if wfkind env k.content
+      then
+        let x' = Typ.Var.bfresh x in
+        let x_var' = locate_with (Typ.mkVar x') x_loc in
+        let (env', t') =
+          wfterm
+            (Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env)
+            (bsubst_typ_var e x x_var') in
+        begin
+          (* checking mode *)
+          let mode =
+            try (fst (Env.Typ.get_var x' env')).content
+            with Not_found -> Mode.U
+          in
+          match mode with
+          | Mode.U -> (* the variable was not used in an opening or a sigma *)
+              Error.raise_error Error.misused_typ_var
+                x_loc.startpos x_loc.endpos
+                "This variable must be used as the argument of open or Σ."
+          | Mode.E -> (* the variable was used in an opening or a sigma *)
+              assert (not (Env.Typ.is_fv x' env')) ;
+              if Typ.is_fv x' t'
+              then
+                match elim_typ_var_in_typ env' x' t' with
+                | Some t' -> (Env.Typ.remove_var x' env', t')
+                | None ->
+                    Error.raise_error Error.escaping_typ_var
+                      x_loc.startpos x_loc.endpos
+                      (Printf.sprintf
+                         "Cannot eliminate this type variable from the type of the body:\n%s%!"
+                         (Ast_utils.PPrint.Typ.string t'))
+              else
+                (Env.Typ.remove_var x' env', t')
+          | Mode.EQ _ -> assert false
+        end
+      else
+        Error.raise_error Error.kind_wf k.startpos k.endpos
+          "Ill-formed kind at the bound of a type variable restriction."
+  | Ex ({ content = x ; _ } as x_loc, k, e) ->
+      if wfkind env k.content
+      then
+        let x' = Typ.Var.bfresh x in
+        let x_var' = locate_with (Typ.mkVar x') x_loc in
+        let (env', t') =
+          wfterm
+            (Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env)
+            (bsubst_typ_var e x x_var') in
+        begin
+          let mode =
+            try (fst (Env.Typ.get_var x' env')).content
+            with Not_found -> Mode.U
+          in
+          match mode with
+          | Mode.U -> (* the variable was not used in an opening or a sigma *)
+              Error.raise_error Error.misused_typ_var
+                x_loc.startpos x_loc.endpos
+                "This variable must be used as the argument of open or Σ."
+          | Mode.E -> (* the variable was used in an opening or a sigma *)
+              assert (not (Env.Typ.is_fv x' env')) ;
+              (Env.Typ.remove_var x' env',
+               dummy_locate (Typ.mkBaseExists (locate_with x' x_loc) k t'))
+          | Mode.EQ _ -> assert false
+        end
+      else
+        Error.raise_error Error.kind_wf k.startpos k.endpos
+          "Ill-formed kind at the bound of an existential closure."
 
 let check_wfterm env e t =
   let (_, t_min) = wfterm env e in

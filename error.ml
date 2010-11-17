@@ -22,6 +22,8 @@ let subtype = make_id "Subtyping"
 let subkind = make_id "Subkinding"
 let zip = make_id "Zip"
 let purity = make_id "Purity"
+let misused_typ_var = make_id "Misuse of a type variable"
+let escaping_typ_var = make_id "Scope"
 let not_implemented = make_id "Not implemented"
 
 let list_errors () =

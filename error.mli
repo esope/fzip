@@ -33,6 +33,12 @@ val zip: t
 (** Purity of environment error. *)
 val purity: t
 
+(** Misuse of a type variable error. *)
+val misused_typ_var: t
+
+(** Escaping of a type variable error. *)
+val escaping_typ_var: t
+
 (** Incomplete implementation error. *)
 val not_implemented: t
 
