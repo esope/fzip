@@ -34,6 +34,9 @@ let locate lexbuf token =
   (token, startpos, endpos)
 
 exception Lexing_error of Lexing.position * Lexing.position * string
+exception Unterminated_comment of Lexing.position * Lexing.position
+exception Unexpected_end_of_comment of Lexing.position * Lexing.position
+
 
 let lexing_error_handler f file lexbuf =
   current_file := file ;
@@ -41,6 +44,13 @@ let lexing_error_handler f file lexbuf =
   with Lexing_error(startpos, endpos, s) ->
     Error.raise_error Error.lexing startpos endpos
       (Printf.sprintf "Unknown token: %s." s)
+  | Unterminated_comment(startpos, endpos) ->
+    Error.raise_error Error.lexing startpos endpos
+      "Unterminated comment."
+  | Unexpected_end_of_comment(startpos, endpos) ->
+    Error.raise_error Error.lexing startpos endpos
+      "Unexpected end of comment."
+
 
 let regexp whitespace = ['\t' ' ']+
 let regexp linebreak = ['\n' '\r' "\r\n"]
@@ -58,6 +68,7 @@ let rec token = lexer
 | whitespace -> token lexbuf
 | linebreak -> break_line lexbuf ; token lexbuf
 | "(*" -> comment 0 lexbuf
+| "*)" -> raise (Unexpected_end_of_comment (startpos lexbuf, endpos lexbuf))
 | "=>" | 8658 (* ⇒ *) -> locate lexbuf DBLARROW
 | "->" | 8594 (* → *) -> locate lexbuf ARROW
 | "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
@@ -103,6 +114,8 @@ and comment level = lexer
     then comment (level-1) lexbuf
     else token lexbuf
 | linebreak -> break_line lexbuf ; comment level lexbuf
+| eof ->
+    raise (Unterminated_comment (startpos lexbuf, endpos lexbuf))
 | _ -> comment level lexbuf
 
 
