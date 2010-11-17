@@ -134,14 +134,27 @@ let zip e1 e2 =
       end
   | (No _) as no -> no
 
+let rec get_assoc equal x = function
+  | [] -> raise Not_found
+  | (y, v) :: _ when equal x y -> v
+  | _ :: l -> get_assoc equal x l
+
+let rec remove_assoc equal x = function
+  | [] -> []
+  | (y, _) :: l when equal x y -> l
+  | b :: l -> b :: b :: remove_assoc equal x l
+
 module Term = struct
 
   type var = term_var
 
-  let get_var x e = List.assoc x e.term_vars
+  let get_var x e = get_assoc Ast.Term.Var.equal x e.term_vars
 
   let add_var x t e =
     { e with term_vars = (x, t) :: e.term_vars }
+
+  let remove_var x e =
+    { e with term_vars = remove_assoc Ast.Term.Var.equal x e.term_vars }
 
 end
 
@@ -150,9 +163,13 @@ module Typ = struct
   type var = typ_var
   type mode = Mode.mode
 
-  let get_var x e = List.assoc x e.typ_vars
+  let get_var x e = get_assoc Ast.Typ.Var.equal x e.typ_vars
 
   let add_var mode x k e =
     { e with typ_vars = (x, (mode, k)) :: e.typ_vars }
+
+(* TODO: remove dependencies as well *)
+  let remove_var x e =
+    { e with typ_vars = remove_assoc Ast.Typ.Var.equal x e.typ_vars }
 
 end

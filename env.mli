@@ -27,6 +27,9 @@ module Term: sig
     binding [(x, t)]. *)
   val add_var: var -> Ast.Typ.t -> t -> t
 
+(** [remove_var x env] returns [env] from which the first binding of [x]
+    has been removed, if any. Otherwise, it returns [env]. *)
+  val remove_var: var -> t -> t
 end
 
 module Typ: sig
@@ -44,4 +47,8 @@ module Typ: sig
     binding [(x, k)]. *)
   val add_var: mode Location.located -> var -> Ast.Kind.t -> t -> t
 
+(** [remove_var a env] returns [env] from which the first binding of [a]
+    has been removed, if any. Otherwise, it returns [env].
+    TODO: remove the bindings that depend on [a] as well. *)
+  val remove_var: var -> t -> t
 end
