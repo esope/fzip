@@ -25,35 +25,35 @@ let test_term_parser t1 t2 =
 
 let tests_parsing = "Tests about parsing" >:::
   [
-   test_kind_parser "⋆" "*" ;
-   test_kind_parser "* => *" "* ⇒ *" ;
-   test_kind_parser "* => * => *" "* => (* => *)" ;
-   test_kind_parser "Π (x :: *) => * => *" "Π (x :: *) => (* => *)" ;
+   test_kind_parser "⋆" "⋆" ;
+   test_kind_parser "⋆ => ⋆" "⋆ ⇒ ⋆" ;
+   test_kind_parser "⋆ => ⋆ => ⋆" "⋆ => (⋆ => ⋆)" ;
+   test_kind_parser "Π (x :: ⋆) => ⋆ => ⋆" "Π (x :: ⋆) => (⋆ => ⋆)" ;
    test_typ_parser "a -> a" "a → a" ;
    test_typ_parser "a -> a -> a" "a -> (a -> a)" ;
    test_typ_parser "{ val l1: a val l2: a }" "{ val l1: a val l2: a }" ;
    test_typ_parser "< type l1 = a type l2 = a >"
      "< type l1 = a type l2 = a >" ;
-   test_typ_parser "λ (a :: *) → a b" "fun (a :: *) -> (a b)" ;
-   test_typ_parser "λ (a :: *) → a . b" "λ (a :: *) → (a . b)" ;
-   test_typ_parser "λ (a :: *) → a < type B=b type C=c>"
-     "λ (a :: *) → (a < type B=b type C=c>)" ;
+   test_typ_parser "λ (a :: ⋆) → a b" "fun (a :: ⋆) -> (a b)" ;
+   test_typ_parser "λ (a :: ⋆) → a . b" "λ (a :: ⋆) → (a . b)" ;
+   test_typ_parser "λ (a :: ⋆) → a < type B=b type C=c>"
+     "λ (a :: ⋆) → (a < type B=b type C=c>)" ;
    test_typ_parser
-     "λ (a :: *) →  a { val B: b val C: c }"
-     "λ (a :: *) → (a { val B: b val C: c })" ;
-   test_typ_parser "∀ (a :: *), a b" "forall (a :: *), (a b)" ;
-   test_typ_parser "∀ (a :: *), a . b" "∀ (a :: *), (a . b)" ;
-   test_typ_parser "∀ (a :: *), a < type B=b type C=c>"
-     "∀ (a :: *), (a < type B=b type C=c>)" ;
+     "λ (a :: ⋆) →  a { val B: b val C: c }"
+     "λ (a :: ⋆) → (a { val B: b val C: c })" ;
+   test_typ_parser "∀ (a :: ⋆), a b" "forall (a :: ⋆), (a b)" ;
+   test_typ_parser "∀ (a :: ⋆), a . b" "∀ (a :: ⋆), (a . b)" ;
+   test_typ_parser "∀ (a :: ⋆), a < type B=b type C=c>"
+     "∀ (a :: ⋆), (a < type B=b type C=c>)" ;
    test_typ_parser
-     "∀ (a :: *),  a { val B: b val C: c }"
-     "∀ (a :: *), (a { val B: b val C: c })" ;
-   test_term_parser "Λ(a::*) → λ(x:a) → x" "Fun(a::*) -> fun(x:a) -> x" ;
-   test_term_parser "λ (a::*)(x:a) → x" "fun(a::*)(x:a) -> x" ;
+     "∀ (a :: ⋆),  a { val B: b val C: c }"
+     "∀ (a :: ⋆), (a { val B: b val C: c })" ;
+   test_term_parser "Λ(a::⋆) → λ(x:a) → x" "Fun(a::⋆) -> fun(x:a) -> x" ;
+   test_term_parser "λ (a::⋆)(x:a) → x" "fun(a::⋆)(x:a) -> x" ;
    test_term_parser "λ(x:a) → x y" "λ(x:a) → (x y)" ;
    test_term_parser "λ(x:a) → x . y" "λ(x:a) → (x . y)" ;
-   test_term_parser "Λ(a::*) → x y" "Λ(a::*) → (x y)" ;
-   test_term_parser "Λ(a::*) → x . y" "Λ(a::*) → (x . y)" ;
+   test_term_parser "Λ(a::⋆) → x y" "Λ(a::⋆) → (x y)" ;
+   test_term_parser "Λ(a::⋆) → x . y" "Λ(a::⋆) → (x . y)" ;
 
  ]
 
@@ -68,28 +68,28 @@ let test_wftype ~t ~k =
 
 let tests_wftype = "Tests about wftype" >:::
   [
-   test_wftype ~t:"fun (x::*) → x" ~k:"* => *" ;
-   test_wftype ~t:"fun (x::*) → fun (y::*=>*) → y x" ~k:"* => (* => *) => *" ;
-   test_wftype ~t:"fun (x::*) → ∀ (y::*=>*), y x" ~k:"* => *" ;
-   test_wftype ~t:"fun (x::*) → ∃ (y::*=>*), y x" ~k:"* => *" ;
+   test_wftype ~t:"fun (x::⋆) → x" ~k:"⋆ => ⋆" ;
+   test_wftype ~t:"fun (x::⋆) → fun (y::⋆=>⋆) → y x" ~k:"⋆ => (⋆ => ⋆) => ⋆" ;
+   test_wftype ~t:"fun (x::⋆) → ∀ (y::⋆=>⋆), y x" ~k:"⋆ => ⋆" ;
+   test_wftype ~t:"fun (x::⋆) → ∃ (y::⋆=>⋆), y x" ~k:"⋆ => ⋆" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type C= x.A type D=x.B >"
-     ~k:"< type A::* type B::* > => < type C::* type D::* >" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type C= x.A type D=x.B >"
+     ~k:"< type A::⋆ type B::⋆ > => < type C::⋆ type D::⋆ >" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type C= x.A type D=x.B >"
-     ~k:"Π (x::< type A::* type B::* >) => < type C::S(x.A) type D::S(x.B) >" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type C= x.A type D=x.B >"
+     ~k:"Π (x::< type A::⋆ type B::⋆ >) => < type C::S(x.A) type D::S(x.B) >" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type A= x.A type B=x.B >"
-     ~k:"Π (x :: < type A::* type B::* >) => S(x :: < type A::* type B::* >)" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::⋆ type B::⋆ >) => S(x :: < type A::⋆ type B::⋆ >)" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type A= x.A type B=x.B >"
-     ~k:"Π (x :: < type A::* type B::* >) => S(x :: < type A::* >)" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::⋆ type B::⋆ >) => S(x :: < type A::⋆ >)" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type A= x.A type B=x.B >"
-     ~k:"Π (x :: < type A::* type B::* >) => S(x :: < type A::* >)" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::⋆ type B::⋆ >) => S(x :: < type A::⋆ >)" ;
    test_wftype
-     ~t:"fun (x::<type A::* type B::*>) → < type A= x.A type B=x.B >"
-     ~k:"Π (x :: < type A::* type B::* >) => S(x :: < >)" ;
+     ~t:"fun (x::<type A::⋆ type B::⋆>) → < type A= x.A type B=x.B >"
+     ~k:"Π (x :: < type A::⋆ type B::⋆ >) => S(x :: < >)" ;
  ]
 
 (* tests about normal forms and equivalence *)
@@ -117,7 +117,7 @@ let mknum_string n =
   in
   Printf.sprintf "(λ(f :: ⋆ ⇒ ⋆) → λ(x :: ⋆) → %s)" (mkapp_n "f" "x" n)
 
-let nat_string = "(* => *) => * => *"
+let nat_string = "(⋆ => ⋆) => ⋆ => ⋆"
 
 let add_string = 
   ("(λ (n :: " ^ nat_string ^ ") →" ^
@@ -127,7 +127,7 @@ let add_string =
 
 let tests_nf = "Tests about normal forms and equivalence" >:::
   [
-   (let f = "fun (x::*) → fun (y:: * => *) → y x" in
+   (let f = "fun (x::⋆) → fun (y:: ⋆ => ⋆) → y x" in
    ("nf of " ^ f) >:: test_nf ~t:f ~nf:f) ;
 
    "3 + 4 = 7?" >::
@@ -138,9 +138,9 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
    test_nf ~t:(add_string ^ (mknum_string 42) ^ (mknum_string 96))
      ~nf:(mknum_string 138) ;
 
-   "nf of fun (x::*) → fun (y:: * => *) → y x" >::
-   test_nf ~t:"fun (x::*) → fun (y:: * => *) → y x"
-     ~nf:"fun (x::*) → fun (y:: * => *) → y x" ;
+   "nf of fun (x::⋆) → fun (y:: ⋆ => ⋆) → y x" >::
+   test_nf ~t:"fun (x::⋆) → fun (y:: ⋆ => ⋆) → y x"
+     ~nf:"fun (x::⋆) → fun (y:: ⋆ => ⋆) → y x" ;
 
    (let f =
      "λ(x :: \
@@ -172,38 +172,38 @@ let tests_nf = "Tests about normal forms and equivalence" >:::
    test_equiv
      ~neg:true
      ~env:(Env.empty)
-     ~t:"λ (c :: *) → λ (x :: *) → c"
-     ~u:"λ (c :: *) → λ (x :: *) → x"
-     ~k:"* => * => *" () ;
+     ~t:"λ (c :: ⋆) → λ (x :: ⋆) → c"
+     ~u:"λ (c :: ⋆) → λ (x :: ⋆) → x"
+     ~k:"⋆ => ⋆ => ⋆" () ;
 
    test_equiv
      ~env:(Env.empty)
-     ~t:"λ (c :: *) → λ (x :: *) → c"
-     ~u:"λ (c :: *) → λ (x :: *) → x"
-     ~k:"Π(c :: *) => S(c) => *" () ;
+     ~t:"λ (c :: ⋆) → λ (x :: ⋆) → c"
+     ~u:"λ (c :: ⋆) → λ (x :: ⋆) → x"
+     ~k:"Π(c :: ⋆) => S(c) => ⋆" () ;
 
    (let env =
      Env.Typ.add_var (Location.dummy_locate Mode.U)
-       (Ast.Typ.Var.make "f") (String.Kind.parse "(* => *) => *")
+       (Ast.Typ.Var.make "f") (String.Kind.parse "(⋆ => ⋆) => ⋆")
        (Env.Typ.add_var (Location.dummy_locate Mode.U) (Ast.Typ.Var.make "c")
-          (String.Kind.parse "*") Env.empty) in
+          (String.Kind.parse "⋆") Env.empty) in
    test_equiv
      ~neg:true
      ~env
-     ~t:"f (λ (x :: *) → c)"
-     ~u:"f (λ (x :: *) → x)"
-     ~k:"*" ()) ;
+     ~t:"f (λ (x :: ⋆) → c)"
+     ~u:"f (λ (x :: ⋆) → x)"
+     ~k:"⋆" ()) ;
 
    (let env =
      Env.Typ.add_var (Location.dummy_locate Mode.U) (Ast.Typ.Var.make "f")
-       (String.Kind.parse "(S(c) => *) => *")
+       (String.Kind.parse "(S(c) => ⋆) => ⋆")
        (Env.Typ.add_var (Location.dummy_locate Mode.U) (Ast.Typ.Var.make "c")
-          (String.Kind.parse "*") Env.empty) in
+          (String.Kind.parse "⋆") Env.empty) in
    test_equiv
      ~env
-     ~t:"f (λ (x :: *) → c)"
-     ~u:"f (λ (x :: *) → x)"
-     ~k:"*" ()) ;
+     ~t:"f (λ (x :: ⋆) → c)"
+     ~u:"f (λ (x :: ⋆) → x)"
+     ~k:"⋆" ()) ;
  ]
 
 (* tests about wfsubtype *)
@@ -218,44 +218,44 @@ let test_wfsubtype ~t ~u =
 let tests_wfsubtype = "Tests about wfsubtype" >:::
   [
    test_wfsubtype
-     ~t:"∀ (a:: *), a -> a"
-     ~u:"∀ (a:: *), a -> a" ;
+     ~t:"∀ (a:: ⋆), a -> a"
+     ~u:"∀ (a:: ⋆), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *), a -> a"
-     ~u:"∀ (a:: S (forall (b::*), b)), a -> a" ;
+     ~t:"∀ (a:: ⋆), a -> a"
+     ~u:"∀ (a:: S (forall (b::⋆), b)), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *), a -> a"
-     ~u:"∀ (a:: S (forall (b::*), b)), (forall (b::*), b) -> a" ;
+     ~t:"∀ (a:: ⋆), a -> a"
+     ~u:"∀ (a:: S (forall (b::⋆), b)), (forall (b::⋆), b) -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *), (forall (b::*), b) -> a"
-     ~u:"∀ (a:: S (forall (b::*), b)), a -> a" ;
+     ~t:"∀ (a:: ⋆), (forall (b::⋆), b) -> a"
+     ~u:"∀ (a:: S (forall (b::⋆), b)), a -> a" ;
 
    test_wfsubtype
-     ~t:"∀ (a:: *), {val A:a val B:a} -> {val A:a val B:a}"
-     ~u:"∀ (a:: *), {val B:a val A:a} -> {val B:a}" ;
+     ~t:"∀ (a:: ⋆), {val A:a val B:a} -> {val A:a val B:a}"
+     ~u:"∀ (a:: ⋆), {val B:a val A:a} -> {val B:a}" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: *), a -> a"
-     ~u:"∃ (a:: *), a -> a" ;
+     ~t:"∃ (a:: ⋆), a -> a"
+     ~u:"∃ (a:: ⋆), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*), b)), a -> a"
-     ~u:"∃ (a:: *), a -> a" ;
+     ~t:"∃ (a:: S (forall (b::⋆), b)), a -> a"
+     ~u:"∃ (a:: ⋆), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*), b)), (forall (b::*), b) -> a"
-     ~u:"∃ (a:: *), a -> a" ;
+     ~t:"∃ (a:: S (forall (b::⋆), b)), (forall (b::⋆), b) -> a"
+     ~u:"∃ (a:: ⋆), a -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: S (forall (b::*), b)), a -> a"
-     ~u:"∃ (a:: *), (forall (b::*), b) -> a" ;
+     ~t:"∃ (a:: S (forall (b::⋆), b)), a -> a"
+     ~u:"∃ (a:: ⋆), (forall (b::⋆), b) -> a" ;
 
    test_wfsubtype
-     ~t:"∃ (a:: *), {val B:a val A:a} -> {val A:a val B:a}"
-     ~u:"∃ (a:: *), {val A:a val B:a} -> {val B:a}" ;
+     ~t:"∃ (a:: ⋆), {val B:a val A:a} -> {val A:a val B:a}"
+     ~u:"∃ (a:: ⋆), {val A:a val B:a} -> {val B:a}" ;
  ]
 
 (* tests about sub_kind *)
@@ -270,133 +270,133 @@ let test_sub_kind ~k1 ~k2 =
 let tests_sub_kind = "Tests about sub_kind" >:::
   [
    test_sub_kind
-     ~k1:"Π (a:: *) => S(a)"
-     ~k2:"Π (a:: *) => *" ;
+     ~k1:"Π (a:: ⋆) => S(a)"
+     ~k2:"Π (a:: ⋆) => ⋆" ;
 
    test_sub_kind
-     ~k1:"Π (a:: *) (b :: *) => *"
-     ~k2:"Π (a:: *) (b :: S(a)) => *" ;
+     ~k1:"Π (a:: ⋆) (b :: ⋆) => ⋆"
+     ~k2:"Π (a:: ⋆) (b :: S(a)) => ⋆" ;
 
    test_sub_kind
-     ~k1:"Π (a:: *) (b :: S(a)) => S(a)"
-     ~k2:"Π (a:: *) (b :: S(a)) => S(b)" ;
+     ~k1:"Π (a:: ⋆) (b :: S(a)) => S(a)"
+     ~k2:"Π (a:: ⋆) (b :: S(a)) => S(b)" ;
 
    test_sub_kind
-     ~k1:"Π (a:: *) (b :: *) => S(a)"
-     ~k2:"Π (a:: *) (b :: S(a)) => S(a)" ;
+     ~k1:"Π (a:: ⋆) (b :: ⋆) => S(a)"
+     ~k2:"Π (a:: ⋆) (b :: S(a)) => S(a)" ;
 
    test_sub_kind
-     ~k1:"Π (a:: *) (b :: *) => S(a)"
-     ~k2:"Π (a:: *) (b :: S(a)) => S(b)" ;
+     ~k1:"Π (a:: ⋆) (b :: ⋆) => S(a)"
+     ~k2:"Π (a:: ⋆) (b :: S(a)) => S(b)" ;
 
    test_sub_kind
-     ~k1:"Π (a:: *) (b :: *) => S(a)"
-     ~k2:"Π (a:: *) (b :: S({ val lab : a })) => S(a)" ;
+     ~k1:"Π (a:: ⋆) (b :: ⋆) => S(a)"
+     ~k2:"Π (a:: ⋆) (b :: S({ val lab : a })) => S(a)" ;
 
    test_sub_kind
-     ~k1:"< type left :: * type right :: * >"
+     ~k1:"< type left :: ⋆ type right :: ⋆ >"
      ~k2:"< >" ;
 
    test_sub_kind
-     ~k1:"< type left :: * type right :: * >"
-     ~k2:"< type left :: * >" ;
+     ~k1:"< type left :: ⋆ type right :: ⋆ >"
+     ~k2:"< type left :: ⋆ >" ;
 
    test_sub_kind
-     ~k1:"< type left :: * type right :: * >"
-     ~k2:"< type right :: * >" ;
+     ~k1:"< type left :: ⋆ type right :: ⋆ >"
+     ~k2:"< type right :: ⋆ >" ;
 
    test_sub_kind
-     ~k1:"< type left :: * type right :: * >"
-     ~k2:"< type right :: * type left :: * >" ;
+     ~k1:"< type left :: ⋆ type right :: ⋆ >"
+     ~k2:"< type right :: ⋆ type left :: ⋆ >" ;
 
    test_sub_kind
-     ~k1:"< type left as α :: * type right :: S(α) >"
-     ~k2:"< type right as β :: * type left :: S(β) >" ;
+     ~k1:"< type left as α :: ⋆ type right :: S(α) >"
+     ~k2:"< type right as β :: ⋆ type left :: S(β) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type other :: * type right as β :: * type left :: S(β) >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other :: ⋆ type right as β :: ⋆ type left :: S(β) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type other as α :: * type right as β :: S(α) type left :: S(β) >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other as α :: ⋆ type right as β :: S(α) type left :: S(β) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type other as α :: * type left as β :: S(α) type right :: S(β) >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type other as α :: ⋆ type left as β :: S(α) type right :: S(β) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left as β :: S(α) type right :: S(β) >"
-     ~k2:"< type other as α :: * type left :: S(α) type right :: S(α) >" ;
+     ~k1:"< type other as α :: ⋆ type left as β :: S(α) type right :: S(β) >"
+     ~k2:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type right as α :: * type other as β :: S(α) type left :: S(β) >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: ⋆ type other as β :: S(α) type left :: S(β) >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type right as α :: * type other as β :: S(α) type left :: * >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: ⋆ type other as β :: S(α) type left :: ⋆ >" ;
 
    test_sub_kind
-     ~k1:"< type other as α :: * type left :: S(α) type right :: S(α) >"
-     ~k2:"< type right as α :: * type left :: S(α) >" ;
+     ~k1:"< type other as α :: ⋆ type left :: S(α) type right :: S(α) >"
+     ~k2:"< type right as α :: ⋆ type left :: S(α) >" ;
 
    test_sub_kind
      ~k1:"< type deeper ::\
-             < type other as α :: * type left :: S(α) type right :: S(α) > >"
-     ~k2:"< type deeper :: < type right as α :: * type left :: S(α) > >" ;
+             < type other as α :: ⋆ type left :: S(α) type right :: S(α) > >"
+     ~k2:"< type deeper :: < type right as α :: ⋆ type left :: S(α) > >" ;
 
    test_sub_kind
-     ~k1:"< type left as α :: * \
-            type right :: < type innerL :: S(α) type innerR :: * > >"
-     ~k2:"< type right as β :: < type innerR :: * type innerL :: * > \
+     ~k1:"< type left as α :: ⋆ \
+            type right :: < type innerL :: S(α) type innerR :: ⋆ > >"
+     ~k2:"< type right as β :: < type innerR :: ⋆ type innerL :: ⋆ > \
             type left :: S(β.innerL) >" ;
 
    test_sub_kind
-     ~k1:"< type right as β :: < type innerR :: * type innerL :: * > \
+     ~k1:"< type right as β :: < type innerR :: ⋆ type innerL :: ⋆ > \
             type left :: S(β.innerL) >"
-     ~k2:"< type left as α :: * \
-            type right :: < type innerL :: S(α) type innerR :: * > >" ;
+     ~k2:"< type left as α :: ⋆ \
+            type right :: < type innerL :: S(α) type innerR :: ⋆ > >" ;
 
    test_sub_kind
      ~k1:"< type A as a :: \
-              < type C :: * type D :: * > \
+              < type C :: ⋆ type D :: ⋆ > \
             type B :: \
-              < type E :: S(a.C) type F :: * > \
+              < type E :: S(a.C) type F :: ⋆ > \
           >"
      ~k2:"< type B as b :: \
-              < type F :: * type E :: * > \
+              < type F :: ⋆ type E :: ⋆ > \
             type A :: \
-              < type D :: * type C :: S(b.E) > \
+              < type D :: ⋆ type C :: S(b.E) > \
           >" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: Π(x::*) => S(x))"
-     ~k2:"*=>*" ;
+     ~k1:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))"
+     ~k2:"⋆=>⋆" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: Π(x::*) => S(x))"
-     ~k2:"Π(x::*) => S(x)" ;
+     ~k1:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))"
+     ~k2:"Π(x::⋆) => S(x)" ;
 
    test_sub_kind
-     ~k1:"Π(x::*) => S(x)"
-     ~k2:"S(fun(x::*) → x :: Π(x::*) => S(x))" ;
+     ~k1:"Π(x::⋆) => S(x)"
+     ~k2:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: Π(x::*) => S(x))"
-     ~k2:"S(fun(x::*) → x :: Π(x::*) => S(x))" ;
+     ~k1:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))"
+     ~k2:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: Π(x::*) => S(x))"
-     ~k2:"S(fun(x::*) → x :: Π(x::*) => S(x))" ;
+     ~k1:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))"
+     ~k2:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: Π(x::*) => S(x))"
-     ~k2:"S(fun(x::*) → x :: *=>*)" ;
+     ~k1:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))"
+     ~k2:"S(fun(x::⋆) → x :: ⋆=>⋆)" ;
 
    test_sub_kind
-     ~k1:"S(fun(x::*) → x :: *=>*)"
-     ~k2:"S(fun(x::*) → x :: Π(x::*) => S(x))" ;
+     ~k1:"S(fun(x::⋆) → x :: ⋆=>⋆)"
+     ~k2:"S(fun(x::⋆) → x :: Π(x::⋆) => S(x))" ;
 
  ]
 
@@ -415,18 +415,18 @@ let test_equiv_typ ~t1 ~t2 ~k =
 let tests_equiv_typ = "Tests about equiv_typ" >:::
   [
    test_equiv_typ
-     ~t1:"∃ (α :: S (∀(β :: *) (γ :: Π(δ::*) => S(δ)), γ β)), α"
-     ~t2:"∃ (α :: S (∀(β :: *) (γ :: Π(δ::*) => S(δ)), β)), α"
-     ~k:"*" ;
+     ~t1:"∃ (α :: S (∀(β :: ⋆) (γ :: Π(δ::⋆) => S(δ)), γ β)), α"
+     ~t2:"∃ (α :: S (∀(β :: ⋆) (γ :: Π(δ::⋆) => S(δ)), β)), α"
+     ~k:"⋆" ;
 
    test_equiv_typ
-     ~t1:"< type l = ∀(α::*),α  type q = ∀(α::*)(α::*),α >"
-     ~t2:"< type r = ∀(α::*)(α::*),α  type l = ∀(α::*),α >"
-     ~k:"< type l :: * >" ;
+     ~t1:"< type l = ∀(α::⋆),α  type q = ∀(α::⋆)(α::⋆),α >"
+     ~t2:"< type r = ∀(α::⋆)(α::⋆),α  type l = ∀(α::⋆),α >"
+     ~k:"< type l :: ⋆ >" ;
 
    test_equiv_typ
-     ~t1:"< type l = ∀(α::*),α >"
-     ~t2:"< type r = ∀(α::*)(α::*),α >"
+     ~t1:"< type l = ∀(α::⋆),α >"
+     ~t2:"< type r = ∀(α::⋆)(α::⋆),α >"
      ~k:"< >" ;
 
  ]
@@ -514,15 +514,15 @@ let test_wfterm ~e ~t =
 
 let tests_wfterm = "Tests about wfterm" >:::
   [
-   test_wfterm ~e:"fun (α:: *) (x : α) → x"
-     ~t:"∀ (a:: *), a -> a" ;
+   test_wfterm ~e:"fun (α:: ⋆) (x : α) → x"
+     ~t:"∀ (a:: ⋆), a -> a" ;
 
-   test_wfterm ~e:"fun (α:: *) (x : { val A: α val B: α }) → x"
-     ~t:"∀ (a:: *), { val A:a val B: a } -> { val A: a val B: a }" ;
+   test_wfterm ~e:"fun (α:: ⋆) (x : { val A: α val B: α }) → x"
+     ~t:"∀ (a:: ⋆), { val A:a val B: a } -> { val A: a val B: a }" ;
 
    test_wfterm
-     ~e:"fun (α:: * => *) (β :: *) (x : { val A: α β  val B: α β }) → x"
-     ~t:"∀ (α:: *=>*) (β::*), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
+     ~e:"fun (α:: ⋆ => ⋆) (β :: ⋆) (x : { val A: α β  val B: α β }) → x"
+     ~t:"∀ (α:: ⋆=>⋆) (β::⋆), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
  ]
 
 (* all tests *)

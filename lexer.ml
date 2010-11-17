@@ -57,6 +57,7 @@ let regexp id = alpha_greek+ (alpha_greek | digit)*
 let rec token = lexer
 | whitespace -> token lexbuf
 | linebreak -> break_line lexbuf ; token lexbuf
+| "(*" -> comment 0 lexbuf
 | "=>" | 8658 (* ⇒ *) -> locate lexbuf DBLARROW
 | "->" | 8594 (* → *) -> locate lexbuf ARROW
 | "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
@@ -93,6 +94,17 @@ let rec token = lexer
     raise (Lexing_error (startpos lexbuf,
                          endpos lexbuf,
                          utf8_lexeme lexbuf))
+
+and comment level = lexer
+| "(*" -> comment (level+1) lexbuf
+| "*)" ->
+    assert (level >= 0) ;
+    if level >=1
+    then comment (level-1) lexbuf
+    else token lexbuf
+| linebreak -> break_line lexbuf ; comment level lexbuf
+| _ -> comment level lexbuf
+
 
 let token = lexing_error_handler token
 
