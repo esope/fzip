@@ -6,8 +6,6 @@ let option_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-type env = Env.t
-
 (* given a type [ty] of kind [Sigma f] and a projection label [l],
    [select_kind_field l ty f] computes the kind of [ty.l] *)
 let rec select_kind_field label ty = function

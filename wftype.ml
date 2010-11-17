@@ -3,8 +3,6 @@ open Ast.Typ
 open Ast_utils
 open Location
 
-type env = Env.t
-
 let sub_kind = Normalize.sub_kind
 let sub_kind_b = Normalize.sub_kind_b
 

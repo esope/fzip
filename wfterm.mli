@@ -1,8 +1,6 @@
 (** Typeckecking of terms. *)
 open Ast
 
-type env = Env.t
-
-val wfterm: env -> Term.t -> Typ.t
-val check_wfterm: env -> Term.t -> Typ.t -> bool
+val wfterm: Env.t -> Term.t -> Typ.t
+val check_wfterm: Env.t -> Term.t -> Typ.t -> bool
 

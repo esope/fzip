@@ -4,8 +4,6 @@ open Wftype
 open Location
 open Ast_utils
 
-type env = Env.t
-
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
   let k = wftype env t in
