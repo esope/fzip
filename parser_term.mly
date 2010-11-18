@@ -79,6 +79,15 @@ undelimited_term(kind,typ):
                  locate y $startpos(y) $endpos(y),
                  locate k $startpos(k) $endpos(k), tau, t))
         $startpos $endpos }
+| LET TYPE x=ID b=list(typ_binding(kind)) COLON k=kind
+    EQ tau=typ IN t=term(kind,typ)
+    { let tau = mkLam_bindings b tau $endpos(tau)
+    and k = mkPi_bindings b k
+    and x = locate x $startpos(x) $endpos(x)
+    and y = dummy_locate (Ast.Typ.Var.to_string (Ast.Typ.Var.fresh ())) in
+    let single_tau_k = locate (Single(tau, k)) $startpos(b) $endpos(k) in
+    let t' = locate (TeSigma(y, x, single_tau_k, tau, t)) $startpos $endpos in
+    locate (TeNu (y, single_tau_k, t')) $startpos $endpos }
 
 
 delimited_term(kind,typ):

@@ -1,0 +1,1 @@
+λ(a::⋆) → let type b : ⋆ = { val A: a val B: a } in λ(x:b) → x.B
