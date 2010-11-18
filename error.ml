@@ -29,10 +29,17 @@ let not_implemented = make_id "Not implemented"
 let list_errors () =
   Tbl.fold (fun i s l -> (i,s) :: l) tbl []
 
-let raise_error (n, cat) startpos endpos msg =
-  let open Lexing in
-  Printf.eprintf "File \"%s\", line %i, characters %i-%i:\n%!"
-    startpos.pos_fname startpos.pos_lnum startpos.pos_cnum
-    (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol));
-  Printf.eprintf "%s error:\n%s\n%!" cat msg ;
-  exit n
+exception ERROR of t * Lexing.position * Lexing.position * string
+
+let raise_error t startpos endpos msg =
+  raise (ERROR(t, startpos, endpos, msg))
+
+let handle_error_and_exit f =
+  try f ()
+  with ERROR ((n, cat), startpos, endpos, msg) ->
+    let open Lexing in
+    Printf.eprintf "File \"%s\", line %i, characters %i-%i:\n%!"
+      startpos.pos_fname startpos.pos_lnum startpos.pos_cnum
+      (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol));
+    Printf.eprintf "%s error:\n%s\n%!" cat msg ;
+    exit n

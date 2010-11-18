@@ -45,8 +45,14 @@ val not_implemented: t
 (** Gets the list of errors (error_id, error_msg) *)
 val list_errors: unit -> (int * string) list
 
-(** [raise_error cat startpos endpos msg] prints a message on the
-    error channel, beginning at position [startpos], ending at
-    position [endpos], containing the message [msg]. The program exits
-    with error number [cat]. *)
+(** [ERROR(cat, startpos, endpos, msg)]
+    describes an error, beginning at position [startpos], ending at
+    position [endpos], containing the message [msg]. *)
+exception ERROR of t * Lexing.position * Lexing.position * string
+
 val raise_error: t -> Lexing.position -> Lexing.position -> string -> 'a
+
+(** handles the possibly thrown ERROR, prints a message on the error
+    channel and exits with a number corresponding with the category of the
+    error. *)
+val handle_error_and_exit: (unit -> 'a) -> 'a
