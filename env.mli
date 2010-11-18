@@ -14,13 +14,17 @@ val is_pure: t -> Answer.t
 (** Zipping of two contexts. *)
 val zip: t -> t -> (t) Answer.WithValue.t
 
+(** Indicates from which point a variable was removed. *)
+exception Removed_var of unit Location.located
+
 module Term: sig
 
   type var = Ast.Term.Var.free
 
 (** [get_var x env] returns the info (usually a type) associated
     to [x] in [env].
-    @raise Not_found if the variable is not present. *)
+    @raise Removed_var if the variable was removed
+    @raise Not_found if the variable is not present at all. *)
   val get_var: var -> t -> Ast.Typ.t
 
 (** [add_var x t env] returns the environment [env] with the extra
@@ -40,7 +44,8 @@ module Typ: sig
 
 (** [get_var x env] returns the info (usually a kind) associated
     to [x] in [env].
-    @raise Not_found if the variable is not present. *)
+    @raise Removed_var if the variable was removed
+    @raise Not_found if the variable is not present at all. *)
   val get_var: var -> t -> mode Location.located * Ast.Kind.t
 
 

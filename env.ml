@@ -3,11 +3,23 @@ open Mode
 type typ_var = Ast.Typ.Var.free
 type term_var = Ast.Term.Var.free
 
+exception Removed_var of unit Location.located
+
 type t =
     { term_vars: (term_var * Ast.Typ.t) list ;
-      typ_vars: (typ_var * (mode Location.located * Ast.Kind.t)) list }
+      removed_term_vars: (unit Location.located) Ast.Term.Var.Map.t ;
+      typ_vars: (typ_var * (mode Location.located * Ast.Kind.t)) list ;
+      removed_typ_vars: (unit Location.located) Ast.Typ.Var.Map.t }
 
-let empty = { term_vars = [] ; typ_vars = [] }
+let empty =
+  { term_vars = [] ; typ_vars = [] ;
+    removed_term_vars = Ast.Term.Var.Map.empty ;
+    removed_typ_vars  = Ast.Typ.Var.Map.empty  }
+
+let clean { term_vars ; typ_vars ; _ } =
+  { term_vars ; typ_vars ;
+    removed_term_vars = Ast.Term.Var.Map.empty ;
+    removed_typ_vars  = Ast.Typ.Var.Map.empty  }
 
 let is_pure { typ_vars ; _ } =
   let open Answer in
@@ -155,7 +167,10 @@ let zip e1 e2 =
       begin
         match ty_zip e1.typ_vars e2.typ_vars with
         | Yes e_ty ->
-            Yes { term_vars = e_te ; typ_vars = e_ty }
+            Yes { term_vars = e_te ; typ_vars = e_ty ;
+                  (* TODO: keep the removed variables *)
+                  removed_term_vars = Ast.Term.Var.Map.empty ;
+                  removed_typ_vars  = Ast.Typ.Var.Map.empty  }
         | (No _) as no -> no
       end
   | (No _) as no -> no
@@ -174,13 +189,26 @@ module Term = struct
 
   type var = term_var
 
-  let get_var x e = get_assoc Ast.Term.Var.equal x e.term_vars
+  let get_var x e =
+    try get_assoc Ast.Term.Var.equal x e.term_vars
+    with Not_found ->
+      let loc = Ast.Term.Var.Map.find x e.removed_term_vars in
+      raise (Removed_var loc)
 
   let add_var x t e =
-    { e with term_vars = (x, t) :: e.term_vars }
+    { e with term_vars = (x, t) :: e.term_vars ;
+      removed_term_vars = Ast.Term.Var.Map.remove x e.removed_term_vars }
 
   let remove_var x e =
-    { e with term_vars = remove_assoc Ast.Term.Var.equal x e.term_vars }
+    { e with term_vars = remove_assoc Ast.Term.Var.equal x e.term_vars ;
+      removed_term_vars =
+      begin
+        try
+          let t = get_var x e in
+          Ast.Term.Var.Map.add
+            x (Location.locate_with () t) e.removed_term_vars
+        with Not_found -> e.removed_term_vars
+      end }
 
 end
 
@@ -189,14 +217,27 @@ module Typ = struct
   type var = typ_var
   type mode = Mode.mode
 
-  let get_var x e = get_assoc Ast.Typ.Var.equal x e.typ_vars
+  let get_var x e =
+    try get_assoc Ast.Typ.Var.equal x e.typ_vars
+    with Not_found ->
+      let loc = Ast.Typ.Var.Map.find x e.removed_typ_vars in
+      raise (Removed_var loc)
 
   let add_var mode x k e =
-    { e with typ_vars = (x, (mode, k)) :: e.typ_vars }
+    { e with typ_vars = (x, (mode, k)) :: e.typ_vars ;
+      removed_typ_vars = Ast.Typ.Var.Map.remove x e.removed_typ_vars }
 
 (* TODO: remove dependencies as well *)
   let remove_var x e =
-    { e with typ_vars = remove_assoc Ast.Typ.Var.equal x e.typ_vars }
+    { e with typ_vars = remove_assoc Ast.Typ.Var.equal x e.typ_vars ;
+      removed_typ_vars =
+      begin
+        try
+          let (mode, _k) = get_var x e in
+          Ast.Typ.Var.Map.add
+            x (Location.locate_with () mode) e.removed_typ_vars
+        with Not_found -> e.removed_typ_vars
+      end }
 
   let is_fv y e =
     List.exists (fun (_x, t) -> Ast.Typ.is_fv y t) e.term_vars ||

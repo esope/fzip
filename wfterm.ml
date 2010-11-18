@@ -28,6 +28,13 @@ let rec wfterm env term = match term.content with
         with Not_found ->
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
+        | Env.Removed_var { startpos ; endpos ; _ } ->
+            let open Lexing in
+            Error.raise_error Error.term_wf term.startpos term.endpos
+              (Printf.sprintf "The term variable %s cannot be used since the program point in file %s, at line %i, characters %i-%i."
+                 (Var.to_string x) startpos.pos_fname
+                 startpos.pos_lnum startpos.pos_cnum
+                 (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol)))
       end
   | Lam ({ content = x ; _ } as x_loc, t, e) ->
       begin
@@ -230,8 +237,16 @@ let rec wfterm env term = match term.content with
       let ({ content = mode ; _ }, k_x) =
         try Env.Typ.get_var x env
         with Not_found ->
-          Error.raise_error Error.term_wf x_loc.startpos x_loc.endpos
+          Error.raise_error Error.type_wf x_loc.startpos x_loc.endpos
             (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
+        | Env.Removed_var { startpos ; endpos ; _ } ->
+            let open Lexing in
+            Error.raise_error Error.term_wf term.startpos term.endpos
+              (Printf.sprintf "The type variable %s cannot be used since the program point in file %s, at line %i, characters %i-%i."
+                 (Typ.Var.to_string x) startpos.pos_fname
+                 startpos.pos_lnum startpos.pos_cnum
+                 (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol)))
+
       in begin
       (* checking mode *)
           match mode with
@@ -278,6 +293,13 @@ let rec wfterm env term = match term.content with
         with Not_found ->
           Error.raise_error Error.term_wf x_loc.startpos x_loc.endpos
             (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
+        | Env.Removed_var { startpos ; endpos ; _ } ->
+            let open Lexing in
+            Error.raise_error Error.type_wf term.startpos term.endpos
+              (Printf.sprintf "The type variable %s cannot be used since the program point in file %s, at line %i, characters %i-%i."
+                 (Typ.Var.to_string x) startpos.pos_fname
+                 startpos.pos_lnum startpos.pos_cnum
+                 (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol)))
       in begin
         (* checking mode *)
           match mode with
