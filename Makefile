@@ -17,7 +17,7 @@ doc:
 	$(OCB) project.docdir/index.html
 
 view_doc:	doc
-	xdg-open _build/project.docdir/index.html
+	xdg-open project.docdir/index.html
 
 dot:	ocamldot bin
 	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.native -fullgraph > _build/$(DOTFILE)
