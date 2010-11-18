@@ -207,4 +207,12 @@ module Typ = struct
         | Mode.EQ tau -> Ast.Typ.is_fv y tau
         | Mode.E | Mode.U -> false))
       e.typ_vars
+
+  let exist_vars { typ_vars ; _ } =
+    List.fold_left
+      (fun acc (x, (mode, _k)) ->
+        match mode.Location.content with
+        | Mode.E -> Ast.Typ.Var.Map.add x mode acc
+        | Mode.U | Mode.EQ _ -> acc)
+      Ast.Typ.Var.Map.empty typ_vars
 end

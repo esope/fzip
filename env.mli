@@ -55,4 +55,8 @@ module Typ: sig
 
 (** decides whether a type variable occurs in an environment *)
   val is_fv: Ast.Typ.Var.free -> t -> bool
+
+(** returns the set of existential type variables, associate with
+    their locations. *)
+  val exist_vars: t -> (Mode.mode Location.located) Ast.Typ.Var.Map.t
 end
