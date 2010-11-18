@@ -23,14 +23,16 @@ let rec wfterm env term = match term.content with
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
       end
-  | Lam ({ content = x ; _ }, t, e) ->
+  | Lam ({ content = x ; _ } as x_loc, t, e) ->
       begin
         match wfbasetype env t with
         | OK ->
             let x' = Var.bfresh x in
             let x_var' = dummy_locate (mkVar x') in
             let (env', t') =
-              wfterm (Env.Term.add_var x' t env) (bsubst_term_var e x x_var') in
+              wfterm
+                (Env.Term.add_var x' (Location.relocate_with t x_loc) env)
+                (bsubst_term_var e x x_var') in
             begin
               let open Answer in
               match Env.is_pure env' with
@@ -83,12 +85,14 @@ let rec wfterm env term = match term.content with
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
       end
-  | Let({ content = x ; _ }, e1, e2) ->
+  | Let({ content = x ; _ } as x_loc, e1, e2) ->
       let (env1, t1) = wfterm env e1 in
       let y = Var.bfresh x in
       let y_var = dummy_locate (mkVar y) in
       let (env2, t2) =
-        wfterm (Env.Term.add_var y t1 env) (bsubst_term_var e2 x y_var) in
+        wfterm
+          (Env.Term.add_var y (Location.relocate_with t1 x_loc) env)
+          (bsubst_term_var e2 x y_var) in
       begin
         let open Answer.WithValue in
         match Env.zip env1 (Env.Term.remove_var y env2) with

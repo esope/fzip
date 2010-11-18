@@ -16,13 +16,60 @@ type reason =
         (** [E_TYP_VAR_PURE a] means that [a] is an existential variable that is
             present in the current typing context. *)
 
-  | TERM_VAR_DISAGREE of Term.Var.free Location.located
-        (** [TERM_VAR_DISAGREE x] means that [x] is assigned two different types
-            while zipping two contexts. *)
+  | TERM_VAR_DISAGREE_TYP of
+      Typ.t * Typ.t * Term.Var.free
+        (** [TERM_VAR_DISAGREE_TYP (t1, t2, x)] means that [x] is assigned
+            two different types [t1] and [t2] while zipping two
+            contexts. *)
 
-  | TYP_VAR_DISAGREE of Mode.mode Location.located * Typ.Var.free
-        (** [TYP_VAR_DISAGREE (mode, a)] means that [a] is assigned two
-            different kinds or modes while zipping two contexts. *)
+  | TYP_VAR_DISAGREE_KIND of
+      Kind.t Location.located * Kind.t Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_KIND (k1, k2, x)] means that [x] is assigned
+            two different kinds [k1] and [k2] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_EE of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_EE (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = E] and [mode2 = E] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_UE of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_UE (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = U] and [mode2 = E] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_EEQ of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_EEQ (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = E] and [mode2 = EQ t] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_EQE of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_EQE (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = EQ t] and [mode2 = E] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_UEQ of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_UEQ (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = U] and [mode2 = EQ t] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_EQU of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_EQU (mode1, mode2, x)] means that [x] is assigned
+            the modes [mode1 = EQ] and [mode2 = U] while zipping two
+            contexts. *)
+
+  | TYP_VAR_DISAGREE_EQEQ of
+      Mode.mode Location.located * Mode.mode Location.located * Typ.Var.free
+        (** [TYP_VAR_DISAGREE_EQEQ (mode1, mode2, x)] means that [x]
+            is assigned the modes [mode1 = EQ t1] and [mode2 = EQ t2]
+            where [t1] and [t2] are two different types while zipping
+            two contexts. *)
 
 type t = Yes | No of reason list
 

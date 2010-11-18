@@ -84,15 +84,16 @@ let equal_assoc_lists mini_map report_error equal l1 l2 =
       (fun k x -> equal x (mini_map.Map.find k m2)) m1 in
   if mini_map.Map.is_empty different
   then Answer.Yes
-  else Answer.No (report_error different)
-      (* should output the two different items -> needs m2 *)
+  else Answer.No (report_error different m2)
 
 (* zipping the part with term variables *)
 let te_zip e1 e2 =
   let (e31, _e1', e32, e2') = split_on_inter Set.tevar e1 e2 in
-  let report_error m =
+  let report_error m m' =
     let (x, t) = Ast.Term.Var.Map.choose m in
-    [ Answer.TERM_VAR_DISAGREE (Location.locate_with x t) ] in
+    let t' = try Ast.Term.Var.Map.find x m'
+        with Not_found -> assert false in
+    [ Answer.TERM_VAR_DISAGREE_TYP (t, t', x) ] in
   (* environment must agree on the intersection of their domains *)
   match equal_assoc_lists Map.tevar report_error Ast.Typ.equal e31 e32 with
   | Answer.Yes -> Answer.WithValue.Yes (e2' @ e1)
@@ -101,9 +102,34 @@ let te_zip e1 e2 =
 (* zipping the part with term variables *)
 let ty_zip e1 e2 =
   let (e31, _e1', e32, e2') = split_on_inter Set.tyvar e1 e2 in
-  let report_error m =
-    let (a, (mode, _k)) = Ast.Typ.Var.Map.choose m in
-    [ Answer.TYP_VAR_DISAGREE (mode, a) ]
+  let report_error m m' =
+    let (a, (mode, k)) = Ast.Typ.Var.Map.choose m in
+    let (mode', k') = try Ast.Typ.Var.Map.find a m'
+    with Not_found -> assert false in
+    if Ast.Kind.equal k k'
+    then
+      match (mode.Location.content, mode'.Location.content) with
+      | (U, U) | (E, U) -> [] (* no error *)
+      | (EQ ty, EQ ty') ->
+          if Ast.Typ.equal ty ty'
+          then [] (* no error *)
+          else [ Answer.TYP_VAR_DISAGREE_EQEQ (mode, mode', a) ]
+      | (E, E) -> (* duplication of linear items *)
+          [ Answer.TYP_VAR_DISAGREE_EE (mode, mode', a) ]
+      | (U, E) -> (* could lead to recursive types *)
+          [ Answer.TYP_VAR_DISAGREE_UE (mode, mode', a) ]
+      | (EQ _, U) -> (* inconsistent case *)
+          [ Answer.TYP_VAR_DISAGREE_EQU (mode, mode', a) ]
+      | (U, EQ _) -> (* inconsistent case *)
+          [ Answer.TYP_VAR_DISAGREE_UEQ (mode, mode', a) ]
+      | (EQ _, E) -> (* inconsistent case *)
+          [ Answer.TYP_VAR_DISAGREE_EQE (mode, mode', a) ]
+      | (E, EQ _) -> (* inconsistent case *)
+          [ Answer.TYP_VAR_DISAGREE_EEQ (mode, mode', a) ]
+
+    else
+      [ Answer.TYP_VAR_DISAGREE_KIND
+          (Location.locate_with k mode, Location.locate_with k' mode', a) ]
   and authorized_bindings
       ({ Location.content = mode1 ; _ }, k1)
       ({ Location.content = mode2 ; _ }, k2) =
