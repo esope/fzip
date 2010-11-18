@@ -187,4 +187,7 @@ let sub_type_b ~unfold_eq env k1 k2 =
   Answer.to_bool (sub_type ~unfold_eq env k1 k2)
 
 let check_wftype env t k =
-  Normalize.sub_kind_b ~unfold_eq:false env (wftype env t) k
+  Normalize.sub_kind ~unfold_eq:false env (wftype env t) k
+
+let check_wftype_b env t k =
+  Answer.to_bool (check_wftype env t k)
