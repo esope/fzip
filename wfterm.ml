@@ -11,8 +11,14 @@ let wfbasetype env t =
   then OK
   else KIND k
 
-let elim_typ_var_in_typ _env _y _t = None
-    (* TODO *)
+let elim_typ_var_in_typ env y t =
+  (* to try to eliminate y in t, we normalize t *)
+  (* there is no general way to avoid y bu using subtyping *)
+  (* here we just use type equivalence *)
+  let t_norm = Normalize.typ_norm ~unfold_eq:false env t Kind.mkBase in
+  if Typ.is_fv y t_norm
+  then None
+  else Some t_norm
 
 let rec wfterm env term = match term.content with
   | BVar _ -> assert false
