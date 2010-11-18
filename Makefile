@@ -32,6 +32,7 @@ clean:
 
 distclean:	clean
 	rm -rf *~
+	rm -rf examples/*/*~
 
 archive:
 	hg archive --type tbz2 ../fzip.tar.bz2
