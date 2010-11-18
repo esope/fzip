@@ -21,11 +21,9 @@ val simplify_kind: Kind.t -> Kind.t
 (** decides whether a type is a path *)
 val is_path: Typ.t -> bool
 
-(** head_norm e tau returns (tau', o) where tau' is the head
-    normal form of tau in the environment e. If tau' is a path, then
-    o = Some k where k is its natural kind. If tau' is not a path,
-    then o = None. *)
-val head_norm: unfold_eq:bool -> Env.t -> Typ.t -> (Typ.t * Kind.t option)
+(** [head_norm e tau] returns the weak head normal form of [tau] in the
+    environment [e]. *)
+val head_norm: unfold_eq:bool -> Env.t -> Typ.t -> Typ.t
 
 (** computes the normal form of a type at a given kind *)
 val typ_norm: unfold_eq:bool -> Env.t -> Typ.t -> Kind.t -> Typ.t

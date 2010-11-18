@@ -58,6 +58,10 @@ let rec is_path t = match t.content with
   | Lam _ | Record _ -> false
   | BVar _ -> assert false
 
+(** [head_norm e tau] returns (tau', o) where tau' is the head
+    normal form of tau in the environment e. If tau' is a path, then
+    o = Some k where k is its natural kind. If tau' is not a path,
+    then o = None. *)
 let rec head_norm ~unfold_eq env t = match t.content with
 | BaseForall(_, _, _) | BaseExists (_,_,_) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Kind.mkBase)
@@ -67,14 +71,15 @@ let rec head_norm ~unfold_eq env t = match t.content with
         let (mode, k) = Env.Typ.get_var x env in
         let k = simplify_kind k in
         match k with
-        | Single (u, Base) -> (u, if is_path u then Some k else None)
+        | Single (u, Base) ->
+            head_norm ~unfold_eq env u
         | Single (_, _) -> assert false
         | (Base | Pi(_,_,_) | Sigma _) ->
             begin
               let open Mode in
               match (unfold_eq, mode) with
               | (true, { content = EQ tau ; _ }) ->
-                  (tau, if is_path tau then Some k else None) 
+                  head_norm ~unfold_eq env tau
               | (true, { content = (U | E) ; _ }) | (false, _) -> (t, Some k)
             end
       with Not_found -> assert false
@@ -130,6 +135,8 @@ let rec head_norm ~unfold_eq env t = match t.content with
          (None |
          Some (Base | Single (_,_) | Pi(_,_,_) | Sigma _))) -> assert false
     end
+
+let head_norm ~unfold_eq env t = fst (head_norm ~unfold_eq env t)
 
 let rec path_norm ~unfold_eq env t = match t.content with
   | BaseRecord m ->
@@ -192,7 +199,7 @@ let rec path_norm ~unfold_eq env t = match t.content with
 
 and typ_norm ~unfold_eq env t k = match simplify_kind k with
 | Base | Single (_,Base) ->
-    let (t', _) = head_norm ~unfold_eq env t in
+    let t' = head_norm ~unfold_eq env t in
     let (t'', k'') = path_norm ~unfold_eq env t' in
     assert (Ast.Kind.equal k'' Kind.mkBase) ;
     t''
@@ -244,8 +251,8 @@ let rec try_equiv_typ ~unfold_eq env t1 t2 k =
   let open Answer in
   match k with
   | Base ->
-      let (p1, _) = head_norm ~unfold_eq env t1
-      and (p2, _) = head_norm ~unfold_eq env t2 in
+      let p1 = head_norm ~unfold_eq env t1
+      and p2 = head_norm ~unfold_eq env t2 in
       begin
         match equiv_path ~unfold_eq env p1 p2 with
         | WithValue.Yes Base -> Yes

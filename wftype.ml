@@ -182,8 +182,8 @@ let rec try_sub_type ~unfold_eq env tau tau' =
      BaseRecord _ | App(_,_) | Proj(_,_) | FVar _)) -> No []
 
 and sub_type ~unfold_eq env tau tau' =
-  let (tau,  _) = Normalize.head_norm ~unfold_eq env tau
-  and (tau', _) = Normalize.head_norm ~unfold_eq env tau' in
+  let tau  = Normalize.head_norm ~unfold_eq env tau
+  and tau' = Normalize.head_norm ~unfold_eq env tau' in
   let open Answer in
   match try_sub_type ~unfold_eq env tau.content tau'.content with
   | Yes -> Yes

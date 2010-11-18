@@ -1,0 +1,8 @@
+require type a :: *
+require type b :: S(a)
+require type c :: S(b)
+require type d :: S(c)
+
+%%
+
+fun (x : a) -> (fun (y : d) -> y) x
