@@ -58,7 +58,8 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
     type t = free
     let compare (s1, i1) (s2, i2) =
       let n_s = String.compare s1 s2 in
-      if n_s <= 0 then compare i1 i2
+      if n_s < 0 then n_s
+      else if n_s = 0 then compare i1 i2
       else n_s
   end
   module Set = Set.Make(Free)
