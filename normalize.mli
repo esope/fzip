@@ -18,6 +18,9 @@ val select_all_fields: Typ.t ->
     Otherwise, k is unchanged. *)
 val simplify_kind: Kind.t -> Kind.t
 
+(** decides whether a type is a path *)
+val is_path: Typ.t -> bool
+
 (** head_norm e tau returns (tau', o) where tau' is the head
     normal form of tau in the environment e. If tau' is a path, then
     o = Some k where k is its natural kind. If tau' is not a path,

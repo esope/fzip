@@ -52,6 +52,12 @@ let simplify_kind = function
   | Single(t, k) -> hd_norm_singleton k t
   | (Base | Pi(_,_,_) | Sigma _) as k -> k
 
+let rec is_path t = match t.content with
+  | FVar _ | BaseForall _ | BaseExists _ | BaseRecord _ | BaseArrow _ -> true
+  | App(t, _) | Proj(t, _) -> is_path t
+  | Lam _ | Record _ -> false
+  | BVar _ -> assert false
+
 let rec head_norm ~unfold_eq env t = match t.content with
 | BaseForall(_, _, _) | BaseExists (_,_,_) | BaseRecord _ | BaseArrow(_, _) ->
     (t, Some Kind.mkBase)
@@ -61,13 +67,14 @@ let rec head_norm ~unfold_eq env t = match t.content with
         let (mode, k) = Env.Typ.get_var x env in
         let k = simplify_kind k in
         match k with
-        | Single (u, Base) -> (u, Some k)
+        | Single (u, Base) -> (u, if is_path u then Some k else None)
         | Single (_, _) -> assert false
         | (Base | Pi(_,_,_) | Sigma _) ->
             begin
               let open Mode in
               match (unfold_eq, mode) with
-              | (true, { content = EQ tau ; _ }) -> (tau, Some k) 
+              | (true, { content = EQ tau ; _ }) ->
+                  (tau, if is_path tau then Some k else None) 
               | (true, { content = (U | E) ; _ }) | (false, _) -> (t, Some k)
             end
       with Not_found -> assert false
