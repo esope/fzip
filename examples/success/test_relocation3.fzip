@@ -1,0 +1,11 @@
+require type F :: S ( λ(a::⋆) => { val L : a val R : a } :: ⋆ => ⋆)
+require val x : ∃ (a::⋆), F a
+export type b :: < type t :: ⋆ >
+
+%%
+
+ν (a :: ⋆)
+  Σ [b] (b :: < type t :: ⋆ > = < type t = a > )
+    (open [a] x : F b.t)
+
+(* needs weakening *)

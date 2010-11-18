@@ -1,0 +1,12 @@
+require type F :: S ( λ(a::⋆) => { val L : a val R : a } :: ⋆ => ⋆)
+require val x : ∃ (a::⋆), F a
+export type b :: ⋆
+
+%%
+
+ν (a :: ⋆)
+  let y = open [a] x in
+  Σ [b] (b :: ⋆ = a)
+    (y : F b)
+
+
