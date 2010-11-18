@@ -525,10 +525,44 @@ let tests_wfterm = "Tests about wfterm" >:::
      ~t:"∀ (α:: ⋆=>⋆) (β::⋆), { val A: α β val B: α β } -> { val A: α β  val B: α β }" ;
  ]
 
+(* tests on example files *)
+let test_file (mode: [`Positive | `Negative]) file =
+  let run () =
+        let term = Parser_utils.Channel.Term.parse (open_in file) file in
+        try
+          (ignore (Wfterm.wfterm Env.empty term) ; true)
+        with
+          Error.ERROR(_,_,_,_) -> false
+  in
+  match mode with
+  | `Positive -> assert_bool file (run ())
+  | `Negative -> assert_bool file (not (run ()))
+
+let get_files dir =
+  let dir = Filename.(concat current_dir_name dir) in
+  List.filter 
+    (fun file -> Filename.check_suffix file ".fzip")
+    (Array.fold_left (fun acc file -> (Filename.concat dir file) :: acc)
+       [] (Sys.readdir dir))
+
+let build_tests (mode: [`Positive | `Negative]) dir string =
+  let files = get_files dir in
+  string >:::
+  List.map (fun file -> file >:: fun () -> test_file mode file) files
+
+let tests_examples_success =
+  build_tests `Positive (Filename.concat "examples" "success")
+    "Examples (positive)"
+
+let tests_examples_failure =
+  build_tests `Negative (Filename.concat "examples" "failure")
+    "Examples (negative)"
+
 (* all tests *)
 let tests = TestList
     [ tests_parsing ; tests_wftype ; tests_nf ; tests_wfsubtype ;
-      tests_sub_kind ; tests_equiv_typ ; tests_zip ; tests_wfterm ]
+      tests_sub_kind ; tests_equiv_typ ; tests_zip ; tests_wfterm ;
+      tests_examples_success ; tests_examples_failure ]
 
 (* running tests *)
 let () =
