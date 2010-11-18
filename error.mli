@@ -21,6 +21,9 @@ val kind_wf: t
 (** Term wellformedness error. *)
 val term_wf: t
 
+(** Program wellformedness error. *)
+val prog_wf: t
+
 (** Type wellformedness error. *)
 val subtype: t
 

@@ -5,6 +5,8 @@ open Ast.Raw
 %}
 
 %start<(Ast.Raw.typ Ast.Raw.kind, Ast.Raw.typ) Ast.Raw.term> main_term_expr
+%start<Ast.Raw.reqs> main_header_expr
+%start<Ast.Raw.prog> prog
 
 %%
 
@@ -113,3 +115,27 @@ term_expr(kind,typ):
 
 main_term_expr:
 | t=term_expr(kind,typ) { t }
+
+requirement(kind,typ):
+| REQUIRE VAL x=ID COLON t=typ
+    { RequireVal(locate x $startpos(x) $endpos(x), t) }
+| REQUIRE TYPE x=ID DBLCOLON k=kind
+    { RequireTyp(locate x $startpos(x) $endpos(x),
+                 locate k $startpos(k) $endpos(k)) }
+| EXPORT TYPE x=ID DBLCOLON k=kind
+    { ExportTyp(locate x $startpos(x) $endpos(x),
+                locate k $startpos(k) $endpos(k)) }
+
+header(kind,typ):
+| 
+  { [] }
+| l=list(requirement(kind,typ)) DBLPERCENT { List.rev l }
+
+header_expr(kind,typ):
+| h=header(kind,typ) EOF { h }
+
+main_header_expr:
+| h=header_expr(kind,typ) { h }
+
+prog:
+| h=header(kind,typ) t=main_term_expr { { reqs = h ; code = t } }

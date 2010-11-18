@@ -57,6 +57,8 @@ let rec mkTe_mixed_bindings b e endpos = match b with
 
 %token EOF
 
+%token REQUIRE EXPORT DBLPERCENT
+
 %token STAR DBLARROW
 
 %token UPLAMBDA LAMBDA LPAR RPAR DBLCOLON FORALL ARROW APP EXISTS LET IN COMMA

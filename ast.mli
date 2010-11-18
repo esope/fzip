@@ -39,6 +39,14 @@ module Raw : sig
     | TeSigma of string located *
           string located * 'kind located * 'typ * ('kind, 'typ) term
 
+  type req =
+    | RequireVal of string located * typ
+    | RequireTyp of string located * (typ kind) located
+    | ExportTyp of string located * (typ kind) located
+  type reqs = req list
+
+  type prog = { reqs : reqs ; code : (typ kind, typ) term }
+
 end
 
 (** AST for types *)
@@ -223,3 +231,13 @@ module Term : sig
 
 end
 
+module Prog: sig
+  type req =
+    | RequireVal of Term.Var.free located * Typ.t
+    | RequireTyp of Typ.Var.free located * Kind.t located
+    | ExportTyp of Typ.Var.free located * Kind.t located
+  type reqs = req list
+
+  type t = { reqs : reqs ; code : Term.t }
+
+end

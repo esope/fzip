@@ -528,9 +528,9 @@ let tests_wfterm = "Tests about wfterm" >:::
 (* tests on example files *)
 let test_file (mode: [`Positive | `Negative]) file =
   let run () =
-        let term = Parser_utils.Channel.Term.parse (open_in file) file in
+        let prog = Parser_utils.Channel.Prog.parse (open_in file) file in
         try
-          (ignore (Wfterm.wfterm Env.empty term) ; true)
+          (ignore (Wfprog.wfprog prog) ; true)
         with
           Error.ERROR(_,_,_,_) -> false
   in

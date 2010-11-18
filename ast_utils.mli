@@ -16,6 +16,11 @@ module Encode : sig
     open Ast.Term
     val term: (Raw.typ Raw.kind, Raw.typ) Raw.term -> term
   end
+
+  module Prog : sig
+    open Ast.Prog
+    val prog: Raw.prog -> t
+  end
 end
 
 module Decode : sig

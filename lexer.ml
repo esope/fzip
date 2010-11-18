@@ -99,6 +99,9 @@ let rec token = lexer
 | "nu" |  957 (* ν *) -> locate lexbuf NU
 | "open" -> locate lexbuf OPEN
 | "S" -> locate lexbuf SINGLE
+| "export" -> locate lexbuf EXPORT
+| "require" -> locate lexbuf REQUIRE
+| "%%" -> locate lexbuf DBLPERCENT
 | eof -> locate lexbuf EOF
 | id -> locate lexbuf (ID (utf8_lexeme lexbuf))
 | _ ->
@@ -154,4 +157,7 @@ let string_of_token = function
   | FORALL -> "∀"
   | EXISTS -> "∃"
   | ARROW -> "→"
+  | REQUIRE -> "require"
+  | EXPORT -> "export"
+  | DBLPERCENT -> "%%"
   | EOF -> "\n"

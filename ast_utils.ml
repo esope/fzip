@@ -97,6 +97,22 @@ module Encode = struct
           and t' = term t in
           mkEx (map Ast.Typ.Var.make x) k' t'
   end
+
+  module Prog = struct
+    open Ast.Prog
+    let encode_reqs = List.map
+        (function
+          | Raw.RequireVal (x, t) ->
+              RequireVal (map Ast.Term.Var.make x, Typ.typ t)
+          | Raw.RequireTyp (x, k) ->
+              RequireTyp (map Ast.Typ.Var.make x, map Typ.kind k)
+          | Raw.ExportTyp (x, k) ->
+              ExportTyp (map Ast.Typ.Var.make x, map Typ.kind k))
+
+    let prog { Raw.reqs ; code } =
+      { reqs = encode_reqs reqs ; code = Term.term code }
+  end
+
 end
 
 module Decode = struct

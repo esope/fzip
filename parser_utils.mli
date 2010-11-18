@@ -8,11 +8,13 @@ module String : sig
     module Typ:  sig val parse: string -> typ                  end
     module Kind: sig val parse: string -> typ kind             end
     module Term: sig val parse: string -> (typ kind, typ) term end
+    module Prog: sig val parse: string -> prog                 end
   end
 
   module Typ:  sig val parse: string -> Typ.t  end
   module Kind: sig val parse: string -> Kind.t end
   module Term: sig val parse: string -> Term.t end
+  module Prog: sig val parse: string -> Prog.t end
 
 end
 
@@ -22,10 +24,12 @@ module Channel : sig
     module Typ:  sig val parse: in_channel -> string -> typ                  end
     module Kind: sig val parse: in_channel -> string -> typ kind             end
     module Term: sig val parse: in_channel -> string -> (typ kind, typ) term end
+    module Prog: sig val parse: in_channel -> string -> prog                 end
   end
 
   module Typ:  sig val parse: in_channel -> string -> Typ.t  end
   module Kind: sig val parse: in_channel -> string -> Kind.t end 
   module Term: sig val parse: in_channel -> string -> Term.t end 
+  module Prog: sig val parse: in_channel -> string -> Prog.t end 
 
 end

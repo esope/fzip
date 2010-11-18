@@ -5,8 +5,8 @@ let run () =
     | k when k > 1 -> (open_in Sys.argv.(1), Sys.argv.(1))
     | _ -> assert false
   in
-  let term = Parser_utils.Channel.Term.parse input name in
-  let (_, typ) = Wfterm.wfterm Env.empty term in
+  let prog = Parser_utils.Channel.Prog.parse input name in
+  let typ = Wfprog.wfprog prog in
   Ast_utils.PPrint.Typ.channel stdout typ ; print_newline ()
 
 let () = Error.handle_error_and_exit run

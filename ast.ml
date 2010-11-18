@@ -38,6 +38,14 @@ module Raw = struct
     | TeSigma of string located * 
           string located * 'kind located * 'typ * ('kind, 'typ) term
 
+  type req =
+    | RequireVal of string located * typ
+    | RequireTyp of string located * (typ kind) located
+    | ExportTyp of string located * (typ kind) located
+  type reqs = req list
+
+  type prog = { reqs : reqs ; code : (typ kind, typ) term }
+
 end
 
 module Typ = struct
@@ -815,5 +823,16 @@ module Term = struct
     let z = h_typ_var y.content t in
     Sigma (map Typ.mkVar x,
            locate_with z y, k, tau, subst_typ_var t y.content (Typ.BVar z))
+
+end
+
+module Prog = struct
+  type req =
+    | RequireVal of Term.Var.free located * Typ.t
+    | RequireTyp of Typ.Var.free located * Kind.t located
+    | ExportTyp of Typ.Var.free located * Kind.t located
+  type reqs = req list
+
+  type t = { reqs : reqs ; code : Term.t }
 
 end
