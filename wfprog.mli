@@ -1,3 +1,5 @@
+(** Typechecking of programs. *)
+
 open Ast
 type t = Prog.t
 type reqs = Prog.reqs
