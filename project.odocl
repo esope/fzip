@@ -14,5 +14,6 @@ parser_utils
 var
 wfterm
 wftype
+wfprog
 mode
 pprint
