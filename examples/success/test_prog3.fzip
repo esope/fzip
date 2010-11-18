@@ -1,0 +1,7 @@
+require val x : ∃ (a :: ⋆), a
+export type b :: ⋆
+
+%%
+
+open [b] x
+

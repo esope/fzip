@@ -1,0 +1,14 @@
+export type b :: ⋆
+require type int :: *
+require val int :
+  { val zero : int
+    val one : int
+    val plus : int -> int -> int }
+
+%%
+
+Σ [b] (a :: ⋆ = int)
+  let two = int.plus int.one int.one in
+  (two : a)
+
+(* needs weakening *)
