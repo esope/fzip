@@ -16,13 +16,10 @@ let rec wftype env t =
         with Not_found ->
           Error.raise_error Error.type_wf t.startpos t.endpos
             (Printf.sprintf "Unbound type variable: %s." (Var.to_string x))
-        | Env.Removed_var { startpos ; endpos ; _ } ->
-            let open Lexing in
+        | Env.Removed_var loc ->
             Error.raise_error Error.type_wf t.startpos t.endpos
-              (Printf.sprintf "The type variable %s cannot be used since the program point in file %s, at line %i, characters %i-%i."
-                 (Var.to_string x) startpos.pos_fname
-                 startpos.pos_lnum startpos.pos_cnum
-                 (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol)))
+              (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
+                 (Var.to_string x) (location_msg loc))
       end
   | App(t1, t2) ->
       let k1 = wftype env t1 and k2 = wftype env t2 in 

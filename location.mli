@@ -16,3 +16,6 @@ val map: ('a -> 'b) -> 'a located -> 'b located
 
 (** Locating with dummy positions. *)
 val dummy_locate: 'a -> 'a located
+
+(** Location error message. *)
+val location_msg: 'a located -> string

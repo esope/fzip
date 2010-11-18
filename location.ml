@@ -20,3 +20,9 @@ let map f r = locate_with (f r.content) r
 let dummy_locate x =
   let dummy = Lexing.dummy_pos in
   locate x dummy dummy
+
+let location_msg { startpos ; endpos ; _ } =
+  let open Lexing in
+  Printf.sprintf "file \"%s\", line %i, characters %i-%i"
+      startpos.pos_fname startpos.pos_lnum startpos.pos_cnum
+      (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol))

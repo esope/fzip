@@ -45,124 +45,66 @@ let rec error_msg = function
   | [ WF_TYPE (t, k)] ->
       Printf.sprintf "%s\n cannot be given the kind\n%s\n%!"
         (PPrint.Typ.string t) (PPrint.Kind.string k)
-  | [ E_TYP_VAR_PURE { Location.content = a ; startpos ; endpos }] ->
-      let open Lexing in
-      Printf.sprintf "The existential type variable %s is not closed nor restricted.\nIt was used in file %s, at line %i, characters %i-%i.\n%!"
-        (Typ.Var.to_string a)
-        startpos.pos_fname startpos.pos_lnum startpos.pos_cnum
-        (endpos.pos_cnum + (endpos.pos_bol - startpos.pos_bol))
-  | [ TERM_VAR_DISAGREE_TYP
-        (({ Location.startpos = start1 ; endpos = end1 ; _ } as t1),
-         ({ Location.startpos = start2 ; endpos = end2 ; _ } as t2),
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The term variable %s is assigned two different types while zipping environments.\nIn file %s, at line %i, characters %i-%i, it has type\n%s\nwhereas in file %s, at line %i, characters %i-%i, it has type\n%s\n%!"
+  | [ E_TYP_VAR_PURE a] ->
+      Printf.sprintf "The existential type variable %s is not closed nor restricted.\nIt was used in %s.\n%!"
+        (Typ.Var.to_string a.Location.content) (Location.location_msg a)
+  | [ TERM_VAR_DISAGREE_TYP (t1, t2, x) ] ->
+      Printf.sprintf "The term variable %s is assigned two different types while zipping environments.\nIn %s, it has type\n%s\nwhereas in %s, it has type\n%s\n%!"
         (Term.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
+        (Location.location_msg t1)
         (Ast_utils.PPrint.Typ.string t1)
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
+        (Location.location_msg t2)
         (Ast_utils.PPrint.Typ.string t2)
-  | [ TYP_VAR_DISAGREE_KIND
-        ({ Location.content = k1 ; startpos = start1 ; endpos = end1 },
-         { Location.content = k2 ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The type variable %s is assigned two different kinds while zipping environments.\nIn file %s, at line %i, characters %i-%i, it has kind\n%s\nwhereas in file %s, at line %i, characters %i-%i, it has kind\n%s\n%!"
+  | [ TYP_VAR_DISAGREE_KIND (k1, k2, x) ] ->
+      Printf.sprintf "The type variable %s is assigned two different kinds while zipping environments.\nIn %s, it has kind\n%s\nwhereas in %s, it has kind\n%s\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        (Ast_utils.PPrint.Kind.string k1)
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-        (Ast_utils.PPrint.Kind.string k2)
-  | [ TYP_VAR_DISAGREE_EE
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The type variable %s is used twice to create existential types in file %s, at line %i, characters %i-%i, and in file %s, at line %i, characters %i-%i.\n%!"
+        (Location.location_msg k1)
+        (Ast_utils.PPrint.Kind.string k1.Location.content)
+        (Location.location_msg k2)
+        (Ast_utils.PPrint.Kind.string k2.Location.content)
+  | [ TYP_VAR_DISAGREE_EE (loc1, loc2, x) ] ->
+      Printf.sprintf "The type variable %s is used twice to create existential types in %s, and in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-  | [ TYP_VAR_DISAGREE_UE
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The existential type variable %s is used before its witness has been defined. It is used in file %s, at line %i, characters %i-%i, and defined later in file %s, at line %i, characters %i-%i.\n%!"
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
+  | [ TYP_VAR_DISAGREE_UE (loc1, loc2, x) ] ->
+      Printf.sprintf "The existential type variable %s is used before its witness has been defined. It is used in %s, and defined later in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
   | [ TYP_VAR_DISAGREE_EQEQ
-        ({ Location.content = mode1 ; startpos = start1 ; endpos = end1 },
-         { Location.content = mode2 ; startpos = start2 ; endpos = end2 },
-         x) ] ->
+        (mode1, mode2, x) ] ->
            begin
-             match (mode1, mode2) with
+             match (mode1.Location.content, mode2.Location.content) with
              | (Mode.EQ t1, Mode.EQ t2) ->
-                 let open Lexing in
-                 Printf.sprintf "The type variable %s is assigned two different equations while zipping environments.\nIn file %s, at line %i, characters %i-%i, it is said to be equal to the type\n%s\nwhereas in file %s, at line %i, characters %i-%i, it is said to be equal to the type\n%s\n%!"
+                 Printf.sprintf "The type variable %s is assigned two different equations while zipping environments.\nIn %s, it is said to be equal to the type\n%s\nwhereas in %s, it is said to be equal to the type\n%s\n%!"
                    (Typ.Var.to_string x)
-                   start1.pos_fname start1.pos_lnum start1.pos_cnum
-                   (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
+                   (Location.location_msg mode1)
                    (Ast_utils.PPrint.Typ.string t1)
-                   start2.pos_fname start2.pos_lnum start2.pos_cnum
-                   (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
+                   (Location.location_msg mode2)
                    (Ast_utils.PPrint.Typ.string t2)
              | ((Mode.U | Mode.E | Mode.EQ _), _) -> assert false
            end
-  | [ TYP_VAR_DISAGREE_EEQ
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The existential type variable %s is used to create an existential type in file %s, at line %i, characters %i-%i, whereas it holds an equation in file %s, at line %i, characters %i-%i.\n%!"
+  | [ TYP_VAR_DISAGREE_EEQ (loc1, loc2, x) ] ->
+      Printf.sprintf "The existential type variable %s is used to create an existential type in %s, whereas it holds an equation in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-  | [ TYP_VAR_DISAGREE_EQE
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The existential type variable %s holds an equation in file %s, at line %i, characters %i-%i, whereas it is used to create an existential type in file %s, at line %i, characters %i-%i.\n%!"
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
+  | [ TYP_VAR_DISAGREE_EQE (loc1, loc2, x) ] ->
+      Printf.sprintf "The existential type variable %s holds an equation in %s, whereas it is used to create an existential type in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-
-  | [ TYP_VAR_DISAGREE_UEQ
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The type variable %s does not hold an equation in file %s, at line %i, characters %i-%i, whereas it holds an equation in file %s, at line %i, characters %i-%i.\n%!"
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
+  | [ TYP_VAR_DISAGREE_UEQ (loc1, loc2, x) ] ->
+      Printf.sprintf "The type variable %s does not hold an equation in %s, whereas it holds an equation in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-  | [ TYP_VAR_DISAGREE_EQU
-        ({ Location.content = _ ; startpos = start1 ; endpos = end1 },
-         { Location.content = _ ; startpos = start2 ; endpos = end2 },
-         x) ] ->
-      let open Lexing in
-      Printf.sprintf "The type variable %s holds an equation in file %s, at line %i, characters %i-%i, whereas it does not hold an equation in file %s, at line %i, characters %i-%i.\n%!"
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
+  | [ TYP_VAR_DISAGREE_EQU (loc1, loc2, x) ] ->
+      Printf.sprintf "The type variable %s holds an equation in %s, whereas it does not hold an equation in %s.\n%!"
         (Typ.Var.to_string x)
-        start1.pos_fname start1.pos_lnum start1.pos_cnum
-        (end1.pos_cnum + (end1.pos_bol - start1.pos_bol))
-        start2.pos_fname start2.pos_lnum start2.pos_cnum
-        (end2.pos_cnum + (end2.pos_bol - start2.pos_bol))
-
+        (Location.location_msg loc1)
+        (Location.location_msg loc2)
   | (KINDS (k1, k2)) :: l ->
       Printf.sprintf "%s\nis not a subkind of\n%s\nbecause\n%a"
         (PPrint.Kind.string k1) (PPrint.Kind.string k2)
