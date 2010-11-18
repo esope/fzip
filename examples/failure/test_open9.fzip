@@ -1,0 +1,4 @@
+λ (x : ∃ (a :: ⋆), a) ->
+  ∃ (a :: ⋆)
+   { val l1 = open [a] x
+     val l2 = open [a] x }

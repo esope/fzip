@@ -1,5 +1,5 @@
-λ (x : ∃ (a::*) (b::S(a)), a) ->
-  ∃ (a::*) ∃ (b :: S(a))
+λ (x : ∃ (a::⋆) (b::S(a)), a) ->
+  ∃ (a::⋆) ∃ (b :: S(a))
   open [a] (open [b] x)
 
 (* bad kinds for existential *)
