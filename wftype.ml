@@ -91,12 +91,18 @@ let rec wftype env t =
         then if sub_kind_b ~unfold_eq:false env (wftype env t2) mkBase
         then mkSingle t mkBase
         else Error.raise_error Error.type_wf t2.startpos t2.endpos
-            "Ill-formed basic product type: this type has not a base kind."
+            "Ill-formed basic arrow type: this type has not a base kind."
         else Error.raise_error Error.type_wf t1.startpos t1.endpos
-            "Ill-formed basic product type: this type has not a base kind."
+            "Ill-formed basic arrow type: this type has not a base kind."
       end
   | BaseRecord m ->
-      Label.Map.iter (fun _lab t -> ignore (wftype env t)) m ;
+      Label.Map.iter
+        (fun _lab t ->
+          if sub_kind_b ~unfold_eq:false env (wftype env t) Kind.mkBase
+          then ()
+          else Error.raise_error Error.type_wf t.startpos t.endpos
+              "Ill-formed basic record type: this type has not a base kind.")
+        m ;
       Kind.(mkSingle t mkBase)
 
 and wfkind env = function
