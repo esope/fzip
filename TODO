@@ -1,7 +1,6 @@
-* get hnf for destructors
 * better pretty printing for bound variables
 * weakening for open existential types
-* examples, tests with files
+* more examples
 * support for datatypes
 * recursive types
 * better syntax for mixing types with terms

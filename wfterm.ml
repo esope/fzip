@@ -53,6 +53,8 @@ let rec wfterm env term = match term.content with
   | App(e1, e2) ->
       begin
         let (env1, tau1) = wfterm env e1 in
+        let (tau1, _) = Normalize.head_norm ~unfold_eq:false env tau1 in
+        (* necessary in case we have a path that is equivalent to an arrow *)
         match tau1.content with
         | Typ.BaseArrow(tau2', tau1') ->
             begin
@@ -131,6 +133,8 @@ let rec wfterm env term = match term.content with
   | Inst(e, tau) ->
       begin
         let (env', t') = wfterm env e in
+        let (t', _) = Normalize.head_norm ~unfold_eq:false env t' in
+        (* necessary in case we have a path that is equivalent to a ∀ *)
         match t'.content with
         | Typ.BaseForall({content = x ; _ }, k', tau') ->
             begin
@@ -170,6 +174,8 @@ let rec wfterm env term = match term.content with
       (env', dummy_locate (Typ.mkBaseRecord m))
   | Proj(e, lab) ->
       let (env', tau') = wfterm env e in
+        let (tau', _) = Normalize.head_norm ~unfold_eq:false env tau' in
+        (* necessary in case we have a path that is equivalent to a record *)
       begin
         match tau'.content with
         | Typ.BaseRecord m ->
@@ -273,6 +279,9 @@ let rec wfterm env term = match term.content with
               begin
                 let (env', t') = wfterm (Env.Typ.remove_var x env) e in
                 (* TODO: weakening *)
+                let (t', _) = Normalize.head_norm ~unfold_eq:false env t' in
+                (* necessary in case we have a path
+                   that is equivalent to a ∃ *)
                 match t'.content with
                 | Typ.BaseExists({ content = y ; _ }, k, t') ->
                     begin
