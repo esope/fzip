@@ -1,0 +1,4 @@
+λ (a :: ⋆) (x : ∃(c::⋆), a)→
+∃ (b :: ⋆ = a) open [b] x
+
+(* b is not an existential variable *)

@@ -1,0 +1,7 @@
+λ (a :: ⋆) (b :: ⋆)
+  (x : { val L : { val P : a val Q : b } val R : b }) →
+  ∃ (c :: ⋆)
+    Σ [c] (d :: ⋆ = { val P : a val Q : b })
+        λ (z : c) → (x : { val L : d val R : b })
+
+(* c cannot be used *)

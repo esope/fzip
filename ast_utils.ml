@@ -255,7 +255,7 @@ module PPrint = struct
     | Var x -> ident x
     | Lam({ content = x ; _ }, k, t) ->
         (prefix "λ"
-           (parens (infix "::" (ident x) (kind k.content))) ^^ string "→") ^^
+           (parens (infix "::" (ident x) (kind k.content))) ^^ string "⇒") ^^
         break1 ^^
         (typ_rec kind t)
     | App(t1, t2) ->

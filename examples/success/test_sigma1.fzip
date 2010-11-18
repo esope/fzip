@@ -1,0 +1,4 @@
+λ (a :: ⋆) (b :: ⋆)
+  (x : { val L : { val P : a val Q : b } val R : b }) →
+  ∃ (c :: ⋆ = { val P : a val Q : b })
+  (x : { val L : c val R : b })

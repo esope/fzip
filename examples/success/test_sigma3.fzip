@@ -1,0 +1,6 @@
+λ (a :: ⋆) (b :: ⋆)
+  (x : { val L : { val P : a val Q : b } val R : b }) →
+  ∃ (c :: ⋆)
+    let y = Σ [c] (d :: ⋆ = { val P : a val Q : b })
+        (x : { val L : d val R : b }) in
+      (λ (z: { val L : c val R : b }) → z.L) y

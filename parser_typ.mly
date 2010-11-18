@@ -60,7 +60,7 @@ typ_fields:
     else Label.Map.add lab (mkLam_bindings params t $endpos(t)) f }
 
 undelimited_typ:
-| LAMBDA b=typ_bindings(kind) ARROW t=typ
+| LAMBDA b=typ_bindings(kind) DBLARROW t=typ
     { relocate (mkLam_bindings b t $endpos) $startpos $endpos }
 | FORALL b=typ_bindings(kind) COMMA t=typ
     { relocate (mkForall_bindings b t $endpos) $startpos $endpos }

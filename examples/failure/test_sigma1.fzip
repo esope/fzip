@@ -1,0 +1,9 @@
+λ (a :: ⋆) (b :: ⋆)
+  (x : { val L : { val P : a val Q : b } val R : b }) →
+  ∃ (c :: ⋆)
+  { val f (x:c) = c
+    val r = Σ [c] (d :: ⋆ = { val P : a val Q : b })
+        (x : { val L : d val R : b })
+  }
+
+(* zip error *)
