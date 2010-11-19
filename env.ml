@@ -16,7 +16,7 @@ let empty =
     removed_term_vars = Ast.Term.Var.Map.empty ;
     removed_typ_vars  = Ast.Typ.Var.Map.empty  }
 
-let clean { term_vars ; typ_vars ; _ } =
+let clean_removed_vars { term_vars ; typ_vars ; _ } =
   { term_vars ; typ_vars ;
     removed_term_vars = Ast.Term.Var.Map.empty ;
     removed_typ_vars  = Ast.Typ.Var.Map.empty  }
@@ -33,26 +33,70 @@ let is_pure { typ_vars ; _ } =
     in No [ E_TYP_VAR_PURE (Location.locate_with a loc) ]
   with Not_found -> Yes
 
+let rec term_vars_to_string = function
+  | [] -> ""
+  | (x, t) :: e ->
+      Printf.sprintf "%s : %s\n%a"
+        (Ast.Term.Var.to_string x)
+        (Ast_utils.PPrint.Typ.string t)
+        (fun _ -> term_vars_to_string) e
+
+let rec typ_vars_to_string = function
+  | [] -> ""
+  | (x, ({ Location.content = Mode.U ; _ }, k)) :: e ->
+      Printf.sprintf "∀ %s :: %s\n%a"
+        (Ast.Typ.Var.to_string x)
+        (Ast_utils.PPrint.Kind.string k)
+        (fun _ -> typ_vars_to_string) e
+  | (x, ({ Location.content = Mode.E ; _ }, k)) :: e ->
+      Printf.sprintf "∃ %s :: %s\n%a"
+        (Ast.Typ.Var.to_string x)
+        (Ast_utils.PPrint.Kind.string k)
+        (fun _ -> typ_vars_to_string) e
+  | (x, ({ Location.content = Mode.EQ t ; _ }, k)) :: e ->
+      Printf.sprintf "∀ %s :: %s = %s\n%a"
+        (Ast.Typ.Var.to_string x)
+        (Ast_utils.PPrint.Kind.string k)
+        (Ast_utils.PPrint.Typ.string t)
+        (fun _ -> typ_vars_to_string) e
+
+
+let to_string e =
+  Printf.sprintf "begin\n%a%aend\n"
+    (fun _ -> typ_vars_to_string)  (List.rev e.typ_vars)
+    (fun _ -> term_vars_to_string) (List.rev e.term_vars)
+
 module Set = struct
 (* some operations on sets as records *)
   type ('elt, 'a) t =
-      { empty: 'a ; add: 'elt -> 'a -> 'a ;
-        inter: 'a -> 'a -> 'a ; mem: 'elt -> 'a -> bool }
+      { empty: 'a ;
+        is_empty: 'a -> bool ;
+        singleton: 'elt -> 'a ;
+        add: 'elt -> 'a -> 'a ;
+        remove: 'elt -> 'a -> 'a ;
+        inter: 'a -> 'a -> 'a ;
+        union: 'a -> 'a -> 'a ;
+        diff: 'a -> 'a -> 'a ;
+        mem: 'elt -> 'a -> bool ;
+        choose: 'a -> 'elt }
 
   let tyvar =
     let open Ast.Typ.Var.Set in
-    { empty ; add ; inter ; mem }
+    { empty ; is_empty ; singleton ;
+      add ; remove ; inter ; union ; diff ; mem ; choose }
 
   let tevar =
     let open Ast.Term.Var.Set in
-    { empty ; add ; inter ; mem }
+    { empty ; is_empty ; singleton ;
+      add ; remove ; inter ; union ; diff ; mem ; choose }
 end
 
 module Map = struct
 (* some operations on maps as records *)
   type ('key, 'elem, 'a) mini_map =
-      { empty: 'a ; add: 'key -> 'elem -> 'a -> 'a ;
+      { empty: 'a ;
         is_empty: 'a -> bool ;
+        add: 'key -> 'elem -> 'a -> 'a ;
         equal: ('elem -> 'elem -> bool) -> 'a -> 'a -> bool ;
         merge: ('key -> 'elem option -> 'elem option -> 'elem option) ->
             'a -> 'a -> 'a ;
@@ -183,7 +227,49 @@ let rec get_assoc equal x = function
 let rec remove_assoc equal x = function
   | [] -> []
   | (y, _) :: l when equal x y -> l
-  | b :: l -> b :: b :: remove_assoc equal x l
+  | b :: l -> b :: remove_assoc equal x l
+
+let rec remove_many_assocs mini_set vars = function
+  | [] -> []
+  | (y, _) :: l when mini_set.Set.mem y vars ->
+      remove_many_assocs mini_set vars l
+  | b :: l -> b :: remove_many_assocs mini_set vars l
+
+let free_vars mini_map fv e =
+  List.fold_left
+    (fun acc (x, t) -> mini_map.Map.add x (fv t) acc)
+    mini_map.Map.empty e
+
+(* Computes what depends on a set of vars from the next function. *)
+(* THIS IS WRONG *)
+let rec what_depends_on mini_set next vars work_list seen_vars =
+  if mini_set.Set.is_empty work_list
+  then mini_set.Set.empty
+  else
+    let x = mini_set.Set.choose work_list in
+    let deps_x =
+      if mini_set.Set.mem x vars
+      then mini_set.Set.singleton x
+      else
+        what_depends_on mini_set next
+          (mini_set.Set.add x vars)
+          (mini_set.Set.union (next x) (mini_set.Set.remove x work_list))
+          seen_vars
+    and deps_other =
+      what_depends_on mini_set next
+        vars
+        (mini_set.Set.remove x work_list)
+        (mini_set.Set.add x seen_vars) in
+    if mini_set.Set.is_empty (mini_set.Set.inter deps_x vars)
+    then (* x does not depend on vars *)
+      mini_set.Set.add x deps_other
+    else
+      deps_other
+
+(* returns the dependences of vars through next *)
+(* vars is included in the result *)
+let what_depends_on mini_set next vars =
+  what_depends_on mini_set next vars vars mini_set.Set.empty
 
 module Term = struct
 
@@ -195,20 +281,28 @@ module Term = struct
       let loc = Ast.Term.Var.Map.find x e.removed_term_vars in
       raise (Removed_var loc)
 
+  let mem_var x e =
+    try
+      let _ = get_assoc Ast.Term.Var.equal x e.term_vars in
+      true
+    with Not_found -> false
+
   let add_var x t e =
+    assert (not (mem_var x e)) ;
     { e with term_vars = (x, t) :: e.term_vars ;
       removed_term_vars = Ast.Term.Var.Map.remove x e.removed_term_vars }
 
-  let remove_var x e =
+  let remove_var ~track x e =
     { e with term_vars = remove_assoc Ast.Term.Var.equal x e.term_vars ;
       removed_term_vars =
-      begin
+      if track
+      then
         try
           let t = get_var x e in
           Ast.Term.Var.Map.add
             x (Location.locate_with () t) e.removed_term_vars
         with Not_found -> e.removed_term_vars
-      end }
+      else e.removed_term_vars }
 
 end
 
@@ -223,21 +317,72 @@ module Typ = struct
       let loc = Ast.Typ.Var.Map.find x e.removed_typ_vars in
       raise (Removed_var loc)
 
+  let mem_var x e =
+    try
+      let _ = get_assoc Ast.Typ.Var.equal x e.typ_vars in
+      true
+    with Not_found -> false
+
   let add_var mode x k e =
+    assert (not (mem_var x e)) ;
     { e with typ_vars = (x, (mode, k)) :: e.typ_vars ;
       removed_typ_vars = Ast.Typ.Var.Map.remove x e.removed_typ_vars }
 
+  let binding_fv ({ Location.content = mode ; _ }, k) =
+    Ast.Typ.Var.Set.union
+      (let open Mode in match mode with
+      | U | E -> Ast.Typ.Var.Set.empty
+      | EQ tau -> Ast.Typ.fv tau)
+      (Ast.Kind.fv k)
+
+  let vars_to_remove ~recursive x e =
+    let (ty_vars_to_remove, te_vars_to_remove) =
+      (* variables that come from the term variable environment *)
+      if recursive
+      then 
+        List.fold_left
+          (fun ((ty_vars, te_vars) as vars) (y, tau) ->
+            let fv_tau = Ast.Typ.fv tau in
+            if Ast.Typ.Var.Set.mem x fv_tau
+            then (Ast.Typ.Var.Set.union fv_tau ty_vars,
+                  Ast.Term.Var.Set.add y te_vars)
+            else vars)
+          (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Set.empty)
+          e.term_vars
+      else (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Set.empty)
+    in
+    let ty_vars_to_remove =
+      (* variables that come from the type variable environment *)
+      if recursive
+      then
+        what_depends_on Set.tyvar
+          (fun x -> binding_fv (get_assoc Ast.Typ.Var.equal x e.typ_vars))
+          ty_vars_to_remove
+      else ty_vars_to_remove
+    in
+    assert (Ast.Typ.Var.Set.mem x ty_vars_to_remove) ;
+    (ty_vars_to_remove, te_vars_to_remove)
+
 (* TODO: remove dependencies as well *)
-  let remove_var x e =
-    { e with typ_vars = remove_assoc Ast.Typ.Var.equal x e.typ_vars ;
-      removed_typ_vars =
-      begin
-        try
-          let (mode, _k) = get_var x e in
-          Ast.Typ.Var.Map.add
-            x (Location.locate_with () mode) e.removed_typ_vars
-        with Not_found -> e.removed_typ_vars
-      end }
+  let remove_var ~track ~recursive x e =
+    let (ty_vars_to_remove, te_vars_to_remove) =
+      vars_to_remove ~recursive x e in
+    { term_vars =
+        remove_many_assocs Set.tevar te_vars_to_remove e.term_vars ;
+      removed_term_vars = (* update *)
+        e.removed_term_vars (* Ast.Term.Var.Map.empty *) ;
+      typ_vars =
+        remove_many_assocs Set.tyvar ty_vars_to_remove e.typ_vars ;
+      removed_typ_vars = (* update *) (* Ast.Typ.Var.Map.empty *)
+        if track
+        then
+          try
+            let (mode, _k) = get_var x e in
+            Ast.Typ.Var.Map.add
+              x (Location.locate_with () mode) e.removed_typ_vars
+          with Not_found -> e.removed_typ_vars
+        else e.removed_typ_vars 
+    }
 
   let is_fv y e =
     List.exists (fun (_x, t) -> Ast.Typ.is_fv y t) e.term_vars ||

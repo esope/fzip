@@ -11,6 +11,10 @@ let wfbasetype env t =
   then OK
   else KIND k
 
+let check_wftype env tau =
+  try Wftype.check_wftype_b env tau Kind.mkBase
+  with Error.ERROR _ -> false
+
 let elim_typ_var_in_typ env y t =
   (* to try to eliminate y in t, we normalize t *)
   (* there is no general way to avoid y bu using subtyping *)
@@ -20,11 +24,18 @@ let elim_typ_var_in_typ env y t =
   then None
   else Some t_norm
 
-let rec wfterm env term = match term.content with
+let rec wfterm env term =
+  Printf.eprintf "wfterm environment:\n%s%!"
+    (Env.to_string env) ;
+  match term.content with
   | BVar _ -> assert false
   | FVar x ->
       begin
-        try (env, Env.Term.get_var x env) (* TODO: weakening *)
+        try
+          let tau = Env.Term.get_var x env in
+          assert (check_wftype env tau) ;
+          (Env.clean_removed_vars env, tau)
+            (* TODO: weakening *)
         with Not_found ->
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
@@ -47,7 +58,7 @@ let rec wfterm env term = match term.content with
               let open Answer in
               match Env.is_pure env' with
               | Yes ->
-                  (Env.Term.remove_var x' env',
+                  (Env.Term.remove_var ~track:false x' env',
                    dummy_locate (Typ.mkBaseArrow t t'))
               | No reason ->
                   Error.raise_error Error.purity e.startpos e.endpos
@@ -107,7 +118,7 @@ let rec wfterm env term = match term.content with
           (bsubst_term_var e2 x y_var) in
       begin
         let open Answer.WithValue in
-        match Env.zip env1 (Env.Term.remove_var y env2) with
+        match Env.zip env1 (Env.Term.remove_var ~track:false y env2) with
         | Yes env12 -> (env12, t2)
         | No reason ->
             Error.raise_error Error.zip term.startpos term.endpos
@@ -129,7 +140,7 @@ let rec wfterm env term = match term.content with
           match Env.is_pure env' with
           | Yes ->
               assert (not (Env.Typ.is_fv x' env')) ;
-              (Env.Typ.remove_var x' env',
+              (Env.Typ.remove_var ~track:false ~recursive:false x' env',
                dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t'))
           | No reason ->
               Error.raise_error Error.purity e.startpos e.endpos
@@ -230,7 +241,6 @@ let rec wfterm env term = match term.content with
       end
   | Sigma ({ content = Typ.FVar x ; _ } as x_loc,
            ({ content = y ; _ } as y_loc), k, t, e) ->
-      assert (not (Env.Typ.is_fv x env)) ; (* TODO: weakening *)
       let ({ content = mode ; _ }, k_x) =
         try Env.Typ.get_var x env
         with Not_found ->
@@ -245,23 +255,28 @@ let rec wfterm env term = match term.content with
       (* checking mode *)
           match mode with
           | Mode.U -> (* normal case *)
-              begin (* check k_x ≡ k !! *)
+              begin
                 let open Answer in
-                match
+                match (* check k_x ≡ k *)
                   Normalize.equiv_kind ~unfold_eq:false env k.content k_x
                 with
                 | Yes ->
                     let y' = Typ.Var.bfresh y in
                     let y_var' =  locate_with (Typ.mkVar y') y_loc in
                     let (env', t') =
-                      let env = Env.Typ.add_var
+                      let env = (* (env \ x) ∪ y :: k = t *)
+                        Env.Typ.add_var
                           (locate_with (Mode.EQ t) y_loc) y' k.content
-                          (Env.Typ.remove_var x env) in
+                          (Env.Typ.remove_var ~track:true ~recursive:true
+                             x env) in
                       wfterm env (bsubst_typ_var e y y_var') in
                     assert (not (Env.Typ.is_fv y' env')) ;
+                    assert (not (Env.Typ.is_fv x env')) ;
+                    assert (not (Env.Typ.mem_var x env')) ;
                     (Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
-                       (Env.Typ.remove_var y' env'),
-                     Typ.subst t' y' x_loc.content)
+                       (Env.Typ.remove_var ~track:false ~recursive:false
+                          y' env'), (* (env' \ y) ∪ ∃ x :: k_x *)
+                     Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
                 | No reason ->
                     Error.raise_error Error.subkind
                       x_loc.startpos x_loc.endpos
@@ -281,7 +296,6 @@ let rec wfterm env term = match term.content with
                (* This case is not supported by the syntax *)
                assert false
   | Open ({ content = Typ.FVar x ; _ } as x_loc, e) ->
-      assert (not (Env.Typ.is_fv x env)) ; (* TODO: weakening *)
       let ({ content = mode ; _ }, k_x) =
         try Env.Typ.get_var x env
         with Not_found ->
@@ -291,13 +305,15 @@ let rec wfterm env term = match term.content with
             Error.raise_error Error.type_wf term.startpos term.endpos
               (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
                  (Typ.Var.to_string x) (location_msg loc))
-      in begin
+      in
+      begin
         (* checking mode *)
           match mode with
           | Mode.U -> (* normal case *)
               begin
-                let (env', t') = wfterm (Env.Typ.remove_var x env) e in
-                (* TODO: weakening *)
+                let (env', t') =
+                  wfterm
+                    (Env.Typ.remove_var ~track:true ~recursive:true x env) e in
                 let t' = Normalize.head_norm ~unfold_eq:false env t' in
                 (* necessary in case we have a path
                    that is equivalent to a ∃ *)
@@ -305,6 +321,7 @@ let rec wfterm env term = match term.content with
                 | Typ.BaseExists({ content = y ; _ }, k, t') ->
                     begin
                       assert (not (Env.Typ.is_fv x env')) ;
+                      assert (not (Env.Typ.mem_var x env')) ;
                       (* checking env ⊢ k ≡ k_x *)
                       let open Answer in
                       match 
@@ -353,7 +370,12 @@ let rec wfterm env term = match term.content with
           (* checking mode *)
           let mode =
             try (fst (Env.Typ.get_var x' env')).content
-            with Not_found -> Mode.U
+            with
+            | Not_found -> assert false
+            | Env.Removed_var loc ->
+                Error.raise_error Error.type_wf term.startpos term.endpos
+                  (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
+                     (Typ.Var.to_string x') (location_msg loc))
           in
           match mode with
           | Mode.U -> (* the variable was not used in an opening or a sigma *)
@@ -363,17 +385,22 @@ let rec wfterm env term = match term.content with
           | Mode.E -> (* the variable was used in an opening or a sigma *)
               assert (not (Env.Typ.is_fv x' env')) ;
               if Typ.is_fv x' t'
-              then
+              then begin
+                assert (Env.Typ.mem_var x' env') ;
+                assert(check_wftype env' t') ;
                 match elim_typ_var_in_typ env' x' t' with
-                | Some t' -> (Env.Typ.remove_var x' env', t')
+                | Some t' ->
+                    (Env.Typ.remove_var ~track:false ~recursive:false x' env',
+                     t')
                 | None ->
                     Error.raise_error Error.escaping_typ_var
                       x_loc.startpos x_loc.endpos
                       (Printf.sprintf
                          "Cannot eliminate this type variable from the type of the body:\n%s%!"
                          (Ast_utils.PPrint.Typ.string t'))
+              end
               else
-                (Env.Typ.remove_var x' env', t')
+                (Env.Typ.remove_var ~track:false ~recursive:false x' env', t')
           | Mode.EQ _ -> assert false
         end
       else
@@ -391,7 +418,12 @@ let rec wfterm env term = match term.content with
         begin
           let mode =
             try (fst (Env.Typ.get_var x' env')).content
-            with Not_found -> Mode.U
+            with
+            | Not_found -> assert false
+            | Env.Removed_var loc ->
+                Error.raise_error Error.type_wf term.startpos term.endpos
+                  (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
+                     (Typ.Var.to_string x') (location_msg loc))
           in
           match mode with
           | Mode.U -> (* the variable was not used in an opening or a sigma *)
@@ -400,7 +432,7 @@ let rec wfterm env term = match term.content with
                 "This variable must be used as the argument of open or Σ."
           | Mode.E -> (* the variable was used in an opening or a sigma *)
               assert (not (Env.Typ.is_fv x' env')) ;
-              (Env.Typ.remove_var x' env',
+              (Env.Typ.remove_var ~track:false ~recursive:false x' env',
                dummy_locate (Typ.mkBaseExists (locate_with x' x_loc) k t'))
           | Mode.EQ _ -> assert false
         end
