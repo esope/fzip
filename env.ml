@@ -96,6 +96,7 @@ module Map = struct
   type ('key, 'elem, 'a) mini_map =
       { empty: 'a ;
         is_empty: 'a -> bool ;
+        mem: 'key -> 'a -> bool ;
         add: 'key -> 'elem -> 'a -> 'a ;
         equal: ('elem -> 'elem -> bool) -> 'a -> 'a -> bool ;
         merge: ('key -> 'elem option -> 'elem option -> 'elem option) ->
@@ -106,10 +107,10 @@ module Map = struct
 
   let tyvar =
     let open Ast.Typ.Var.Map in
-    { empty ; is_empty ; add ; equal ; merge ; partition ; find }
+    { empty ; is_empty ; mem ; add ; equal ; merge ; partition ; find }
   let tevar =
     let open Ast.Term.Var.Map in
-    { empty ; is_empty ; add ; equal ; merge ; partition ; find }
+    { empty ; is_empty ; mem ; add ; equal ; merge ; partition ; find }
 end
 
 let dom mini_set e =
@@ -235,6 +236,12 @@ let rec remove_many_assocs mini_set vars = function
       remove_many_assocs mini_set vars l
   | b :: l -> b :: remove_many_assocs mini_set vars l
 
+let rec remove_many_assocs_map mini_set vars = function
+  | [] -> []
+  | (y, _) :: l when mini_set.Map.mem y vars ->
+      remove_many_assocs_map mini_set vars l
+  | b :: l -> b :: remove_many_assocs_map mini_set vars l
+
 let free_vars mini_map fv e =
   List.fold_left
     (fun acc (x, t) -> mini_map.Map.add x (fv t) acc)
@@ -270,16 +277,11 @@ module Term = struct
     { e with term_vars = (x, t) :: e.term_vars ;
       removed_term_vars = Ast.Term.Var.Map.remove x e.removed_term_vars }
 
-  let remove_var ~track x e =
+  let remove_var ~track x loc e =
     { e with term_vars = remove_assoc Ast.Term.Var.equal x e.term_vars ;
       removed_term_vars =
       if track
-      then
-        try
-          let t = get_var x e in
-          Ast.Term.Var.Map.add
-            x (Location.locate_with () t) e.removed_term_vars
-        with Not_found -> e.removed_term_vars
+      then Ast.Term.Var.Map.add x loc e.removed_term_vars
       else e.removed_term_vars }
 
 end
@@ -313,7 +315,16 @@ module Typ = struct
       | EQ tau -> Ast.Typ.fv tau)
       (Ast.Kind.fv k)
 
-  let vars_to_remove ~recursive x e =
+  let locate_vars env vars default_loc =
+    Ast.Typ.Var.Set.fold
+      (fun x acc ->
+        let loc =
+          try Location.locate_with () (fst (get_var x env))
+          with Not_found -> default_loc in
+        Ast.Typ.Var.Map.add x (Location.locate_with () loc) acc)
+      vars Ast.Typ.Var.Map.empty
+
+  let vars_to_remove ~recursive x loc e =
     let (ty_vars_to_remove, te_vars_to_remove) =
       (* variables that come from the term variable environment *)
       if recursive
@@ -323,11 +334,11 @@ module Typ = struct
             let fv_tau = Ast.Typ.fv tau in
             if Ast.Typ.Var.Set.mem x fv_tau
             then (Ast.Typ.Var.Set.union fv_tau ty_vars,
-                  Ast.Term.Var.Set.add y te_vars)
+                  Ast.Term.Var.Map.add y (Location.locate_with () tau) te_vars)
             else vars)
-          (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Set.empty)
+          (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Map.empty)
           e.term_vars
-      else (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Set.empty)
+      else (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Map.empty)
     in
     let ty_vars_to_remove =
       (* variables that come from the type variable environment *)
@@ -344,26 +355,35 @@ module Typ = struct
       else ty_vars_to_remove
     in
     assert (Ast.Typ.Var.Set.mem x ty_vars_to_remove) ;
-    (ty_vars_to_remove, te_vars_to_remove)
+    (locate_vars e ty_vars_to_remove loc, te_vars_to_remove)
 
 (* TODO: remove dependencies as well *)
-  let remove_var ~track ~recursive x e =
+  let remove_var ~track ~recursive x (loc: unit Location.located) e =
     let (ty_vars_to_remove, te_vars_to_remove) =
-      vars_to_remove ~recursive x e in
+      vars_to_remove ~recursive x loc e in
     { term_vars =
-        remove_many_assocs Set.tevar te_vars_to_remove e.term_vars ;
+        remove_many_assocs_map Map.tevar te_vars_to_remove e.term_vars ;
       removed_term_vars = (* update *)
-        e.removed_term_vars (* Ast.Term.Var.Map.empty *) ;
+        if track
+        then
+          Ast.Term.Var.Map.merge
+            (fun _key x y -> match (x, y) with
+            | (Some x, _) -> Some x
+            | (_, _) -> y)
+            e.removed_term_vars
+            te_vars_to_remove
+        else e.removed_term_vars ;
       typ_vars =
-        remove_many_assocs Set.tyvar ty_vars_to_remove e.typ_vars ;
+        remove_many_assocs_map Map.tyvar ty_vars_to_remove e.typ_vars ;
       removed_typ_vars = (* update *) (* Ast.Typ.Var.Map.empty *)
         if track
         then
-          try
-            let (mode, _k) = get_var x e in
-            Ast.Typ.Var.Map.add
-              x (Location.locate_with () mode) e.removed_typ_vars
-          with Not_found -> e.removed_typ_vars
+          Ast.Typ.Var.Map.merge
+            (fun _key x y -> match (x, y) with
+            | (Some x, _) -> Some x
+            | (_, _) -> y)
+            e.removed_typ_vars
+            ty_vars_to_remove
         else e.removed_typ_vars 
     }
 

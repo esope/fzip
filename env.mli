@@ -40,10 +40,11 @@ module Term: sig
     binding [(x, t)]. *)
   val add_var: var -> Ast.Typ.t -> t -> t
 
-(** [remove_var x env] returns [env] from which the first binding of [x]
+(** [remove_var x loc env] returns [env] from which the first binding of [x]
     has been removed, if any. Otherwise, it returns [env]. If [track] is
-    set to [true], then the removal of the variable is recorded. *)
-  val remove_var: track:bool -> var -> t -> t
+    set to [true], then the removal of the variable is recorded with 
+    the location [loc]. *)
+  val remove_var: track:bool -> var -> unit Location.located -> t -> t
 
 end
 
@@ -65,13 +66,15 @@ module Typ: sig
     binding [(x, k)]. *)
   val add_var: mode Location.located -> var -> Ast.Kind.t -> t -> t
 
-(** [remove_var a env] returns [env] from which the first binding of [a]
+(** [remove_var a loc env] returns [env] from which the first binding of [a]
     has been removed, if any. Otherwise, it returns [env]. If [track] is
-    set to [true], then the removal of the variable is recorded.
+    set to [true], then the removal of the variable is recorded with
+    the location [loc].
     If [recursive] is set to true, then every binding that depends on [a]
     is also removed.
     TODO: remove the bindings that depend on [a] as well. *)
-  val remove_var: track:bool -> recursive:bool -> var -> t -> t
+  val remove_var: track:bool -> recursive:bool -> var ->
+    unit Location.located -> t -> t
 
 (** decides whether a type variable occurs in an environment *)
   val is_fv: Ast.Typ.Var.free -> t -> bool
