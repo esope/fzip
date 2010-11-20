@@ -36,7 +36,7 @@ let is_pure { typ_vars ; _ } =
 let rec term_vars_to_string = function
   | [] -> ""
   | (x, t) :: e ->
-      Printf.sprintf "%s : %s\n%a"
+      Printf.sprintf "val %s : %s\n%a"
         (Ast.Term.Var.to_string x)
         (Ast_utils.PPrint.Typ.string t)
         (fun _ -> term_vars_to_string) e
@@ -44,17 +44,17 @@ let rec term_vars_to_string = function
 let rec typ_vars_to_string = function
   | [] -> ""
   | (x, ({ Location.content = Mode.U ; _ }, k)) :: e ->
-      Printf.sprintf "∀ %s :: %s\n%a"
+      Printf.sprintf "∀ type %s :: %s\n%a"
         (Ast.Typ.Var.to_string x)
         (Ast_utils.PPrint.Kind.string k)
         (fun _ -> typ_vars_to_string) e
   | (x, ({ Location.content = Mode.E ; _ }, k)) :: e ->
-      Printf.sprintf "∃ %s :: %s\n%a"
+      Printf.sprintf "∃ type %s :: %s\n%a"
         (Ast.Typ.Var.to_string x)
         (Ast_utils.PPrint.Kind.string k)
         (fun _ -> typ_vars_to_string) e
   | (x, ({ Location.content = Mode.EQ t ; _ }, k)) :: e ->
-      Printf.sprintf "∀ %s :: %s = %s\n%a"
+      Printf.sprintf "∀ type %s :: %s = %s\n%a"
         (Ast.Typ.Var.to_string x)
         (Ast_utils.PPrint.Kind.string k)
         (Ast_utils.PPrint.Typ.string t)
@@ -240,36 +240,14 @@ let free_vars mini_map fv e =
     (fun acc (x, t) -> mini_map.Map.add x (fv t) acc)
     mini_map.Map.empty e
 
-(* Computes what depends on a set of vars from the next function. *)
-(* THIS IS WRONG *)
-let rec what_depends_on mini_set next vars work_list seen_vars =
-  if mini_set.Set.is_empty work_list
-  then mini_set.Set.empty
-  else
-    let x = mini_set.Set.choose work_list in
-    let deps_x =
-      if mini_set.Set.mem x vars
-      then mini_set.Set.singleton x
-      else
-        what_depends_on mini_set next
-          (mini_set.Set.add x vars)
-          (mini_set.Set.union (next x) (mini_set.Set.remove x work_list))
-          seen_vars
-    and deps_other =
-      what_depends_on mini_set next
-        vars
-        (mini_set.Set.remove x work_list)
-        (mini_set.Set.add x seen_vars) in
-    if mini_set.Set.is_empty (mini_set.Set.inter deps_x vars)
-    then (* x does not depend on vars *)
-      mini_set.Set.add x deps_other
-    else
-      deps_other
-
-(* returns the dependences of vars through next *)
-(* vars is included in the result *)
-let what_depends_on mini_set next vars =
-  what_depends_on mini_set next vars vars mini_set.Set.empty
+(* fixpoint of an increasing function *)
+let fixpoint leq bottom f =
+  let rec fix previous =
+    let next = f previous in
+    if leq next previous
+    then previous
+    else fix next
+  in fix bottom
 
 module Term = struct
 
@@ -355,9 +333,14 @@ module Typ = struct
       (* variables that come from the type variable environment *)
       if recursive
       then
-        what_depends_on Set.tyvar
-          (fun x -> binding_fv (get_assoc Ast.Typ.Var.equal x e.typ_vars))
-          ty_vars_to_remove
+        let open Ast.Typ.Var.Set in
+        fixpoint subset ty_vars_to_remove
+          (fun vars ->
+            union vars
+              (List.fold_left
+                 (fun acc (var, b) -> let fv = binding_fv b in
+                 if is_empty (inter fv vars) then acc else add var acc)
+                 empty e.typ_vars))
       else ty_vars_to_remove
     in
     assert (Ast.Typ.Var.Set.mem x ty_vars_to_remove) ;

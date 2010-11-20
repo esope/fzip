@@ -25,8 +25,6 @@ let elim_typ_var_in_typ env y t =
   else Some t_norm
 
 let rec wfterm env term =
-  Printf.eprintf "wfterm environment:\n%s%!"
-    (Env.to_string env) ;
   match term.content with
   | BVar _ -> assert false
   | FVar x ->
