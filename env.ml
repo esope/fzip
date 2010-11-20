@@ -315,13 +315,9 @@ module Typ = struct
       | EQ tau -> Ast.Typ.fv tau)
       (Ast.Kind.fv k)
 
-  let locate_vars env vars default_loc =
+  let locate_vars vars loc =
     Ast.Typ.Var.Set.fold
-      (fun x acc ->
-        let loc =
-          try Location.locate_with () (fst (get_var x env))
-          with Not_found -> default_loc in
-        Ast.Typ.Var.Map.add x (Location.locate_with () loc) acc)
+      (fun x acc -> Ast.Typ.Var.Map.add x loc acc)
       vars Ast.Typ.Var.Map.empty
 
   let vars_to_remove ~recursive x loc e =
@@ -334,7 +330,7 @@ module Typ = struct
             let fv_tau = Ast.Typ.fv tau in
             if Ast.Typ.Var.Set.mem x fv_tau
             then (Ast.Typ.Var.Set.union fv_tau ty_vars,
-                  Ast.Term.Var.Map.add y (Location.locate_with () tau) te_vars)
+                  Ast.Term.Var.Map.add y loc te_vars)
             else vars)
           (Ast.Typ.Var.Set.singleton x, Ast.Term.Var.Map.empty)
           e.term_vars
@@ -355,15 +351,14 @@ module Typ = struct
       else ty_vars_to_remove
     in
     assert (Ast.Typ.Var.Set.mem x ty_vars_to_remove) ;
-    (locate_vars e ty_vars_to_remove loc, te_vars_to_remove)
+    (locate_vars ty_vars_to_remove loc, te_vars_to_remove)
 
-(* TODO: remove dependencies as well *)
   let remove_var ~track ~recursive x (loc: unit Location.located) e =
     let (ty_vars_to_remove, te_vars_to_remove) =
       vars_to_remove ~recursive x loc e in
     { term_vars =
         remove_many_assocs_map Map.tevar te_vars_to_remove e.term_vars ;
-      removed_term_vars = (* update *)
+      removed_term_vars =
         if track
         then
           Ast.Term.Var.Map.merge
@@ -375,7 +370,7 @@ module Typ = struct
         else e.removed_term_vars ;
       typ_vars =
         remove_many_assocs_map Map.tyvar ty_vars_to_remove e.typ_vars ;
-      removed_typ_vars = (* update *) (* Ast.Typ.Var.Map.empty *)
+      removed_typ_vars =
         if track
         then
           Ast.Typ.Var.Map.merge
