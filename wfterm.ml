@@ -32,7 +32,7 @@ let rec wfterm env term =
         try
           let tau = Env.Term.get_var x env in
           assert (check_wftype env tau) ;
-          let min_env =
+          let min_env = (* minimal typing environment *)
             Env.Term.add_var x tau
               (Env.Typ.minimal_env_for_vars env (Ast.Typ.fv tau)) in
           (min_env, tau)
@@ -58,13 +58,13 @@ let rec wfterm env term =
               let open Answer in
               match Env.is_pure env' with
               | Yes ->
-                  let min_env_for_t =
-                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
-                  and min_env_for_e =
-                    Env.Term.remove_var ~track:false
-                      x' (Location.locate_with () x_loc) env'
-                  in let env =
-                    match Env.zip min_env_for_e min_env_for_t with
+                  let env =
+                    let min_env_for_t =
+                      Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
+                    and min_env_for_e =
+                      Env.Term.remove_var ~track:false
+                        x' (Location.locate_with () x_loc) env'
+                    in match Env.zip min_env_for_e min_env_for_t with
                     | WithValue.Yes env -> env
                     | WithValue.No _ -> assert false
                   in
@@ -152,14 +152,14 @@ let rec wfterm env term =
           let open Answer in
           match Env.is_pure env' with
           | Yes ->
-              let min_env_for_k =
-                Env.Typ.minimal_env_for_vars env (Ast.Kind.fv k.content)
-              and min_env_for_e =
-                assert (not (Env.Typ.is_fv x' env')) ;
-                Env.Typ.remove_var ~track:false ~recursive:false
-                  x' (Location.locate_with () x_loc) env'
-              in let env =
-                match Env.zip min_env_for_e min_env_for_k with
+              let env =
+                let min_env_for_k =
+                  Env.Typ.minimal_env_for_vars env (Ast.Kind.fv k.content)
+                and min_env_for_e =
+                  assert (not (Env.Typ.is_fv x' env')) ;
+                  Env.Typ.remove_var ~track:false ~recursive:false
+                    x' (Location.locate_with () x_loc) env'
+                in match Env.zip min_env_for_e min_env_for_k with
                 | WithValue.Yes env -> env
                 | WithValue.No _ -> assert false
               in
@@ -186,10 +186,10 @@ let rec wfterm env term =
               let open Answer in
               match sub_kind ~unfold_eq:false env k k'.content with
               | Yes ->
-                  let min_env_for_tau =
-                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv tau)
-                  in let env =
-                    match Env.zip env' min_env_for_tau with
+                  let env =
+                    let min_env_for_tau =
+                      Env.Typ.minimal_env_for_vars env (Ast.Typ.fv tau)
+                    in match Env.zip env' min_env_for_tau with
                     | WithValue.Yes env -> env
                     | WithValue.No _ -> assert false
                   in
@@ -256,10 +256,10 @@ let rec wfterm env term =
             begin
               match sub_type ~unfold_eq:true env t' t with
               | Yes ->
-                  let min_env_for_t =
-                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
-                  in let env =
-                    match Env.zip env' min_env_for_t with
+                  let env =
+                    let min_env_for_t =
+                      Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
+                    in match Env.zip env' min_env_for_t with
                     | WithValue.Yes env -> env
                     | WithValue.No _ -> assert false
                   in (env, t)
