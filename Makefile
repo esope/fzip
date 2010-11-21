@@ -20,7 +20,7 @@ view_doc:	doc
 	xdg-open project.docdir/index.html
 
 dot:	ocamldot bin
-	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.native -fullgraph > _build/$(DOTFILE)
+	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.byte -fullgraph > _build/$(DOTFILE)
 
 view_dot:	dot
 	dot -T xlib _build/$(DOTFILE) &
@@ -38,4 +38,4 @@ archive:
 	hg archive --type tbz2 ../fzip.tar.bz2
 
 ocamldot:
-	$(OCB) tools/ocamldot/ocamldot.native
+	$(OCB) tools/ocamldot/ocamldot.byte
