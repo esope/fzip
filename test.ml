@@ -528,8 +528,8 @@ let tests_wfterm = "Tests about wfterm" >:::
 (* tests on example files *)
 let test_file (mode: [`Positive | `Negative]) file =
   let run () =
-        let prog = Parser_utils.Channel.Prog.parse (open_in file) file in
         try
+          let prog = Parser_utils.Channel.Prog.parse (open_in file) file in
           (ignore (Wfprog.wfprog prog) ; true)
         with
           Error.ERROR(_,_,_,_) -> false
