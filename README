@@ -1,6 +1,8 @@
 This project implements the language that is described in the last
 part of Benoît Montagu's PhD thesis. It is an extension of System F
-with subtyping, singleton kinds and open existential types.
+with subtyping, singleton kinds and open existential types. This
+implementation is was not designed to be efficient, and, indeed, it is
+not efficient (most algorithms are quadratic in the size of terms).
 
 To get an overview of the syntax, see the examples in the examples
 subdirectory. The files can use UTF-8 symbols: for instance, 'λ' can be
