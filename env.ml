@@ -113,6 +113,34 @@ module Map = struct
     { empty ; is_empty ; mem ; add ; equal ; merge ; partition ; find }
 end
 
+(* operations on association lists *)
+let rec mem_assoc equal x = function
+  | [] -> false
+  | (y, _) :: l -> equal x y || mem_assoc equal x l
+
+let rec get_assoc equal x = function
+  | [] -> raise Not_found
+  | (y, v) :: _ when equal x y -> v
+  | _ :: l -> get_assoc equal x l
+
+let rec remove_assoc equal x = function
+  | [] -> []
+  | (y, _) :: l when equal x y -> l
+  | b :: l -> b :: remove_assoc equal x l
+
+let rec remove_many_assocs mini_set vars = function
+  | [] -> []
+  | (y, _) :: l when mini_set.Set.mem y vars ->
+      remove_many_assocs mini_set vars l
+  | b :: l -> b :: remove_many_assocs mini_set vars l
+
+let rec remove_many_assocs_map mini_set vars = function
+  | [] -> []
+  | (y, _) :: l when mini_set.Map.mem y vars ->
+      remove_many_assocs_map mini_set vars l
+  | b :: l -> b :: remove_many_assocs_map mini_set vars l
+
+
 let dom mini_set e =
   List.fold_left (fun dom (a, _) -> mini_set.Set.add a dom)
     mini_set.Set.empty e
@@ -212,35 +240,45 @@ let zip e1 e2 =
       begin
         match ty_zip e1.typ_vars e2.typ_vars with
         | Yes e_ty ->
+            let removed_term_vars = (* updating removed term variables *)
+              let open Ast.Term.Var.Map in
+              let rem1 =
+                filter
+                  (fun x _tau ->
+                    not (mem_assoc Ast.Term.Var.equal x e1.term_vars))
+                  e1.removed_term_vars
+              and rem2 =
+                filter
+                  (fun x _tau ->
+                    not (mem_assoc Ast.Term.Var.equal x e1.term_vars))
+                  e2.removed_term_vars
+              in
+              merge
+                (fun _ x y -> match x with | Some _ -> x | None -> y)
+                rem1 rem2
+            and removed_typ_vars = (* updating the removed type variables *)
+              let open Ast.Typ.Var.Map in
+              let rem1 =
+                filter
+                  (fun x _tau ->
+                    not (mem_assoc Ast.Typ.Var.equal x e2.typ_vars))
+                  e1.removed_typ_vars
+              and rem2 =
+                filter
+                  (fun x _tau ->
+                    not (mem_assoc Ast.Typ.Var.equal x e1.typ_vars))
+                  e2.removed_typ_vars
+              in
+              merge
+                (fun _ x y -> match x with | Some _ -> x | None -> y)
+                rem1 rem2
+            in
             Yes { term_vars = e_te ; typ_vars = e_ty ;
-                  (* TODO: keep the removed variables *)
-                  removed_term_vars = Ast.Term.Var.Map.empty ;
-                  removed_typ_vars  = Ast.Typ.Var.Map.empty  }
+                  removed_term_vars = removed_term_vars ;
+                  removed_typ_vars  = removed_typ_vars  }
         | (No _) as no -> no
       end
   | (No _) as no -> no
-
-let rec get_assoc equal x = function
-  | [] -> raise Not_found
-  | (y, v) :: _ when equal x y -> v
-  | _ :: l -> get_assoc equal x l
-
-let rec remove_assoc equal x = function
-  | [] -> []
-  | (y, _) :: l when equal x y -> l
-  | b :: l -> b :: remove_assoc equal x l
-
-let rec remove_many_assocs mini_set vars = function
-  | [] -> []
-  | (y, _) :: l when mini_set.Set.mem y vars ->
-      remove_many_assocs mini_set vars l
-  | b :: l -> b :: remove_many_assocs mini_set vars l
-
-let rec remove_many_assocs_map mini_set vars = function
-  | [] -> []
-  | (y, _) :: l when mini_set.Map.mem y vars ->
-      remove_many_assocs_map mini_set vars l
-  | b :: l -> b :: remove_many_assocs_map mini_set vars l
 
 let free_vars mini_map fv e =
   List.fold_left
