@@ -62,7 +62,8 @@ let regexp up_alpha =  ['A'-'Z']
 let regexp alpha = low_alpha | up_alpha
 let regexp alpha_greek = alpha | greek
 let regexp digit = ['0'-'9']
-let regexp id = alpha_greek+ (alpha_greek | digit)*
+let regexp id =
+  alpha_greek+ ((alpha_greek | digit)* | (['_']+ (alpha_greek | digit)+))
 
 let rec token = lexer
 | whitespace -> token lexbuf
@@ -95,7 +96,7 @@ let rec token = lexer
 | "]" -> locate lexbuf RBRACKET
 | "=" -> locate lexbuf EQ
 | "Pi" | 928 (* Π *) -> locate lexbuf PI
-| "Sigma" |  931 (* Σ *) -> locate lexbuf SIGMA
+| "sigma" |  931 (* Σ *) -> locate lexbuf SIGMA
 | "nu" |  957 (* ν *) -> locate lexbuf NU
 | "open" -> locate lexbuf OPEN
 | "S" -> locate lexbuf SINGLE
