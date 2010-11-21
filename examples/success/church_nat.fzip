@@ -1,0 +1,16 @@
+export type nat :: ⋆
+
+%%
+
+let nat =
+  Σ [nat] (a :: ⋆ = forall (a::⋆), a -> (a -> a) -> a)
+  { val O =
+      (fun (a::⋆) (x: a) (f: a -> a) -> x : a)
+    val Succ =
+      (fun (n: forall (a::⋆), a -> (a -> a) -> a)
+          (b::⋆) (x: b) (f: b -> b) ->
+        n [b] x f : a -> a)
+  }
+in
+(* one *)
+  nat.Succ nat.O

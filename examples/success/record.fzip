@@ -1,0 +1,6 @@
+exists (a :: ⋆ = {})
+
+let x = { val L1 = ({} : a)
+          val L2 = fun (b::⋆) -> fun (x:b) -> x } in
+let y = { val L1 = x  val L2 = x } in
+  { val L1 = y  val L2 = y }

@@ -1,0 +1,17 @@
+export type nat :: ⋆
+
+%%
+
+let closed_nat =
+  exists (a :: ⋆ = forall (a::⋆), a -> (a -> a) -> a)
+  { val O =
+      (fun (a::⋆) -> fun (x: a) -> fun (f: a -> a) -> x : a) 
+    val Succ =
+      (fun (n: forall (a::⋆), a -> (a -> a) -> a) ->
+      fun (b::⋆) -> fun (x: b) -> fun (f: b -> b) ->
+        n [b] x f : a -> a)
+  }
+in
+let nat = open [nat] closed_nat in
+(* one *)
+  nat.Succ nat.O

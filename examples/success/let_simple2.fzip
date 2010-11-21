@@ -1,0 +1,3 @@
+let f = fun (a::⋆) -> fun (x : a) -> { val L1 = x val L2 = x } in
+let x = {} in
+f [{}] x

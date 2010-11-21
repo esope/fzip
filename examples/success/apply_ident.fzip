@@ -1,0 +1,22 @@
+let apply =
+  fun (a::⋆) -> fun (b::⋆) -> fun (f: a->b) -> fun (x: a) -> f x
+(* apply: forall (a::⋆), forall (b::⋆), (a -> b) -> a -> b *)
+
+in
+
+let ident =
+  fun (a::⋆) -> fun (x : a) -> x
+(* ident: forall (a::⋆), a -> a *)
+
+in
+
+let apply_ident =
+  fun (a::⋆) -> apply [a] [a] (ident [a])
+(* apply_ident: forall (a::⋆), a -> a *)
+
+(* ident et apply_ident ne sont pas distingables *)
+
+
+in
+
+apply_ident

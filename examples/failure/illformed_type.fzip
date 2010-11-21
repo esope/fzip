@@ -1,0 +1,1 @@
+fun (x: { val L1 : {}  val L2 : {} val L2 : {} }) -> x

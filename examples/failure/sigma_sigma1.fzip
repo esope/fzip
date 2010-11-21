@@ -1,0 +1,9 @@
+export type b1 :: ⋆
+export type b2 :: ⋆
+
+%%
+
+let x1 = sigma [b1] (a1 :: ⋆ = b2 -> b2) {} in
+let x2 = sigma [b2] (a2 :: ⋆ = {} -> {}) {} in
+
+{}

@@ -1,0 +1,1 @@
+fun (a :: { type L1 : *  type L2 :: <> type L2 :: <> }) (x : a.L1) -> x

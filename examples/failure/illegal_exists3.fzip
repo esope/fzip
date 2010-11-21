@@ -1,0 +1,7 @@
+export type a :: ⋆
+
+%%
+
+exists (b :: ⋆ = a) 
+(open[a] (exists (c :: ⋆ = {}) ({}: c)
+: b))

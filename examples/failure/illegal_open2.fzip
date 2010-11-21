@@ -1,0 +1,7 @@
+export type a :: ⋆
+
+%%
+
+let f (x:a) = x in
+open[a] (exists (b :: ⋆ = {})
+({ val L1 = {} val L2 = f}.L1 : b))
