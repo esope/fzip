@@ -1,0 +1,3 @@
+∃ (a :: ⋆) Σ [a] (b :: S(a) = { }) { }
+
+(* a must not occur in the kind of the witness *)

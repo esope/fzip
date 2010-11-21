@@ -32,8 +32,10 @@ let rec wfterm env term =
         try
           let tau = Env.Term.get_var x env in
           assert (check_wftype env tau) ;
-          (Env.clean_removed_vars env, tau)
-            (* TODO: weakening *)
+          let min_env =
+            Env.Term.add_var x tau
+              (Env.Typ.minimal_env_for_vars env (Ast.Typ.fv tau)) in
+          (min_env, tau)
         with Not_found ->
           Error.raise_error Error.term_wf term.startpos term.endpos
             (Printf.sprintf "Unbound term variable: %s." (Var.to_string x))
@@ -56,8 +58,17 @@ let rec wfterm env term =
               let open Answer in
               match Env.is_pure env' with
               | Yes ->
-                  (Env.Term.remove_var ~track:false
-                     x' (Location.locate_with () x_loc) env',
+                  let min_env_for_t =
+                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
+                  and min_env_for_e =
+                    Env.Term.remove_var ~track:false
+                      x' (Location.locate_with () x_loc) env'
+                  in let env =
+                    match Env.zip min_env_for_e min_env_for_t with
+                    | WithValue.Yes env -> env
+                    | WithValue.No _ -> assert false
+                  in
+                  (env,
                    dummy_locate (Typ.mkBaseArrow t t'))
               | No reason ->
                   Error.raise_error Error.purity e.startpos e.endpos
@@ -141,9 +152,18 @@ let rec wfterm env term =
           let open Answer in
           match Env.is_pure env' with
           | Yes ->
-              assert (not (Env.Typ.is_fv x' env')) ;
-              (Env.Typ.remove_var ~track:false ~recursive:false
-                 x' (Location.locate_with () x_loc) env',
+              let min_env_for_k =
+                Env.Typ.minimal_env_for_vars env (Ast.Kind.fv k.content)
+              and min_env_for_e =
+                assert (not (Env.Typ.is_fv x' env')) ;
+                Env.Typ.remove_var ~track:false ~recursive:false
+                  x' (Location.locate_with () x_loc) env'
+              in let env =
+                match Env.zip min_env_for_e min_env_for_k with
+                | WithValue.Yes env -> env
+                | WithValue.No _ -> assert false
+              in
+              (env,
                dummy_locate (Typ.mkBaseForall (locate_with x' x_loc) k t'))
           | No reason ->
               Error.raise_error Error.purity e.startpos e.endpos
@@ -165,7 +185,15 @@ let rec wfterm env term =
               let k = wftype env tau in
               let open Answer in
               match sub_kind ~unfold_eq:false env k k'.content with
-              | Yes -> (env', Typ.bsubst tau' x tau)
+              | Yes ->
+                  let min_env_for_tau =
+                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv tau)
+                  in let env =
+                    match Env.zip env' min_env_for_tau with
+                    | WithValue.Yes env -> env
+                    | WithValue.No _ -> assert false
+                  in
+                  (env, Typ.bsubst tau' x tau)
               | No reasons ->
                   Error.raise_error Error.subkind term.startpos term.endpos
                     (Printf.sprintf "Ill-formed instantiation:\n%s%!"
@@ -227,7 +255,14 @@ let rec wfterm env term =
         | Yes ->
             begin
               match sub_type ~unfold_eq:true env t' t with
-              | Yes -> (env', t)
+              | Yes ->
+                  let min_env_for_t =
+                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
+                  in let env =
+                    match Env.zip env' min_env_for_t with
+                    | WithValue.Yes env -> env
+                    | WithValue.No _ -> assert false
+                  in (env, t)
               | No reasons ->
                   Error.raise_error Error.subtype e.startpos e.endpos
                     (Printf.sprintf
@@ -259,33 +294,61 @@ let rec wfterm env term =
           match mode with
           | Mode.U -> (* normal case *)
               begin
-                let open Answer in
-                match (* check k_x ≡ k *)
-                  Normalize.equiv_kind ~unfold_eq:false env k.content k_x
-                with
-                | Yes ->
-                    let y' = Typ.Var.bfresh y in
-                    let y_var' =  locate_with (Typ.mkVar y') y_loc in
-                    let (env', t') =
-                      let env = (* (env \ x) ∪ y :: k = t *)
-                        Env.Typ.add_var
-                          (locate_with (Mode.EQ t) y_loc) y' k.content
-                          (Env.Typ.remove_var ~track:true ~recursive:true
-                             x (Location.locate_with () x_loc) env) in
-                      wfterm env (bsubst_typ_var e y y_var') in
-                    assert (not (Env.Typ.is_fv y' env')) ;
-                    assert (not (Env.Typ.is_fv x env')) ;
-                    assert (not (Env.Typ.mem_var x env')) ;
-                    (Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
-                       (Env.Typ.remove_var ~track:false ~recursive:false
-                          y' (Location.locate_with () y_loc) env'),
-                     (* (env' \ y) ∪ ∃ x :: k_x *)
-                     Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
-                | No reason ->
-                    Error.raise_error Error.subkind
-                      x_loc.startpos x_loc.endpos
-                      (Printf.sprintf "This kind of this type variable is not equivalent to the kind that is provided as argument to the Σ.\n%s%!"
-                         (error_msg reason))
+                let env_minus_x =
+                  Env.Typ.remove_var ~track:true ~recursive:true
+                    x (Location.locate_with () x_loc) env in
+                if wfkind env_minus_x k.content
+                then (* k is well_formed *)
+                  let open Answer in
+                  match (* check k_x ≡ k *)
+                    Normalize.equiv_kind ~unfold_eq:false env k.content k_x
+                  with
+                  | Yes ->
+                      begin
+                        (* checking that e \ x ⊢ t :: k *)
+                        match Wftype.check_wftype env_minus_x t k.content with
+                        | Yes ->
+                            let y' = Typ.Var.bfresh y in
+                            let y_var' =  locate_with (Typ.mkVar y') y_loc in
+                            let (env', t') =
+                              let env = (* (env \ x) ∪ y :: k = t *)
+                                Env.Typ.add_var
+                                  (locate_with (Mode.EQ t) y_loc) y' k.content
+                                  env_minus_x in
+                              wfterm env (bsubst_typ_var e y y_var') in
+                            assert (not (Env.Typ.is_fv y' env')) ;
+                            assert (not (Env.Typ.is_fv x env')) ;
+                            assert (not (Env.Typ.mem_var x env')) ;
+                            let env =
+                              let min_env_for_t_k =
+                                Env.Typ.minimal_env_for_vars env_minus_x
+                                  (Ast.Typ.Var.Set.union
+                                     (Ast.Typ.fv t) (Ast.Kind.fv k.content)) in
+                              let min_env_for_e =
+                                (* (env' \ y) ∪ ∃ x :: k_x *)
+                                Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
+                                  (Env.Typ.remove_var
+                                     ~track:false ~recursive:false
+                                     y' (Location.locate_with () y_loc) env')
+                              in
+                              match Env.zip min_env_for_e min_env_for_t_k with
+                              | WithValue.Yes env -> env
+                              | WithValue.No _ -> assert false
+                            in
+                            (env,
+                             Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
+                        | No reasons ->
+                            Error.raise_error Error.term_wf t.startpos t.endpos
+                              (error_msg reasons)
+                      end
+                  | No reason ->
+                      Error.raise_error Error.subkind
+                        x_loc.startpos x_loc.endpos
+                        (Printf.sprintf "This kind of this type variable is not equivalent to the kind that is provided as argument to the Σ.\n%s%!"
+                           (error_msg reason))
+                else (* k is not wellformed *)
+                  Error.raise_error Error.kind_wf k.startpos k.endpos
+                    "Ill-formed kind in the definition part of a Σ."
               end
           | Mode.E -> assert false
           | Mode.EQ _ ->
@@ -395,9 +458,17 @@ let rec wfterm env term =
                 assert(check_wftype env' t') ;
                 match elim_typ_var_in_typ env' x' t' with
                 | Some t' ->
-                    (Env.Typ.remove_var ~track:false ~recursive:false
-                       x' (Location.locate_with () x_loc) env',
-                     t')
+                    let env =
+                      let min_env_for_k =
+                        Env.Typ.minimal_env_for_vars env (Ast.Kind.fv k.content)
+                      and min_env_for_e =
+                        Env.Typ.remove_var ~track:false ~recursive:false
+                          x' (Location.locate_with () x_loc) env'
+                      in match Env.zip min_env_for_e min_env_for_k with
+                      | Answer.WithValue.Yes env -> env
+                      | Answer.WithValue.No _ -> assert false 
+                    in
+                    (env, t')
                 | None ->
                     Error.raise_error Error.escaping_typ_var
                       x_loc.startpos x_loc.endpos
@@ -439,8 +510,17 @@ let rec wfterm env term =
                 "This variable must be used as the argument of open or Σ."
           | Mode.E -> (* the variable was used in an opening or a sigma *)
               assert (not (Env.Typ.is_fv x' env')) ;
-              (Env.Typ.remove_var ~track:false ~recursive:false
-                 x' (Location.locate_with () x_loc) env',
+              let env =
+                let min_env_for_k =
+                  Env.Typ.minimal_env_for_vars env (Ast.Kind.fv k.content)
+                and min_env_for_e =
+                  Env.Typ.remove_var ~track:false ~recursive:false
+                    x' (Location.locate_with () x_loc) env'
+                in match Env.zip min_env_for_e min_env_for_k with
+                | Answer.WithValue.Yes env -> env
+                | Answer.WithValue.No _ -> assert false 
+              in
+              (env,
                dummy_locate (Typ.mkBaseExists (locate_with x' x_loc) k t'))
           | Mode.EQ _ -> assert false
         end

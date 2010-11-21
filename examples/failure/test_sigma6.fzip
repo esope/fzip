@@ -1,0 +1,8 @@
+require type c :: *
+export type a :: *
+
+%%
+
+Σ [a] (b :: S(c) = { }) { }
+
+(* bad kind *)

@@ -68,7 +68,7 @@ let rec error_msg = function
         (Location.location_msg loc1)
         (Location.location_msg loc2)
   | [ TYP_VAR_DISAGREE_UE (loc1, loc2, x) ] ->
-      Printf.sprintf "The existential type variable %s is used before its witness has been defined. It is used in %s, and defined later in %s.\n%!"
+      Printf.sprintf "The existential type variable %s is used before its witness has been defined. It is introduced in %s, then used, and defined later in %s.\n%!"
         (Typ.Var.to_string x)
         (Location.location_msg loc1)
         (Location.location_msg loc2)

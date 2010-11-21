@@ -1,0 +1,8 @@
+λ (a :: ⋆) (b :: ⋆)
+  (x : { val L : { val P : a val Q : b } val R : b }) →
+  ∃ (c :: ⋆)
+  let f (x:c) = x in
+      Σ [c] (d :: ⋆ = { val P : a val Q : b })
+        (x : { val L : d val R : b })
+
+(* c is used in the let before it is defined *)

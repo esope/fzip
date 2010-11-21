@@ -12,7 +12,10 @@ val empty: t
 val is_pure: t -> Answer.t
 
 (** Zipping of two contexts. *)
-val zip: t -> t -> (t) Answer.WithValue.t
+val zip: t -> t -> t Answer.WithValue.t
+
+(** Filter for environments. *)
+val filter: (Ast.Term.Var.free -> bool) -> (Ast.Typ.Var.free -> bool) -> t -> t
 
 (** Indicates from which point a variable was removed. *)
 exception Removed_var of unit Location.located
@@ -82,4 +85,11 @@ module Typ: sig
 (** returns the set of existential type variables, associate with
     their locations. *)
   val exist_vars: t -> (Mode.mode Location.located) Ast.Typ.Var.Map.t
+
+(** For every wellformed environment, returns the minimal wellformed
+    environment containing the bindings for the given set of type
+    variables. If some variables are not present in the environment,
+    [Not_found] is raised. *)
+  val minimal_env_for_vars: t -> Ast.Typ.Var.Set.t -> t
+
 end

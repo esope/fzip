@@ -140,7 +140,6 @@ let rec remove_many_assocs_map mini_set vars = function
       remove_many_assocs_map mini_set vars l
   | b :: l -> b :: remove_many_assocs_map mini_set vars l
 
-
 let dom mini_set e =
   List.fold_left (fun dom (a, _) -> mini_set.Set.add a dom)
     mini_set.Set.empty e
@@ -280,12 +279,22 @@ let zip e1 e2 =
       end
   | (No _) as no -> no
 
+let filter p_te p_ty e =
+  { term_vars = List.filter (fun (x, _) -> p_te x) e.term_vars ;
+    removed_term_vars =
+      Ast.Term.Var.Map.filter (fun x _ -> p_te x) e.removed_term_vars ;
+    typ_vars = List.filter (fun (x, _) -> p_ty x) e.typ_vars ;
+    removed_typ_vars =
+      Ast.Typ.Var.Map.filter (fun x _ -> p_ty x) e.removed_typ_vars }
+
 let free_vars mini_map fv e =
   List.fold_left
     (fun acc (x, t) -> mini_map.Map.add x (fv t) acc)
     mini_map.Map.empty e
 
-(* fixpoint of an increasing function *)
+(* Fixpoint of an increasing function, à la Tarski. *)
+(* [fixpoint leq bottom f] computes the least fixpoint of [f] that is
+   greater than [bottom], according to the ordering [leq]. *)
 let fixpoint leq bottom f =
   let rec fix previous =
     let next = f previous in
@@ -437,4 +446,19 @@ module Typ = struct
         | Mode.E -> Ast.Typ.Var.Map.add x mode acc
         | Mode.U | Mode.EQ _ -> acc)
       Ast.Typ.Var.Map.empty typ_vars
+
+  let minimal_deps_in_env env vars =
+    fixpoint Ast.Typ.Var.Set.subset vars
+      (fun vars ->
+          Ast.Typ.Var.Set.fold
+          (fun x acc ->
+            Ast.Typ.Var.Set.union (binding_fv (get_var x env)) acc)
+          vars vars)
+
+  let minimal_env_for_vars env vars =
+    filter
+      (fun _ -> false)
+      (fun x -> Ast.Typ.Var.Set.mem x (minimal_deps_in_env env vars))
+      env
+
 end
