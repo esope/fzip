@@ -1,5 +1,4 @@
 * better pretty printing for bound variables
-* weakening for open existential types
 * more examples
 * support for datatypes
 * recursion in terms
