@@ -262,9 +262,9 @@ module PPrint = struct
   let tights_more_than_base_arrow x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _
-    | BaseArrow(_,_) -> true
+    | BaseArrow(_,_) | App(_,_) -> true
     | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) | App(_,_) -> false
+      Lam (_, _, _) -> false
 
 
   let rec pre_typ_rec kind = let open Pprint in function

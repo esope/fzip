@@ -36,7 +36,33 @@ term_fields(kind,typ):
     else (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
           Label.Set.add lab labels) }
 
-undelimited_term(kind,typ):
+simple_term(kind,typ):
+| x=ID
+    { locate (TeVar x) $startpos $endpos }
+| LBRACE f=term_fields(kind,typ) RBRACE
+    { locate (TeRecord (fst f)) $startpos $endpos }
+| t=simple_term(kind,typ) DOT x=ID
+    { locate (TeProj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
+| t=simple_term(kind,typ) LBRACKET tau=typ RBRACKET
+    { locate (TeInst(t, tau)) $startpos $endpos }
+| LPAR t=term(kind,typ) COLON tau=typ RPAR
+    { locate (TeAnnot(t, tau)) $startpos $endpos }
+| LPAR t=term(kind,typ) RPAR
+    { relocate t $startpos $endpos }
+
+open_term(kind,typ):
+| OPEN LBRACKET x=ID RBRACKET t=open_term(kind,typ)
+    { locate (TeOpen(locate x $startpos(x) $endpos(x), t)) $startpos $endpos }
+| t=simple_term(kind,typ)
+    { t }
+
+app_term(kind,typ):
+| t1=app_term(kind,typ) t2=simple_term(kind,typ)
+    { locate (TeApp(t1, t2)) $startpos $endpos }
+| t=open_term(kind,typ)
+    { t }
+
+term(kind,typ):
 | LAMBDA b=mixed_bindings(typ,kind) ARROW t=term(kind,typ)
     { relocate (mkTe_mixed_bindings b t $endpos) $startpos $endpos }
 | UPLAMBDA b=typ_bindings(kind) ARROW t=term(kind,typ)
@@ -54,8 +80,6 @@ undelimited_term(kind,typ):
      let t1 = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
     locate
       (TeLet (locate x $startpos(x) $endpos(x), t1, t2)) $startpos $endpos }
-| OPEN LBRACKET x=ID RBRACKET t=delimited_term(kind,typ)
-    { locate (TeOpen(locate x $startpos(x) $endpos(x), t)) $startpos $endpos }
 | NU LPAR x=ID DBLCOLON k=kind RPAR t=term(kind,typ)
     { locate
         (TeNu (locate x $startpos(x) $endpos(x),
@@ -90,24 +114,7 @@ undelimited_term(kind,typ):
     let single_tau_k = locate (Single(tau, k)) $startpos(b) $endpos(k) in
     let t' = locate (TeSigma(y, x, single_tau_k, tau, t)) $startpos $endpos in
     locate (TeNu (y, single_tau_k, t')) $startpos $endpos }
-
-
-delimited_term(kind,typ):
-| LPAR t=term(kind,typ) RPAR { relocate t $startpos $endpos }
-| x=ID { locate (TeVar x) $startpos $endpos }
-| t1=delimited_term(kind,typ) t2=delimited_term(kind,typ)             %prec APP
-    { locate (TeApp(t1, t2)) $startpos $endpos }
-| LBRACE f=term_fields(kind,typ) RBRACE
-    { locate (TeRecord (fst f)) $startpos $endpos }
-| t=delimited_term(kind,typ) DOT x=ID
-    { locate (TeProj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
-| t=delimited_term(kind,typ) LBRACKET tau=typ RBRACKET
-    { locate (TeInst(t, tau)) $startpos $endpos }
-| LPAR t=term(kind,typ) COLON tau=typ RPAR
-    { locate (TeAnnot(t, tau)) $startpos $endpos }
-
-term(kind,typ):
-| t=undelimited_term(kind,typ) | t=delimited_term(kind,typ)
+| t=app_term(kind,typ)
     { t }
 
 term_expr(kind,typ):

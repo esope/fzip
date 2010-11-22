@@ -137,7 +137,6 @@ let string_of_token = function
   | LPAR -> "("
   | RPAR -> ")"
   | DBLCOLON -> "::"
-  | APP -> ""
   | STAR -> "⋆"
   | DBLARROW -> "⇒"
   | DOT -> "."
