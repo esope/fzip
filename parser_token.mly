@@ -53,6 +53,15 @@ let rec mkTe_mixed_bindings b e endpos = match b with
     mkTeGen_binding (startpos, a, k)
       (mkTe_mixed_bindings b e endpos) startpos endpos
 
+let rec mkTy_mixed_bindings b e endpos = match b with
+| [] -> e
+| TeBind(startpos, _x, t) :: b ->
+    locate (BaseArrow (t, mkTy_mixed_bindings b e endpos)) startpos endpos
+| TyBind(startpos, a, k) :: b ->
+    mkForall_binding (startpos, a, k)
+      (mkTy_mixed_bindings b e endpos) startpos endpos
+
+
 %}
 
 %token EOF
@@ -62,7 +71,7 @@ let rec mkTe_mixed_bindings b e endpos = match b with
 %token STAR DBLARROW
 
 %token LPAR RPAR DBLCOLON FORALL EXISTS COMMA ARROW
-%token LET IN UPLAMBDA LAMBDA
+%token LET IN REC UPLAMBDA LAMBDA
 %token SIGMA NU OPEN
 %token LANGLE RANGLE DOT
 %token SINGLE PI

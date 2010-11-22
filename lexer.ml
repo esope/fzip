@@ -80,6 +80,7 @@ let rec token = lexer
 | "Fun" | 923 (* Λ *) -> locate lexbuf UPLAMBDA
 | "let" -> locate lexbuf LET
 | "in" -> locate lexbuf IN
+| "rec" -> locate lexbuf REC
 | "forall" | 8704 (* ∀ *) -> locate lexbuf FORALL
 | "exists" | 8707 (* ∃ *) -> locate lexbuf EXISTS
 | "::" -> locate lexbuf DBLCOLON
@@ -132,6 +133,7 @@ let string_of_token = function
   | LAMBDA -> "λ"
   | UPLAMBDA -> "Λ"
   | LET -> "let"
+  | REC -> "rec"
   | IN -> "in"
   | LPAR -> "("
   | RPAR -> ")"

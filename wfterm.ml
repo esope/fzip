@@ -4,6 +4,92 @@ open Wftype
 open Location
 open Ast_utils
 
+let rec is_extended_result e = match e.content with
+| FVar _ -> true
+| BVar _ -> false
+| Proj(e, _) | Annot(e, _) -> is_extended_result e
+| Record m ->
+    Label.AList.for_all
+      (fun _lab -> is_extended_result)
+      m
+| App(_,_) | Inst(_,_) | Open(_,_) -> false
+| Fix({ content = x ; _ }, _, e) ->
+    let x' = Var.bfresh x in
+    let x_var' = dummy_locate (mkVar x') in
+    is_extended_result (bsubst_term_var e x x_var')
+| Let({ content = x ; _ }, e1, e2) ->
+    is_extended_result e1 &&
+    let x' = Var.bfresh x in
+    let x_var' = dummy_locate (mkVar x') in
+    is_extended_result (bsubst_term_var e2 x x_var')
+| Sigma(_,{ content = x ; _ },_,_,e)
+| Nu({content = x ; _ }, _ , e) ->
+    let x' = Typ.Var.bfresh x in
+    let x_var' = dummy_locate (Typ.mkVar x') in
+    is_extended_result (bsubst_typ_var e x x_var')
+| Gen _ | Lam _ | Ex _ -> is_result e
+
+and is_result e = match e.content with
+| Annot(e, _) -> is_result e
+| Sigma(_,{ content = x ; _ },_,_,e) ->
+    let x' = Typ.Var.bfresh x in
+    let x_var' = dummy_locate (Typ.mkVar x') in
+    is_result (bsubst_typ_var e x x_var')
+| Open _ | Fix _ | Inst _ | Proj _ | Nu _ | Ex _ | Gen _ | Record _ |
+  Let _ | Lam _ | App _ | BVar _ | FVar _ -> is_value e
+
+and is_value t = match t.content with
+| BVar _ -> assert false
+| Gen(_,_,_) | Lam(_,_,_) -> true
+| Annot(e, _) -> is_value e
+| Record m ->
+    Label.AList.for_all
+      (fun _lab -> is_value)
+      m
+| Ex({ content = x ; _ }, _,
+     { content = Sigma({ content = Typ.BVar x' ; _ }, y, _, _, e) ; _ })
+  when Typ.Var.bequal x x' ->
+    let y' = Typ.Var.bfresh y.content in
+    let y_var' = dummy_locate (Typ.mkVar y') in
+    is_value (bsubst_typ_var e y.content y_var')
+| Let _ | App _ | FVar _ | Inst _ | Proj _ | Fix _ |
+  Open _ | Nu _ | Sigma _
+| Ex(_,_,
+     { content =
+       Sigma({ content = (Typ.FVar _  | Typ.BaseArrow (_, _) |
+       Typ.BaseRecord _ | Typ.BaseExists (_, _, _) | Typ.BaseForall (_, _, _) |
+       Typ.Proj (_, _) | Typ.Record _ | Typ.Lam (_, _, _) |
+       Typ.App (_, _) | Typ.BVar _); _ },_,_,_,_) ; _ })
+| Ex
+  (_, _,
+  { content =
+    (Open (_, _)|Nu (_, _, _)|Ex (_, _, _)|Annot (_, _)|Fix (_, _, _)|
+    Inst (_, _)|Gen (_, _, _)|Proj (_, _)|Record _|Let (_, _, _)|
+    Lam (_, _, _)|App (_, _)|BVar _|FVar _) ; _ }) -> false
+
+let rec check_fixpoint_syntax e = match e.content with
+| FVar _ -> true
+| BVar _ -> assert false
+| Sigma (_, x, _, _, e) | Nu (x, _, e) | Ex (x, _, e) | Gen (x, _, e) ->
+    let x' = Typ.Var.bfresh x.content in
+    let x_var' = dummy_locate (Typ.mkVar x') in
+    check_fixpoint_syntax (bsubst_typ_var e x.content x_var')
+| Annot (e, _) | Inst (e, _) | Proj (e, _) | Open (_, e) ->
+    check_fixpoint_syntax e
+| Fix (x, _, e) ->
+    let x' = Var.bfresh x.content in
+    let x_var' = dummy_locate (mkVar x') in
+    let e' = bsubst_term_var e x.content x_var' in
+    is_extended_result e' && check_fixpoint_syntax e'
+| Record m ->
+    Label.AList.for_all (fun _lab -> check_fixpoint_syntax) m
+| Let (x, _, e) | Lam (x, _, e) ->
+    let x' = Var.bfresh x.content in
+    let x_var' = dummy_locate (mkVar x') in
+    check_fixpoint_syntax (bsubst_term_var e x.content x_var')
+| App (e1, e2) ->
+    check_fixpoint_syntax e1 && check_fixpoint_syntax e2
+
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
   let k = wftype env t in
@@ -226,8 +312,8 @@ let rec wfterm env term =
       (env', dummy_locate (Typ.mkBaseRecord m))
   | Proj(e, lab) ->
       let (env', tau') = wfterm env e in
-        let tau' = Normalize.head_norm ~unfold_eq:false env tau' in
-        (* necessary in case we have a path that is equivalent to a record *)
+      let tau' = Normalize.head_norm ~unfold_eq:false env tau' in
+      (* necessary in case we have a path that is equivalent to a record *)
       begin
         match tau'.content with
         | Typ.BaseRecord m ->
@@ -267,95 +353,95 @@ let rec wfterm env term =
                   Error.raise_error Error.subtype e.startpos e.endpos
                     (Printf.sprintf
                        "Ill-formed type annotation:\
- this term cannot be given the required type.\n%s%!"
-       (error_msg reasons))
+                       this term cannot be given the required type.\n%s%!"
+                             (error_msg reasons))
             end
         | No reasons ->
             Error.raise_error Error.subkind t.startpos t.endpos
               (Printf.sprintf
                  "Ill-formed type annotation:\
- this type should have a base kind.\n%s%!"
-       (error_msg reasons))
+                 this type should have a base kind.\n%s%!"
+                       (error_msg reasons))
       end
   | Sigma ({ content = Typ.FVar x ; _ } as x_loc,
            ({ content = y ; _ } as y_loc), k, t, e) ->
-      let ({ content = mode ; _ }, k_x) =
-        try Env.Typ.get_var x env
-        with Not_found ->
-          Error.raise_error Error.type_wf x_loc.startpos x_loc.endpos
-            (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
-        | Env.Removed_var loc ->
-            Error.raise_error Error.term_wf term.startpos term.endpos
-              (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
-                 (Typ.Var.to_string x) (location_msg loc))
+             let ({ content = mode ; _ }, k_x) =
+               try Env.Typ.get_var x env
+               with Not_found ->
+                 Error.raise_error Error.type_wf x_loc.startpos x_loc.endpos
+                   (Printf.sprintf "Unbound type variable: %s." (Typ.Var.to_string x))
+               | Env.Removed_var loc ->
+                   Error.raise_error Error.term_wf term.startpos term.endpos
+                     (Printf.sprintf "The type variable %s cannot be used since the program point in %s."
+                        (Typ.Var.to_string x) (location_msg loc))
 
-      in begin
-      (* checking mode *)
-          match mode with
-          | Mode.U -> (* normal case *)
-              begin
-                let env_minus_x =
-                  Env.Typ.remove_var ~track:true ~recursive:true
-                    x (Location.locate_with () x_loc) env in
-                if wfkind env_minus_x k.content
-                then (* k is well_formed *)
-                  let open Answer in
-                  match (* check k_x ≡ k *)
-                    Normalize.equiv_kind ~unfold_eq:false env k.content k_x
-                  with
-                  | Yes ->
-                      begin
-                        (* checking that e \ x ⊢ t :: k *)
-                        match Wftype.check_wftype env_minus_x t k.content with
-                        | Yes ->
-                            let y' = Typ.Var.bfresh y in
-                            let y_var' =  locate_with (Typ.mkVar y') y_loc in
-                            let (env', t') =
-                              let env = (* (env \ x) ∪ y :: k = t *)
-                                Env.Typ.add_var
-                                  (locate_with (Mode.EQ t) y_loc) y' k.content
-                                  env_minus_x in
-                              wfterm env (bsubst_typ_var e y y_var') in
-                            assert (not (Env.Typ.is_fv y' env')) ;
-                            assert (not (Env.Typ.is_fv x env')) ;
-                            assert (not (Env.Typ.mem_var x env')) ;
-                            let env =
-                              let min_env_for_t_k =
-                                Env.Typ.minimal_env_for_vars env_minus_x
-                                  (Ast.Typ.Var.Set.union
-                                     (Ast.Typ.fv t) (Ast.Kind.fv k.content)) in
-                              let min_env_for_e =
-                                (* (env' \ y) ∪ ∃ x :: k_x *)
-                                Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
-                                  (Env.Typ.remove_var
-                                     ~track:false ~recursive:false
-                                     y' (Location.locate_with () y_loc) env')
-                              in
-                              match Env.zip min_env_for_e min_env_for_t_k with
-                              | WithValue.Yes env -> env
-                              | WithValue.No _ -> assert false
-                            in
-                            (env,
-                             Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
-                        | No reasons ->
-                            Error.raise_error Error.term_wf t.startpos t.endpos
-                              (error_msg reasons)
-                      end
-                  | No reason ->
-                      Error.raise_error Error.subkind
-                        x_loc.startpos x_loc.endpos
-                        (Printf.sprintf "This kind of this type variable is not equivalent to the kind that is provided as argument to the Σ.\n%s%!"
-                           (error_msg reason))
-                else (* k is not wellformed *)
-                  Error.raise_error Error.kind_wf k.startpos k.endpos
-                    "Ill-formed kind in the definition part of a Σ."
-              end
-          | Mode.E -> assert false
-          | Mode.EQ _ ->
-              Error.raise_error Error.misused_typ_var
-                x_loc.startpos x_loc.endpos
-                "This variable is equipped with an equation, hence it cannot be used by Σ."
-      end
+             in begin
+               (* checking mode *)
+               match mode with
+               | Mode.U -> (* normal case *)
+                   begin
+                     let env_minus_x =
+                       Env.Typ.remove_var ~track:true ~recursive:true
+                         x (Location.locate_with () x_loc) env in
+                     if wfkind env_minus_x k.content
+                     then (* k is well_formed *)
+                       let open Answer in
+                       match (* check k_x ≡ k *)
+                         Normalize.equiv_kind ~unfold_eq:false env k.content k_x
+                       with
+                       | Yes ->
+                           begin
+                             (* checking that e \ x ⊢ t :: k *)
+                             match Wftype.check_wftype env_minus_x t k.content with
+                             | Yes ->
+                                 let y' = Typ.Var.bfresh y in
+                                 let y_var' =  locate_with (Typ.mkVar y') y_loc in
+                                 let (env', t') =
+                                   let env = (* (env \ x) ∪ y :: k = t *)
+                                     Env.Typ.add_var
+                                       (locate_with (Mode.EQ t) y_loc) y' k.content
+                                       env_minus_x in
+                                   wfterm env (bsubst_typ_var e y y_var') in
+                                 assert (not (Env.Typ.is_fv y' env')) ;
+                                 assert (not (Env.Typ.is_fv x env')) ;
+                                 assert (not (Env.Typ.mem_var x env')) ;
+                                 let env =
+                                   let min_env_for_t_k =
+                                     Env.Typ.minimal_env_for_vars env_minus_x
+                                       (Ast.Typ.Var.Set.union
+                                          (Ast.Typ.fv t) (Ast.Kind.fv k.content)) in
+                                   let min_env_for_e =
+                                     (* (env' \ y) ∪ ∃ x :: k_x *)
+                                     Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
+                                       (Env.Typ.remove_var
+                                          ~track:false ~recursive:false
+                                          y' (Location.locate_with () y_loc) env')
+                                   in
+                                   match Env.zip min_env_for_e min_env_for_t_k with
+                                   | WithValue.Yes env -> env
+                                   | WithValue.No _ -> assert false
+                                 in
+                                 (env,
+                                  Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
+                             | No reasons ->
+                                 Error.raise_error Error.term_wf t.startpos t.endpos
+                                   (error_msg reasons)
+                           end
+                       | No reason ->
+                           Error.raise_error Error.subkind
+                             x_loc.startpos x_loc.endpos
+                             (Printf.sprintf "This kind of this type variable is not equivalent to the kind that is provided as argument to the Σ.\n%s%!"
+                                (error_msg reason))
+                     else (* k is not wellformed *)
+                       Error.raise_error Error.kind_wf k.startpos k.endpos
+                         "Ill-formed kind in the definition part of a Σ."
+                   end
+               | Mode.E -> assert false
+               | Mode.EQ _ ->
+                   Error.raise_error Error.misused_typ_var
+                     x_loc.startpos x_loc.endpos
+                     "This variable is equipped with an equation, hence it cannot be used by Σ."
+             end
   | Sigma ({ content =
              (Typ.BVar _ | Typ.App _ | Typ.Lam _ | Typ.Record _ | Typ.Proj _ |
              Typ.BaseArrow _ | Typ.BaseRecord _ | Typ.BaseForall _ |
@@ -375,56 +461,56 @@ let rec wfterm env term =
       in
       begin
         (* checking mode *)
-          match mode with
-          | Mode.U -> (* normal case *)
-              begin
-                let (env', t') =
-                  wfterm
-                    (Env.Typ.remove_var ~track:true ~recursive:true
-                       x (Location.locate_with () x_loc) env) e in
-                let t' = Normalize.head_norm ~unfold_eq:false env t' in
-                (* necessary in case we have a path
-                   that is equivalent to a ∃ *)
-                match t'.content with
-                | Typ.BaseExists({ content = y ; _ }, k, t') ->
-                    begin
-                      assert (not (Env.Typ.is_fv x env')) ;
-                      assert (not (Env.Typ.mem_var x env')) ;
-                      (* checking env ⊢ k ≡ k_x *)
-                      let open Answer in
-                      match 
-                        Normalize.equiv_kind ~unfold_eq:false env k_x k.content
-                      with
-                      | Yes ->
-                          (Env.Typ.add_var (locate_with Mode.E x_loc)
-                             x k.content env',
-                           Typ.bsubst t' y x_loc)
-                      | No reason ->
-                          Error.raise_error Error.subkind
-                            x_loc.startpos x_loc.endpos
-                            (Printf.sprintf "This kind of this type variable is not equivalent to the kind at the bound of the existential type of the argument.\n%s%!"
-                               (error_msg reason))
-                    end
-                | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
-                  Typ.BaseForall (_, _, _) | Typ.BaseArrow (_,_) |
-                  Typ.Proj (_, _) | Typ.Record _ |
-                  Typ.Lam (_, _, _) | Typ.App (_, _)) ->
-                    Error.raise_error Error.term_wf e.startpos e.endpos
-                      (Printf.sprintf "Ill-formed opening: this term should have an existential type, but has type\n%s%!"
-                         (Ast_utils.PPrint.Typ.string t'))
-                    end
-          | Mode.E -> assert false
-          | Mode.EQ _ ->
-              Error.raise_error Error.misused_typ_var
-                x_loc.startpos x_loc.endpos
-                "This variable is equipped with an equation, hence it cannot be used by open."
+        match mode with
+        | Mode.U -> (* normal case *)
+            begin
+              let (env', t') =
+                wfterm
+                  (Env.Typ.remove_var ~track:true ~recursive:true
+                     x (Location.locate_with () x_loc) env) e in
+              let t' = Normalize.head_norm ~unfold_eq:false env t' in
+              (* necessary in case we have a path
+                 that is equivalent to a ∃ *)
+              match t'.content with
+              | Typ.BaseExists({ content = y ; _ }, k, t') ->
+                  begin
+                    assert (not (Env.Typ.is_fv x env')) ;
+                    assert (not (Env.Typ.mem_var x env')) ;
+                    (* checking env ⊢ k ≡ k_x *)
+                    let open Answer in
+                    match 
+                      Normalize.equiv_kind ~unfold_eq:false env k_x k.content
+                    with
+                    | Yes ->
+                        (Env.Typ.add_var (locate_with Mode.E x_loc)
+                           x k.content env',
+                         Typ.bsubst t' y x_loc)
+                    | No reason ->
+                        Error.raise_error Error.subkind
+                          x_loc.startpos x_loc.endpos
+                          (Printf.sprintf "This kind of this type variable is not equivalent to the kind at the bound of the existential type of the argument.\n%s%!"
+                             (error_msg reason))
+                  end
+              | (Typ.BVar _ | Typ.FVar _ | Typ.BaseRecord _ |
+                Typ.BaseForall (_, _, _) | Typ.BaseArrow (_,_) |
+                Typ.Proj (_, _) | Typ.Record _ |
+                Typ.Lam (_, _, _) | Typ.App (_, _)) ->
+                  Error.raise_error Error.term_wf e.startpos e.endpos
+                    (Printf.sprintf "Ill-formed opening: this term should have an existential type, but has type\n%s%!"
+                       (Ast_utils.PPrint.Typ.string t'))
+            end
+        | Mode.E -> assert false
+        | Mode.EQ _ ->
+            Error.raise_error Error.misused_typ_var
+              x_loc.startpos x_loc.endpos
+              "This variable is equipped with an equation, hence it cannot be used by open."
       end
   | Open ({ content =
             (Typ.BVar _ | Typ.App _ | Typ.Lam _ | Typ.Record _ | Typ.Proj _ |
             Typ.BaseArrow _ | Typ.BaseRecord _ | Typ.BaseForall _ |
             Typ.BaseExists _) ; _ }, _) ->
-      (* this case is not supported by the syntax *)
-      assert false
+              (* this case is not supported by the syntax *)
+              assert false
   | Nu ({ content = x ; _ } as x_loc, k, e) ->
       if wfkind env k.content
       then
@@ -527,6 +613,50 @@ let rec wfterm env term =
       else
         Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind at the bound of an existential closure."
+  | Fix ({ content = x ; _ } as x_loc, t, e) ->
+      let open Answer in
+      match wfbasetype env t with
+      | OK ->
+          begin
+            let x' = Var.bfresh x in
+            let x_var' = locate_with (mkVar x') x_loc in
+            let (env', t') =
+              wfterm
+                (Env.Term.add_var x' (Location.relocate_with t x_loc) env)
+                (bsubst_term_var e x x_var') in
+            let open Answer in
+            match Wftype.sub_type ~unfold_eq:false env t' t with
+            | Yes ->
+                let env =
+                  let min_env_for_t =
+                    Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
+                  and min_env_for_e =
+                    Env.Term.remove_var ~track:false
+                      x' (Location.locate_with () x_loc) env'
+                  in match Env.zip min_env_for_e min_env_for_t with
+                  | WithValue.Yes env -> env
+                  | WithValue.No _ -> assert false
+                in
+                (env, t)
+            | No reasons ->
+                Error.raise_error Error.subtype term.startpos term.endpos
+                  (Printf.sprintf
+                     "Ill-formed fixpoint:\
+                     this term cannot be given the required type.\n%s%!"
+                           (error_msg reasons))
+          end
+      | KIND k ->
+          Error.raise_error Error.term_wf t.startpos t.endpos
+            (Printf.sprintf "This type should have kind ⋆, but has kind\n%s%!"
+               (PPrint.Kind.string k))
+
+let wfterm env e =
+  if check_fixpoint_syntax e
+  then wfterm env e
+  else
+    Error.raise_error Error.term_wf e.startpos e.endpos
+      "Ill-formed fixpoint: this term should be an extended result."
+      
 
 let check_wfterm env e t =
   let (_, t_min) = wfterm env e in

@@ -37,6 +37,7 @@ module Raw = struct
     | TeOpen of string located * ('kind, 'typ) term
     | TeSigma of string located * 
           string located * 'kind located * 'typ * ('kind, 'typ) term
+    | TeFix of string located * 'typ * ('kind, 'typ) term
 
   type req =
     | RequireVal of string located * typ
@@ -443,6 +444,7 @@ module Term = struct
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
+    | Fix of Var.bound located * Typ.t * term
     | Annot of term * Typ.t
     | Ex of Typ.Var.bound located * Kind.t located * term
     | Nu of Typ.Var.bound located * Kind.t located * term
@@ -478,7 +480,7 @@ module Term = struct
     | FVar y -> if Var.equal x y then Var.bone else Var.bzero
     | BVar _ -> Var.bzero
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
-    | Lam (y, _tau, t) ->
+    | Lam (y, _tau, t) | Fix(y, _tau, t) ->
         h_te_binder y.content (h_term_var x t)
     | Let (y, t1, t2) ->
         Var.bmax (h_term_var x t1) (h_te_binder y.content (h_term_var x t2))
@@ -493,7 +495,7 @@ module Term = struct
     | FVar _ | BVar _ -> Typ.Var.bzero
     | App (t,u) | Let (_, t, u) ->
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
-    | Lam (_, tau, t) | Inst(t, tau) | Annot(t, tau) ->
+    | Lam (_, tau, t) | Inst(t, tau) | Fix(_, tau, t) | Annot(t, tau) ->
         Typ.Var.bmax (Typ.h_typ x tau) (h_typ_var x t)
     | Gen (y, k, t) | Nu (y, k, t) | Ex (y, k, t) ->
         Typ.Var.bmax (Typ.h_kind x k.content)
@@ -534,6 +536,8 @@ module Term = struct
         Gen (x, k, var_map_term_var f_free t)
     | Inst(t, tau) ->
         Inst (var_map_term_var f_free t, tau)
+    | Fix (x, k, t) ->
+        Fix (x, k, var_map_term_var f_free t)
     | Annot(t, tau) ->
         Annot (var_map_term_var f_free t, tau)
     | Sigma (x, y, k, tau, t) ->
@@ -573,6 +577,8 @@ module Term = struct
     | Inst(t, tau) ->
         Inst (var_map_typ_var f_free t,
               Typ.var_map_typ f_free tau)
+    | Fix (x, k, t) ->
+        Fix (x, Typ.var_map_typ f_free k, var_map_typ_var f_free t)
     | Annot(t, tau) ->
         Annot (var_map_typ_var f_free t,
                Typ.var_map_typ f_free tau)
@@ -625,6 +631,10 @@ module Term = struct
       Gen (y, k, bsubst_term_var t x u)
   | Inst (t, tau) ->
       Inst (bsubst_term_var t x u, tau)
+  | Fix (y, k, t) ->
+      if Var.bequal x y.content
+      then Fix(y, k, t)
+      else Fix (y, k, bsubst_term_var t x u)
   | Annot (t, tau) ->
       Annot (bsubst_term_var t x u, tau)
   | Sigma (y, z, k, tau, t) ->
@@ -664,6 +674,8 @@ module Term = struct
       else Gen (y, k', bsubst_typ_var t x u)
   | Inst(t, tau) ->
       Inst(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
+  | Fix (y, tau, t) ->
+      Fix (y, Typ.bsubst_typ tau x u, bsubst_typ_var t x u)
   | Annot(t, tau) ->
       Annot(bsubst_typ_var t x u, Typ.bsubst_typ tau x u)
   | Sigma (y, z, k, tau, t) ->
@@ -697,7 +709,7 @@ module Term = struct
   and pre_equal t1 t2 = match (t1, t2) with
   | (FVar x, FVar x') -> Var.equal x x'
   | (BVar x, BVar x') -> Var.bequal x x'
-  | (Lam(x,tau,t), Lam(x',tau',t')) ->
+  | (Lam(x,tau,t), Lam(x',tau',t')) | (Fix(x,tau,t), Fix(x',tau',t')) ->
       Var.bequal x.content x'.content && Typ.equal_typ tau tau' && equal t t'
   | (Let(x,t1,t2), Let(x',t1',t2')) ->
       Var.bequal x.content x'.content && equal t1 t1' && equal t2 t2'
@@ -720,7 +732,7 @@ module Term = struct
         && Typ.equal_kind k.content k'.content
         && Typ.equal_typ tau tau' && equal t t'
   | ((FVar _ | BVar _ | Lam(_,_,_) | Record _ | Proj(_,_) |
-    Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Annot(_,_) |
+    Gen(_,_,_) | App(_,_) | Let(_,_,_) | Inst(_,_) | Fix(_,_,_) | Annot(_,_) |
     Sigma(_,_,_,_,_) | Open(_,_) | Ex(_,_,_) | Nu(_,_,_)),_) ->
       false
 
@@ -728,7 +740,7 @@ module Term = struct
   match t.content with
   | BVar _ | FVar _ -> empty
   | App(e1, e2) | Let(_, e1, e2) -> union (fv_typ e1) (fv_typ e2)
-  | Lam(_, t, e) | Inst(e, t) | Annot(e, t) | Open(t, e) ->
+  | Lam(_, t, e) | Inst(e, t) | Fix(_, t, e) | Annot(e, t) | Open(t, e) ->
       union (Typ.fv t) (fv_typ e)
   | Proj(e, _) -> fv_typ e
   | Nu(_, k, e) | Ex(_, k, e) | Gen(_, k, e) ->
@@ -745,7 +757,7 @@ module Term = struct
   let rec is_fv_typ y t = match t.content with
   | BVar _ | FVar _ -> false
   | App(e1, e2) | Let(_, e1, e2) -> (is_fv_typ y e1) || (is_fv_typ y e2)
-  | Lam(_, t, e) | Inst(e, t) | Annot(e, t) | Open(t, e) ->
+  | Lam(_, t, e) | Inst(e, t) | Fix(_, t, e) | Annot(e, t) | Open(t, e) ->
       (Typ.is_fv y t) || (is_fv_typ y e)
   | Proj(e, _) -> is_fv_typ y e
   | Nu(_, k, e) | Ex(_, k, e) | Gen(_, k, e) ->
@@ -763,8 +775,9 @@ module Term = struct
   | BVar _ -> empty
   | FVar x -> singleton x
   | App(e1, e2) | Let(_, e1, e2) -> union (fv_term e1) (fv_term e2)
-  | Lam(_, _, e) | Inst(e, _) | Annot(e, _) | Open(_, e) | Proj(e, _)
-  | Nu(_, _, e) | Ex(_, _, e) | Gen(_, _, e) | Sigma(_, _, _, _, e) ->
+  | Lam(_, _, e) | Inst(e, _) | Fix(_, _, e) | Annot(e, _) |
+    Open(_, e) | Proj(e, _) | Nu(_, _, e) | Ex(_, _, e) |
+    Gen(_, _, e) | Sigma(_, _, _, _, e) ->
       fv_term e
   | Record m ->
       Label.AList.fold
@@ -775,8 +788,9 @@ module Term = struct
   | BVar _ -> false
   | FVar x -> Var.equal y x
   | App(e1, e2) | Let(_, e1, e2) -> (is_fv_term y e1) || (is_fv_term y e2)
-  | Lam(_, _, e) | Inst(e, _) | Annot(e, _) | Open(_, e) | Proj(e, _)
-  | Nu(_, _, e) | Ex(_, _, e) | Gen(_, _, e) | Sigma(_, _, _, _, e) ->
+  | Lam(_, _, e) | Inst(e, _) | Fix(_, _, e) | Annot(e, _) |
+    Open(_, e) | Proj(e, _) | Nu(_, _, e) | Ex(_, _, e) |
+    Gen(_, _, e) | Sigma(_, _, _, _, e) ->
       is_fv_term y e
   | Record m ->
       Label.AList.exists
@@ -805,6 +819,10 @@ module Term = struct
     Gen (locate_with y x, k, subst_typ_var t x.content (Typ.BVar y))
 
   let mkInst t tau = Inst(t, tau)
+
+  let mkFix x tau t =
+    let y = h_term_var x.content t in
+    Fix (locate_with y x, tau, subst_term_var t x.content (BVar y))
 
   let mkAnnot t tau = Annot(t, tau)
 

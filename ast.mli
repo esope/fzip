@@ -38,6 +38,7 @@ module Raw : sig
     | TeOpen of string located * ('kind, 'typ) term
     | TeSigma of string located *
           string located * 'kind located * 'typ * ('kind, 'typ) term
+    | TeFix of string located * 'typ * ('kind, 'typ) term
 
   type req =
     | RequireVal of string located * typ
@@ -171,6 +172,8 @@ module Term : sig
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Kind.t) located * term
     | Inst of term * Typ.t
+(** Fixpoint. *)
+    | Fix of Var.bound located * Typ.t * term
 (** Constructs for open existential types. *)
     | Annot of term * Typ.t
     | Ex of Typ.Var.bound located * Kind.t located * term
@@ -222,6 +225,7 @@ module Term : sig
   val mkProj: t -> Label.t located -> pre_term
   val mkGen: Typ.Var.free located -> Kind.t located -> t -> pre_term
   val mkInst: t -> Typ.t -> pre_term
+  val mkFix: Var.free located -> Typ.t -> t -> pre_term
   val mkAnnot: t -> Typ.t -> pre_term
   val mkEx: Typ.Var.free located -> Kind.t located -> t -> pre_term
   val mkNu: Typ.Var.free located -> Kind.t located -> t -> pre_term

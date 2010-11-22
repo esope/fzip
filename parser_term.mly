@@ -28,23 +28,39 @@ term_fields(kind,typ):
 | 
     { (Label.AList.empty, Label.Set.empty) }
 | VAL lab=ID params=list(mixed_binding(typ,kind))
-    EQ t=term(kind,typ) f=term_fields(kind,typ)
-    { let (fields, labels) = f in
-    if Label.Set.mem lab labels
-    then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
-        (Printf.sprintf "Duplicate record label: %s." lab)
-    else (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
-          Label.Set.add lab labels) }
-| VAL lab=ID params=list(mixed_binding(typ,kind)) COLON tau=typ
+    tau=option(preceded(COLON,typ))
     EQ t=term(kind,typ) f=term_fields(kind,typ)
     { let (fields, labels) = f in
     if Label.Set.mem lab labels
     then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
     else
-      let t = locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t) in
+      let t = match tau with
+      | Some tau -> locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t)
+      | None -> t
+      in
       (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
           Label.Set.add lab labels) }
+| VAL REC lab=ID b=list(mixed_binding(typ,kind)) COLON tau=typ
+    EQ t=term(kind,typ) f=term_fields(kind,typ)
+    { let (fields, labels) = f in
+    if Label.Set.mem lab labels
+    then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
+        (Printf.sprintf "Duplicate record label: %s." lab)
+    else
+      let tau_fix = mkTy_mixed_bindings b tau $endpos(tau) in
+      let t_tau = locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t) in
+      let t_with_bindings =
+        mkTe_mixed_bindings b t_tau t_tau.Location.endpos in
+      let t_fix =
+        locate
+          (TeFix(locate lab $startpos(lab) $endpos(lab),
+                 tau_fix, t_with_bindings))
+          $startpos(lab) t_with_bindings.Location.endpos in
+      (Label.AList.add lab t_fix fields,
+       Label.Set.add lab labels)
+    }
+
 
 simple_term(kind,typ):
 | x=ID
@@ -78,18 +94,28 @@ term(kind,typ):
 | UPLAMBDA b=typ_bindings(kind) ARROW t=term(kind,typ)
   (* we allow the use of λ of Λ for type generalization *)
     { relocate (mkTeGen_bindings b t $endpos) $startpos $endpos }
-| LET x=ID b=list(mixed_binding(typ,kind)) EQ t1=term(kind,typ) IN
-    t2=term(kind,typ)
-    { locate
-        (TeLet (locate x $startpos(x) $endpos(x),
-                mkTe_mixed_bindings b t1 $endpos(t1),
-                t2)) $startpos $endpos }
-| LET x=ID b=list(mixed_binding(typ,kind)) COLON tau=typ
+| LET x=ID b=list(mixed_binding(typ,kind)) tau=option(preceded(COLON,typ))
     EQ t1=term(kind,typ) IN t2=term(kind,typ)
-    { let t1 = mkTe_mixed_bindings b t1 $endpos(t1) in
-     let t1 = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
+    { let t1 = match tau with
+    | Some tau ->
+        locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1)
+    | None -> t1
+    in let t1 = mkTe_mixed_bindings b t1 $endpos(t1) in
     locate
       (TeLet (locate x $startpos(x) $endpos(x), t1, t2)) $startpos $endpos }
+| LET REC x=ID b=list(mixed_binding(typ,kind)) COLON tau=typ
+    EQ t1=term(kind,typ) IN t2=term(kind,typ)
+    { let tau_fix = mkTy_mixed_bindings b tau $endpos(tau) in
+      let t1_tau = locate (TeAnnot(t1, tau)) $startpos(tau) $endpos(t1) in
+      let t1_with_bindings =
+        mkTe_mixed_bindings b t1_tau t1_tau.Location.endpos in
+      let t1_fix =
+        locate
+          (TeFix(locate x $startpos(x) $endpos(x), tau_fix, t1_with_bindings))
+          $startpos(x) t1_with_bindings.Location.endpos in
+      locate
+        (TeLet (locate x $startpos(x) $endpos(x), t1_fix, t2))
+        $startpos $endpos }
 | NU LPAR x=ID DBLCOLON k=kind RPAR t=term(kind,typ)
     { locate
         (TeNu (locate x $startpos(x) $endpos(x),

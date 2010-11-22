@@ -80,6 +80,10 @@ module Encode = struct
           and t' = term t in
           mkGen (map Ast.Typ.Var.make x) k' t'
       | Raw.TeInst (t, tau) -> mkInst (term t) (Typ.typ tau)
+      | Raw.TeFix (x, tau, t) ->
+          let tau' = Typ.typ tau
+          and t' = term t in
+          mkFix (map Var.make x) tau' t'
       | Raw.TeAnnot (t, tau) -> mkAnnot (term t) (Typ.typ tau)
       | Raw.TeSigma (y, z, k, tau, t) ->
           mkSigma (map Ast.Typ.Var.make y)
