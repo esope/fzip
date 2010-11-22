@@ -1,0 +1,53 @@
+import {
+  type unit :: ⋆
+  val  unit :  unit
+
+  type Bool :: < type t :: ⋆ >
+  val  Bool :
+    { val true : Bool.t
+      val false : Bool.t
+      val match : ∀(a :: ⋆), Bool.t →
+                    { val true : unit → a   val false : unit → a } → a
+    }
+
+  type Int :: < type t :: ⋆ >
+  val  Int :
+    { val zero : Int.t
+      val succ : Int.t → Int.t
+      val match : ∀(a :: ⋆), Int.t →
+                    { val zero : unit → a   val succ : Int.t → a } → a
+      val compare : Int.t → Int.t → Bool.t
+    }
+
+  type List :: < type t :: ⋆ ⇒ ⋆ >
+  val  List : ∀(α :: ⋆),
+    { val empty : List.t α
+      val cons : α → List.t α → List.t α
+      val match : ∀(β :: ⋆),
+                    List.t α →
+                    { val empty : unit → β
+                      val cons : α → List.t α → β } → β
+    }
+
+}
+
+{ val is_zero (x : Int.t) : Bool.t =
+    Int.match [Bool.t] x
+    { val zero (y : unit) = Bool.true
+      val succ (y : Int.t) = Bool.false
+    }
+
+  val is_empty (α :: ⋆) (x : List.t α) : Bool.t =
+    (List [α]).match [Bool.t] x
+    { val empty (y : unit) = Bool.true
+      val cons  (y : α) (l : List.t α) = Bool.false
+    }
+
+  val length =
+    let rec length (α :: ⋆) (l : List.t α) : Int.t =
+        (List [α]).match [Int.t] l
+        { val empty (x : unit) = Int.zero 
+          val cons (x : α) (l : List.t α) = Int.succ (length [α] l)
+        }
+    in length
+}
