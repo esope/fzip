@@ -1,6 +1,6 @@
-export type b :: ⋆
-
-%%
+requirements {
+  export type b :: ⋆
+}
 
 Σ [b] (a :: ⋆ = {})
    { val L = fun (x : {}) -> (x : a) }

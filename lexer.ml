@@ -72,7 +72,7 @@ let rec token = lexer
 | "*)" -> raise (Unexpected_end_of_comment (startpos lexbuf, endpos lexbuf))
 | "=>" | 8658 (* ⇒ *) -> locate lexbuf DBLARROW
 | "->" | 8594 (* → *) -> locate lexbuf ARROW
-| "*" | 8902 (* ⋆ *) -> locate lexbuf STAR
+| "*" | 8902 (* ⋆ *) | 9733 (* ★ *) -> locate lexbuf STAR
 | "val" -> locate lexbuf VAL
 | "type" -> locate lexbuf TYPE
 | "as" -> locate lexbuf AS
@@ -100,9 +100,9 @@ let rec token = lexer
 | "nu" |  957 (* ν *) -> locate lexbuf NU
 | "open" -> locate lexbuf OPEN
 | "S" -> locate lexbuf SINGLE
+| "import" -> locate lexbuf IMPORT
 | "export" -> locate lexbuf EXPORT
-| "require" -> locate lexbuf REQUIRE
-| "%%" -> locate lexbuf DBLPERCENT
+| "requirements" -> locate lexbuf REQUIREMENTS
 | eof -> locate lexbuf EOF
 | id -> locate lexbuf (ID (utf8_lexeme lexbuf))
 | _ ->
@@ -158,7 +158,7 @@ let string_of_token = function
   | FORALL -> "∀"
   | EXISTS -> "∃"
   | ARROW -> "→"
-  | REQUIRE -> "require"
+  | REQUIREMENTS -> "requirements"
   | EXPORT -> "export"
-  | DBLPERCENT -> "%%"
+  | IMPORT -> "import"
   | EOF -> "\n"

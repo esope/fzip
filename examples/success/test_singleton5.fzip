@@ -1,8 +1,8 @@
-require type a :: *
-require type b :: S(a)
-require type c :: S(b)
-require type d :: S(c)
-
-%%
+requirements {
+  import type a :: *
+  import type b :: S(a)
+  import type c :: S(b)
+  import type d :: S(c)
+}
 
 fun (x : a) -> (fun (y : d) -> y) x

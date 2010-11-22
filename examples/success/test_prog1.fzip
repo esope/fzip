@@ -1,11 +1,11 @@
-export type b :: ⋆
-require type int :: *
-require val int :
-  { val zero : int
-    val one : int
-    val plus : int -> int -> int }
-
-%%
+requirements {
+  export type b :: ⋆
+  import type int :: *
+  import val int :
+    { val zero : int
+      val one : int
+      val plus : int -> int -> int }
+}
 
 let two = int.plus int.one int.one in
 Σ [b] (a :: ⋆ = int) (two : a)

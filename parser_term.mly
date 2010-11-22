@@ -117,9 +117,9 @@ main_term_expr:
 | t=term_expr(kind,typ) { t }
 
 requirement(kind,typ):
-| REQUIRE VAL x=ID COLON t=typ
+| IMPORT VAL x=ID COLON t=typ
     { RequireVal(locate x $startpos(x) $endpos(x), t) }
-| REQUIRE TYPE x=ID DBLCOLON k=kind
+| IMPORT TYPE x=ID DBLCOLON k=kind
     { RequireTyp(locate x $startpos(x) $endpos(x),
                  locate k $startpos(k) $endpos(k)) }
 | EXPORT TYPE x=ID DBLCOLON k=kind
@@ -129,7 +129,7 @@ requirement(kind,typ):
 header(kind,typ):
 | 
   { [] }
-| l=list(requirement(kind,typ)) DBLPERCENT { List.rev l }
+| REQUIREMENTS LBRACE l=list(requirement(kind,typ)) RBRACE { List.rev l }
 
 header_expr(kind,typ):
 | h=header(kind,typ) EOF { h }

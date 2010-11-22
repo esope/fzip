@@ -1,7 +1,7 @@
-require val x : ∃ (a :: ⋆), a
-export type b :: ⋆
-
-%%
+requirements {
+  import val x : ∃ (a :: ⋆), a
+  export type b :: ⋆
+}
 
 open [b] x
 

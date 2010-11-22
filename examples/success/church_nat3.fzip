@@ -1,6 +1,6 @@
-export type nat :: ⋆
-
-%%
+requirements {
+  export type nat :: ⋆
+}
 
 let nat = open [nat]
   (exists (a :: ⋆ = forall (a::⋆), a -> (a -> a) -> a)
