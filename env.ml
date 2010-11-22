@@ -63,8 +63,8 @@ let rec typ_vars_to_string = function
 
 let to_string e =
   Printf.sprintf "begin\n%a%aend\n"
-    (fun _ -> typ_vars_to_string)  (List.rev e.typ_vars)
-    (fun _ -> term_vars_to_string) (List.rev e.term_vars)
+    (fun _ -> typ_vars_to_string)  e.typ_vars
+    (fun _ -> term_vars_to_string) e.term_vars
 
 module Set = struct
 (* some operations on sets as records *)

@@ -123,20 +123,27 @@ term_expr(kind,typ):
 main_term_expr:
 | t=term_expr(kind,typ) { t }
 
-requirement(kind,typ):
-| IMPORT VAL x=ID COLON t=typ
+import_req(kind,typ):
+| VAL x=ID COLON t=typ
     { RequireVal(locate x $startpos(x) $endpos(x), t) }
-| IMPORT TYPE x=ID DBLCOLON k=kind
+| TYPE x=ID DBLCOLON k=kind
     { RequireTyp(locate x $startpos(x) $endpos(x),
                  locate k $startpos(k) $endpos(k)) }
-| EXPORT TYPE x=ID DBLCOLON k=kind
+
+export_req(kind,typ):
+| TYPE x=ID DBLCOLON k=kind
     { ExportTyp(locate x $startpos(x) $endpos(x),
                 locate k $startpos(k) $endpos(k)) }
 
+req(kind,typ):
+| EXPORT LBRACE l=list(export_req(kind,typ)) RBRACE
+    { List.rev l }
+| IMPORT LBRACE l=list(import_req(kind,typ)) RBRACE
+    { List.rev l }
+
 header(kind,typ):
-| 
-  { [] }
-| REQUIREMENTS LBRACE l=list(requirement(kind,typ)) RBRACE { List.rev l }
+| l=list(req(kind,typ))
+  { List.flatten (List.rev l) }
 
 header_expr(kind,typ):
 | h=header(kind,typ) EOF { h }

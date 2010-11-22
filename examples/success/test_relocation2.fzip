@@ -1,7 +1,9 @@
-requirements {
-  import type F :: S ( λ(a::⋆) => { val L : a val R : a } :: ⋆ => ⋆)
-  import val x : ∃ (a::⋆), F a
-  export type b :: ⋆
+import {
+  type F :: S ( λ(a::⋆) => { val L : a val R : a } :: ⋆ => ⋆)
+  val x : ∃ (a::⋆), F a
+}
+export {
+  type b :: ⋆
 }
 
 ν (a :: ⋆)

@@ -1,7 +1,10 @@
-requirements {
-  export type b :: ⋆
-  import type int :: *
-  import val int :
+export {
+  type b :: ⋆
+}
+
+import {
+  type int :: *
+  val int :
     { val zero : int
       val one : int
       val plus : int -> int -> int }

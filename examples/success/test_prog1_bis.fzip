@@ -1,10 +1,12 @@
-requirements {
-  import type int :: *
-  import val int :
+import {
+  type int :: *
+  val int :
     { val zero : int
       val one : int
       val plus : int -> int -> int }
-  export type b :: ⋆
+}
+export {
+  type b :: ⋆
 }
 
 let two = int.plus int.one int.one in

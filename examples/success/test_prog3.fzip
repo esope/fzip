@@ -1,6 +1,8 @@
-requirements {
-  import val x : ∃ (a :: ⋆), a
-  export type b :: ⋆
+import {
+  val x : ∃ (a :: ⋆), a
+}
+export {
+  type b :: ⋆
 }
 
 open [b] x

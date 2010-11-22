@@ -102,7 +102,6 @@ let rec token = lexer
 | "S" -> locate lexbuf SINGLE
 | "import" -> locate lexbuf IMPORT
 | "export" -> locate lexbuf EXPORT
-| "requirements" -> locate lexbuf REQUIREMENTS
 | eof -> locate lexbuf EOF
 | id -> locate lexbuf (ID (utf8_lexeme lexbuf))
 | _ ->
@@ -157,7 +156,6 @@ let string_of_token = function
   | FORALL -> "∀"
   | EXISTS -> "∃"
   | ARROW -> "→"
-  | REQUIREMENTS -> "requirements"
   | EXPORT -> "export"
   | IMPORT -> "import"
   | EOF -> "\n"

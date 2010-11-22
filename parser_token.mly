@@ -57,7 +57,7 @@ let rec mkTe_mixed_bindings b e endpos = match b with
 
 %token EOF
 
-%token REQUIREMENTS IMPORT EXPORT
+%token IMPORT EXPORT
 
 %token STAR DBLARROW
 

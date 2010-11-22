@@ -1,5 +1,5 @@
-requirements {
-  export type nat :: ⋆
+export {
+  type nat :: ⋆
 }
 
 let nat = open [nat]
