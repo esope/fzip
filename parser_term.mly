@@ -35,6 +35,16 @@ term_fields(kind,typ):
         (Printf.sprintf "Duplicate record label: %s." lab)
     else (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
           Label.Set.add lab labels) }
+| VAL lab=ID params=list(mixed_binding(typ,kind)) COLON tau=typ
+    EQ t=term(kind,typ) f=term_fields(kind,typ)
+    { let (fields, labels) = f in
+    if Label.Set.mem lab labels
+    then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
+        (Printf.sprintf "Duplicate record label: %s." lab)
+    else
+      let t = locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t) in
+      (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
+          Label.Set.add lab labels) }
 
 simple_term(kind,typ):
 | x=ID
@@ -122,34 +132,3 @@ term_expr(kind,typ):
 
 main_term_expr:
 | t=term_expr(kind,typ) { t }
-
-import_req(kind,typ):
-| VAL x=ID COLON t=typ
-    { RequireVal(locate x $startpos(x) $endpos(x), t) }
-| TYPE x=ID DBLCOLON k=kind
-    { RequireTyp(locate x $startpos(x) $endpos(x),
-                 locate k $startpos(k) $endpos(k)) }
-
-export_req(kind,typ):
-| TYPE x=ID DBLCOLON k=kind
-    { ExportTyp(locate x $startpos(x) $endpos(x),
-                locate k $startpos(k) $endpos(k)) }
-
-req(kind,typ):
-| EXPORT LBRACE l=list(export_req(kind,typ)) RBRACE
-    { List.rev l }
-| IMPORT LBRACE l=list(import_req(kind,typ)) RBRACE
-    { List.rev l }
-
-header(kind,typ):
-| l=list(req(kind,typ))
-  { List.flatten (List.rev l) }
-
-header_expr(kind,typ):
-| h=header(kind,typ) EOF { h }
-
-main_header_expr:
-| h=header_expr(kind,typ) { h }
-
-prog:
-| h=header(kind,typ) t=main_term_expr { { reqs = h ; code = t } }
