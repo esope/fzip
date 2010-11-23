@@ -224,9 +224,10 @@ module PPrint = struct
 
   let is_delimited t =
     match t.content with
-    | Lam(_,_,_) | BaseForall (_, _, _) | BaseExists (_, _, _) -> false
+    | BaseArrow (_, _) | Lam(_,_,_) | BaseForall (_, _, _) |
+      BaseExists (_, _, _) -> false
     | Var _ | Record _ | Proj(_,_) | App(_,_) |
-      BaseArrow (_, _) | BaseRecord _ -> true
+      BaseRecord _ -> true
   let is_app t = match t.content with
   | App(_,_) -> true
   | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
