@@ -32,10 +32,15 @@ module type S = sig
 
   (** unsafe functions *)
 
-  val bzero: bound
-  val bone: bound
+  val bzero: free -> bound
+  val bone: free -> bound
+  val bzerob: bound -> bound
+  val boneb: bound -> bound
+  val bzero_default: bound
+  val bone_default: bound
   val bsucc: bound -> bound
   val bequal: bound -> bound -> bool
+  val bequal_bzero: bound -> bool
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
 

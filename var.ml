@@ -21,10 +21,15 @@ module type S = sig
   val bfresh: bound -> free
   val fresh: unit -> free
       (** unsafe functions *)
-  val bzero: bound
-  val bone: bound
+  val bzero: free -> bound
+  val bone: free -> bound
+  val bzerob: bound -> bound
+  val boneb: bound -> bound
+  val bzero_default: bound
+  val bone_default: bound
   val bsucc: bound -> bound
   val bequal: bound -> bound -> bool
+  val bequal_bzero: bound -> bool
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
 
@@ -33,8 +38,14 @@ module type S = sig
 end
 
 module Make (Default: sig val fbase: string val bbase: string end) : S = struct
+
   type free = string * int
-  type bound = int
+
+  type bound = int * free
+        (* We record the representation of the free var for pretty
+           printing purpose. The comparisions will be all made against
+           the first component only. *)
+
   let equal (x,n) (y,m) = MyString.equal x y && MyInt.equal n m
   let make s = (s,0)
   let to_string (s,n) = if n = 0 then s else (s ^ (string_of_int n))
@@ -46,21 +57,30 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
     (s, n+1)
   let ffresh (s,_) = sfresh s
   let fresh () = sfresh Default.fbase
-  let bfresh _bvar = fresh ()
-  let bzero = 0
-  let bone = 1
-  let bsucc = (+) 1
-  let bequal: int -> int -> bool = (=)
-  let bmax: int -> int -> int = max
-  let bto_string n = Default.bbase ^ (string_of_int n)
+  let bfresh (_, free) = ffresh free
+  let bzero free = (0, free)
+  let bone free = (1, free)
+  let bzerob (_, free) = (0, free)
+  let boneb (_, free) = (1, free)
+  let bzero_default = (0, (Default.bbase, 0))
+  let bone_default = (1, (Default.bbase, 0))
+  let bsucc (i, f) = (i + 1, f)
+  let bequal: bound -> bound -> bool = fun x y -> (fst x) = (fst y)
+  let bequal_bzero (i, _) = i = 0
+  let bmax: bound -> bound -> bound = fun x y ->
+    if (fst x) <= (fst y)
+    then (fst y,
+          if MyString.equal (fst (snd y)) Default.bbase then snd x else snd y)
+    else (fst x,
+          if MyString.equal (fst (snd x)) Default.bbase then snd y else snd x)
+
+  let bto_string (n, f) = to_string (fst f, if n = 0 then 0 else n-1)
 
   module Free = struct
     type t = free
     let compare (s1, i1) (s2, i2) =
       let n_s = String.compare s1 s2 in
-      if n_s < 0 then n_s
-      else if n_s = 0 then compare i1 i2
-      else n_s
+      if n_s = 0 then compare i1 i2 else n_s
   end
   module Set = Set.Make(Free)
   module Map = Map.Make(Free)

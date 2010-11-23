@@ -73,24 +73,24 @@ module Typ = struct
 
   type t = typ
 
-  let bvar_occurs x _t = not (Var.bequal x Var.bzero)
+  let bvar_occurs x _t = not (Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
 
   let h_binder y h =
-    if Var.bequal h Var.bzero then h else Var.bmax h (Var.bsucc y)
+    if Var.bequal_bzero h then h else Var.bmax h (Var.bsucc y)
 
   (* computes the maximum of all the elements of the range of a map *)
   let h_max f m =
-    Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
+    Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero_default
 
   (* computes the height of a variable in a list of kind fields *)
   let rec h_sigmas h_kind (x: Var.free) = function
-    | [] -> Var.bzero
+    | [] -> Var.bzero x
     | (_label, (y, k)) :: l ->
         Var.bmax (h_kind x k) (h_binder y (h_sigmas h_kind x l))
 
   let rec h_kind_rec h_typ (x : Var.free) = function
-    | Base -> Var.bzero
+    | Base -> Var.bzero x
     | Sigma f -> h_sigmas (h_kind_rec h_typ) x f
     | Pi(y, k1, k2) ->
         Var.bmax (h_kind_rec h_typ x k1) (h_binder y (h_kind_rec h_typ x k2))
@@ -98,8 +98,8 @@ module Typ = struct
         Var.bmax (h_typ x t) (h_kind_rec h_typ x k)
 
   let rec pre_h_typ_rec h_kind (x : Var.free) = function
-    | FVar y -> if Var.equal x y then Var.bone else Var.bzero
-    | BVar _ -> Var.bzero
+    | FVar y -> if Var.equal x y then Var.bone x else Var.bzero x
+    | BVar _ -> Var.bzero x
     | App (t,u) | BaseArrow(t, u) ->
         Var.bmax (h_typ_rec h_kind x t) (h_typ_rec h_kind x u)
     | Lam (y, k, t) | BaseForall(y, k, t) | BaseExists(y, k, t) ->
@@ -374,7 +374,7 @@ module Kind = struct
 
   type t = Typ.t kind
 
-  let bvar_occurs x _k = not (Typ.Var.bequal x Typ.Var.bzero)
+  let bvar_occurs x _k = not (Typ.Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
 
   let bvar_occurs_field = bvar_occurs
@@ -455,30 +455,31 @@ module Term = struct
 
   type t = term
 
-  let term_bvar_occurs x _t = not (Var.bequal x Var.bzero)
+  let term_bvar_occurs x _t = not (Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
-  let typ_bvar_occurs x _t = not (Typ.Var.bequal x Typ.Var.bzero)
+  let typ_bvar_occurs x _t = not (Typ.Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
 
   let h_term_max f m =
-    Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero
+    Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero_default
 
   let h_typ_max f m =
-    Label.AList.fold (fun _lab x acc -> Typ.Var.bmax (f x) acc) m Typ.Var.bzero
+    Label.AList.fold (fun _lab x acc -> Typ.Var.bmax (f x) acc) m
+      Typ.Var.bzero_default
 
   let h_ty_binder y h =
-    if Typ.Var.bequal h Typ.Var.bzero
+    if Typ.Var.bequal_bzero h
     then h
     else Typ.Var.bmax h (Typ.Var.bsucc y)
 
   let h_te_binder y h =
-    if Var.bequal h Var.bzero
+    if Var.bequal_bzero h
     then h
     else Var.bmax h (Var.bsucc y)
 
   let rec pre_h_term_var (x : Var.free) = function
-    | FVar y -> if Var.equal x y then Var.bone else Var.bzero
-    | BVar _ -> Var.bzero
+    | FVar y -> if Var.equal x y then Var.bone x else Var.bzero x
+    | BVar _ -> Var.bzero x
     | App (t,u) -> Var.bmax (h_term_var x t) (h_term_var x u)
     | Lam (y, _tau, t) | Fix(y, _tau, t) ->
         h_te_binder y.content (h_term_var x t)
@@ -492,7 +493,7 @@ module Term = struct
     pre_h_term_var x t.content
 
   let rec pre_h_typ_var (x : Typ.Var.free) = function
-    | FVar _ | BVar _ -> Typ.Var.bzero
+    | FVar _ | BVar _ -> Typ.Var.bzero x
     | App (t,u) | Let (_, t, u) ->
         Typ.Var.bmax (h_typ_var x t) (h_typ_var x u)
     | Lam (_, tau, t) | Inst(t, tau) | Fix(_, tau, t) | Annot(t, tau) ->
