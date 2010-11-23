@@ -1,0 +1,19 @@
+import {
+  type unit :: ⋆
+  val  unit :  unit
+
+  type Bool :: < type t :: ⋆ >
+  val  Bool :
+    { val true : Bool.t
+      val false : Bool.t
+      val match : ∀(a :: ⋆), Bool.t →
+                    { val true : unit → a   val false : unit → a } → a
+    }
+}
+
+let type object :: ⋆ = { val value : Bool.t val get_value : unit → Bool.t }
+in
+let rec o : object =
+    { val value = o.value
+      val get_value (x:unit) = o.value }
+in o
