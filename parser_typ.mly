@@ -20,7 +20,10 @@ kind_fields:
 | 
   { Label.AList.empty }
 | TYPE lab=ID a=option(preceded(AS,ID)) DBLCOLON k=kind f=kind_fields
-    { Label.AList.add lab (a, k) f }
+    { if Label.AList.mem lab f
+    then Error.raise_error Error.kind_wf $startpos(lab) $endpos(lab)
+        (Printf.sprintf "Duplicate record label: %s." lab)
+    else Label.AList.add lab (a, k) f }
 
 simple_kind:
 | STAR { Base }
@@ -47,7 +50,7 @@ typ_base_fields:
     { Label.Map.empty }
 | VAL lab=ID COLON t=typ f=typ_base_fields
     { if Label.Map.mem lab f
-    then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
+    then Error.raise_error Error.type_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
     else Label.Map.add lab t f }
 
