@@ -141,7 +141,7 @@ term(kind,typ):
                  locate y $startpos(y) $endpos(y),
                  locate k $startpos(k) $endpos(k), tau, t))
         $startpos $endpos }
-| LET TYPE x=ID b=list(typ_binding(kind)) COLON k=kind
+| LET TYPE x=ID b=list(typ_binding(kind)) DBLCOLON k=kind
     EQ tau=typ IN t=term(kind,typ)
     { let tau = mkLam_bindings b tau $endpos(tau)
     and k = mkPi_bindings b k
