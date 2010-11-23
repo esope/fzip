@@ -50,4 +50,11 @@ import {
           val cons (x : α) (l : List.t α) = Int.succ (length [α] l)
         }
     in length
+
+  val rec map (α :: ⋆) (β :: ⋆) (f : α → β) (l : List.t α) : List.t β =
+    (List [α]).match [List.t β] l
+    { val empty (x : unit) = (List [β]).empty 
+      val cons (x : α) (l : List.t α) = 
+          (List [β]).cons (f x) (map [α] [β] f l)
+    }
 }
