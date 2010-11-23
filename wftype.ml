@@ -152,13 +152,16 @@ let rec try_sub_type ~unfold_eq env tau tau' =
   | (BaseExists({ content = a ; _ } as a_loc, k', t),
      BaseExists({ content = a' ; _ }, k,  t')) ->
       sub_kind ~unfold_eq env k'.content k.content &*&
-      let x = Var.bfresh a in
-      let x_var = dummy_locate (mkVar x) in
-      sub_type ~unfold_eq
-        (Env.Typ.add_var (locate_with Mode.U a_loc) x k'.content env)
-        (bsubst t a x_var) (bsubst t' a' x_var)
+       (fun () ->
+         let x = Var.bfresh a in
+         let x_var = dummy_locate (mkVar x) in
+         sub_type ~unfold_eq
+           (Env.Typ.add_var (locate_with Mode.U a_loc) x k'.content env)
+           (bsubst t a x_var) (bsubst t' a' x_var)
+       )
   | (BaseArrow(t1,t2), BaseArrow(t1',t2')) ->
-      sub_type ~unfold_eq env t1' t1 &*& sub_type ~unfold_eq env t2 t2'
+      sub_type ~unfold_eq env t1' t1 &*&
+      (fun () -> sub_type ~unfold_eq env t2 t2')
   | (BaseRecord m, BaseRecord m') ->
       (* for every lab ∈ dom m', Γ ⊢ m(l) ≤ m'(l) must hold *)
       Label.Map.fold

@@ -28,7 +28,7 @@ type reason =
 type t = Yes | No of reason list
 
 let ( &*& ) r1 r2 = match r1 with
-| Yes -> r2
+| Yes -> r2 ()
 | No _ -> r1
 
 let from_bool b = if b then Yes else No []
@@ -129,7 +129,7 @@ module WithValue = struct
   type 'a t = Yes of 'a | No of reason list
 
   let ( &*& ) r1 r2 = match r1 with
-  | Yes _ -> r2
+  | Yes _ -> r2 ()
   | No _ -> r1
 
   let to_bool = function Yes _ -> true | No _ -> false

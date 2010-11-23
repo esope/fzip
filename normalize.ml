@@ -95,7 +95,8 @@ let rec head_norm ~unfold_eq env t = match t.content with
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
             match Kind.bsubst k1 x t2 with
-            | Single (u, Base) -> (u , Some k1)
+            | Single (u, Base) ->
+                head_norm ~unfold_eq env u
             | Single (_, _) -> assert false
             | (Base | Pi(_,_,_) | Sigma _) ->
                 ({ t with content = mkApp t1' t2 } , Some k1)
@@ -121,7 +122,8 @@ let rec head_norm ~unfold_eq env t = match t.content with
           begin
             try
               match simplify_kind (select_kind_field lab t' f) with
-              | (Single (u, Base)) as k -> (u, Some k)
+              | (Single (u, Base)) ->
+                    head_norm ~unfold_eq env u
               | Single (_, _) -> assert false
               | (Base | Pi(_,_,_) | Sigma _) as k ->
                   ({ t with content = mkProj t' lab }, Some k)
@@ -273,8 +275,9 @@ let rec try_equiv_typ ~unfold_eq env t1 t2 k =
       Label.Map.fold
         (fun lab (t1_lab, k_lab) acc ->
           acc &*&
-          let t2_lab = dummy_locate (mkProj t2 (dummy_locate lab)) in
-          equiv_typ ~unfold_eq env t1_lab t2_lab k_lab)
+          (fun () ->
+            let t2_lab = dummy_locate (mkProj t2 (dummy_locate lab)) in
+            equiv_typ ~unfold_eq env t1_lab t2_lab k_lab))
         projections Yes
 
 and equiv_typ ~unfold_eq env t1 t2 k =
@@ -294,7 +297,7 @@ and equiv_path ~unfold_eq env p1 p2 =
       begin
         let open Kind in
         match equiv_typ ~unfold_eq env t1 t1' mkBase &*&
-          equiv_typ ~unfold_eq env t2 t2' mkBase with
+          (fun () -> equiv_typ ~unfold_eq env t2 t2' mkBase) with
         | Yes -> WithValue.Yes mkBase
         | No reasons -> WithValue.No reasons
       end
@@ -305,11 +308,13 @@ and equiv_path ~unfold_eq env p1 p2 =
       begin
         match
           equiv_kind ~unfold_eq env k.content k'.content &*&
-          let y = Var.bfresh x in
-          let y_var = dummy_locate (mkVar y) in
-          equiv_typ ~unfold_eq
-            (Env.Typ.add_var (locate_with Mode.U x_loc) y k.content env)
-            (bsubst t x y_var) (bsubst t' x' y_var) Kind.mkBase
+          (fun () ->
+            let y = Var.bfresh x in
+            let y_var = dummy_locate (mkVar y) in
+            equiv_typ ~unfold_eq
+              (Env.Typ.add_var (locate_with Mode.U x_loc) y k.content env)
+              (bsubst t x y_var) (bsubst t' x' y_var) Kind.mkBase
+          )
         with
         | Yes -> WithValue.Yes Kind.mkBase
         | No reasons -> WithValue.No reasons
@@ -377,7 +382,8 @@ and equiv_bindings ~unfold_eq env b1 b2 =
 
 and equiv_kind ~unfold_eq env k1 k2 =
   let open Answer in
-  sub_kind ~unfold_eq env k1 k2 &*& sub_kind ~unfold_eq env k2 k1
+  sub_kind ~unfold_eq env k1 k2 &*&
+  (fun () -> sub_kind ~unfold_eq env k2 k1)
 
 and sub_kind ~unfold_eq env k1 k2 =
   let x = Var.fresh () in
@@ -397,13 +403,15 @@ and try_check_sub_kind ~unfold_eq env p k k' =
   | (_, Single (_,_)) -> assert false (* kinds are simplified by sub_kind *)
   | (Pi(x, k1, k2), Pi(x', k1', k2')) ->
       sub_kind ~unfold_eq env k1' k1 &*&
-      let y = Var.bfresh x in
-      let y_var = dummy_locate (mkVar y) in
-      check_sub_kind ~unfold_eq
-        (Env.Typ.add_var (dummy_locate Mode.U) y k1' env)
-        (dummy_locate (mkApp p y_var))
-        (Kind.bsubst k2  x  y_var)
-        (Kind.bsubst k2' x' y_var)
+      (fun () ->
+        let y = Var.bfresh x in
+        let y_var = dummy_locate (mkVar y) in
+        check_sub_kind ~unfold_eq
+          (Env.Typ.add_var (dummy_locate Mode.U) y k1' env)
+          (dummy_locate (mkApp p y_var))
+          (Kind.bsubst k2  x  y_var)
+          (Kind.bsubst k2' x' y_var)
+      )
   | (Sigma f, Sigma f') ->
       let projections  = select_all_fields p f
       and projections' = select_all_fields p f' in
@@ -411,13 +419,16 @@ and try_check_sub_kind ~unfold_eq env p k k' =
       Label.Map.fold
         (fun lab (p_lab, k'_lab) acc ->
           acc &*&
-          try
-            let (_, k_lab) = Label.Map.find lab projections in
-            check_sub_kind ~unfold_eq env p_lab k_lab k'_lab
-          with Not_found ->
-            No [KINDS
-                  (Kind.mkSigma
-                     [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])])
+          (fun () ->
+            try
+              let (_, k_lab) = Label.Map.find lab projections in
+              check_sub_kind ~unfold_eq env p_lab k_lab k'_lab
+            with Not_found ->
+              No [KINDS
+                    (Kind.mkSigma
+                       [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])]
+          )
+        )
         projections' Yes
   | ((Base | Single (_, Base) | Sigma _ | Pi(_,_,_)), _) -> No []
 

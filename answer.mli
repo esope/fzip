@@ -75,7 +75,7 @@ type t = Yes | No of reason list
 
 (** Chains two answers.
     If the left one is [No], then the second one is discarded. *)
-val ( &*& ): t -> t -> t
+val ( &*& ): t -> (unit -> t) -> t
 val from_bool: bool -> t
 val to_bool: t -> bool
 val error_msg: reason list -> string
@@ -84,7 +84,7 @@ val error_msg: reason list -> string
 module WithValue : sig
   type 'a t = Yes of 'a | No of reason list
 
-  val ( &*& ): 'a t -> 'a t -> 'a t
+  val ( &*& ): 'a t -> (unit -> 'a t) -> 'a t
   val to_bool: 'a t -> bool
   val map: ('a -> 'b) -> 'a t -> 'b t
   val error_msg: reason list -> string
