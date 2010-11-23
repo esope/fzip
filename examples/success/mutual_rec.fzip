@@ -1,0 +1,53 @@
+import {
+
+  type unit :: ⋆
+  val  unit :  unit
+
+  type Tree :: < type t :: ⋆ >
+  type Forest :: < type t :: ⋆ >
+  val Tree :
+    {
+        val Leaf : Tree.t
+        val Node : Forest.t → Tree.t
+        val match : ∀(α::⋆), Tree.t →
+            { val Leaf : unit → α
+              val Node : Forest.t → α
+            } → α
+    }
+  val Forest :
+    {
+        val One : Tree.t → Forest.t
+        val Many : Tree.t → Forest.t → Forest.t
+        val match : ∀(α::⋆), Forest.t →
+            { val One : Tree.t → α
+              val Many : Tree.t → Forest.t → α
+            } → α
+    }
+
+  type Int :: < type t :: ⋆ >
+  val Int :
+    { val zero : Int.t
+      val one : Int.t
+      val succ : Int.t -> Int.t
+      val plus : Int.t -> Int.t -> Int.t
+    }
+ 
+}
+
+let type int :: ⋆ = Int.t in
+
+let rec size : { val tree : Tree.t -> int   val forest : Forest.t -> int } =
+  { val tree (t: Tree.t) = Tree.match [int] t
+        { val Leaf (x: unit) = Int.one
+          val Node (f: Forest.t) = size.forest f }
+   val forest (f: Forest.t) = Forest.match [int] f
+       { val One (t: Tree.t) = size.tree t
+         val Many (t: Tree.t) (f: Forest.t) =
+           Int.plus (size.tree t) (size.forest f)
+       }
+}
+
+in
+{ val tree_size = size.tree
+  val forest_size = size.forest
+}
