@@ -64,27 +64,33 @@ export {
                 >
          )
 { val Set =
-  { val Make (X :: < type t :: ⋆ >)
-             (X :  Set.Ordered X)
-             : Set.Sig X =
-        { val empty = (List [X.t]).empty
+  let Make (X :: < type t :: ⋆ >) (X :  Set.Ordered X) : Set.Sig X =
+  { val empty = (List [X.t]).empty
 
-          val singleton (x : X.t) =
+    val singleton (x : X.t) =
+      (List [X.t]).cons x (List [X.t]).empty
+
+    val rec add (x : X.t) (l : List.t X.t)
+     : List.t X.t =
+      (List [X.t]).match [List.t X.t] l
+      { val empty (y : unit) =
             (List [X.t]).cons x (List [X.t]).empty
-
-          val rec add (x : X.t) (l : List.t X.t)
-           : List.t X.t =
-            (List [X.t]).match [List.t X.t] l
-            { val empty (y : unit) =
-                  (List [X.t]).cons x (List [X.t]).empty
-              val cons (y : X.t) (l' : List.t X.t) =
-                  Bool.match [List.t X.t] (X.compare x y)
-                  { val true (z : unit) =
-                        (List [X.t]).cons x l
-                    val false (z : unit) =
-                        (List [X.t]).cons y (add x l')
-                  }
+        val cons (y : X.t) (l' : List.t X.t) =
+            Bool.match [List.t X.t] (X.compare x y)
+            { val true (z : unit) =
+                  (List [X.t]).cons x l
+              val false (z : unit) =
+                  (List [X.t]).cons y (add x l')
             }
-        }
+      }
+  }
+  in
+  { val Make = Make
+    val MakeGen (X :: < type t :: ⋆ >) (X :  Set.Ordered X) =
+        ∃(set :: ⋆ = Set.t X)
+          (Make [X] X : 
+           { val empty : set
+             val singleton : X.t → set
+             val add : X.t → set → set })
   }
 }
