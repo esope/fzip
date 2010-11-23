@@ -1,0 +1,90 @@
+import {
+  type unit :: ⋆
+  val  unit :  unit
+
+  type Bool :: < type t :: ⋆ >
+  val  Bool :
+    { val true : Bool.t
+      val false : Bool.t
+      val match : ∀(a :: ⋆), Bool.t →
+                    { val true : unit → a   val false : unit → a } → a
+    }
+
+  type List :: < type t :: ⋆ ⇒ ⋆ >
+  val  List : ∀(α :: ⋆),
+    { val empty : List.t α
+      val cons : α → List.t α → List.t α
+      val match : ∀(β :: ⋆),
+                    List.t α →
+                    { val empty : unit → β
+                      val cons : α → List.t α → β } → β
+    }
+
+}
+
+export {
+  type Set :: < type t as set :: < type t :: ⋆> ⇒ ⋆
+                type Ordered ::
+                     S(λ(α :: < type t :: ⋆ >) ⇒
+                       { val compare : α.t → α.t → Bool.t }
+                      :: < type t :: ⋆ > ⇒ ⋆)
+                type Sig ::
+                     S(λ(α :: < type t :: ⋆ >) ⇒
+                       { val empty : set α
+                         val singleton : α.t → set α
+                         val add : α.t → set α → set α
+                       }
+                       :: < type t :: ⋆ > ⇒ ⋆ )
+              >
+}
+
+
+Σ [Set] (Set :: < type t as set :: < type t :: ⋆> ⇒ ⋆
+                  type Ordered ::
+                       S(λ(α :: < type t :: ⋆ >) ⇒
+                         { val compare : α.t → α.t → Bool.t }
+                        :: < type t :: ⋆ > ⇒ ⋆)
+                  type Sig ::
+                     S(λ(α :: < type t :: ⋆ >) ⇒
+                       { val empty : set α
+                         val singleton : α.t → set α
+                         val add : α.t → set α → set α
+                       }
+                       :: < type t :: ⋆ > ⇒ ⋆ )
+                >
+              = < type t (α :: < type t :: ⋆ >) = List.t α.t
+                  type Ordered =
+                       λ(α :: < type t :: ⋆ >) ⇒
+                       { val compare : α.t → α.t → Bool.t }
+                  type Sig (α:: < type t :: ⋆ >) =
+                       { val empty : List.t α.t
+                         val singleton : α.t → List.t α.t
+                         val add : α.t → List.t α.t → List.t α.t
+                       }
+                >
+         )
+{ val Set =
+  { val Make (X :: < type t :: ⋆ >)
+             (X :  Set.Ordered X)
+             : Set.Sig X =
+        { val empty = (List [X.t]).empty
+
+          val singleton (x : X.t) =
+            (List [X.t]).cons x (List [X.t]).empty
+
+          val rec add (x : X.t) (l : List.t X.t)
+           : List.t X.t =
+            (List [X.t]).match [List.t X.t] l
+            { val empty (y : unit) =
+                  (List [X.t]).cons x (List [X.t]).empty
+              val cons (y : X.t) (l' : List.t X.t) =
+                  Bool.match [List.t X.t] (X.compare x y)
+                  { val true (z : unit) =
+                        (List [X.t]).cons x l
+                    val false (z : unit) =
+                        (List [X.t]).cons y (add x l')
+                  }
+            }
+        }
+  }
+}
