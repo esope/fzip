@@ -1,9 +1,7 @@
-* better pretty printing for bound variables
 * bindings term fields
 * change semantics of 'as'
 * more examples
 * support for datatypes
-* recursion in terms
 * recursive types
 * better syntax for mixing types with terms
 * some form of partial type inference (implicit arguments?)
