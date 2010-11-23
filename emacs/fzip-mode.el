@@ -32,12 +32,6 @@
     ("->" . 'font-lock-builtin)
     ("⇒" . 'font-lock-builtin)
     ("=>" . 'font-lock-builtin)
-    ("{" . 'font-lock-delimiter-face)
-    ("}" . 'font-lock-delimiter-face)
-    ("[" . 'font-lock-delimiter-face)
-    ("]" . 'font-lock-delimiter-face)
-    ("<" . 'font-lock-delimiter-face)
-    (">" . 'font-lock-delimiter-face)
     )
   '("\\.fzip$")           
   nil                    
