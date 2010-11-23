@@ -1,7 +1,5 @@
-require type c :: *
-export type a :: *
-
-%%
+import { type c :: * }
+export { type a :: * }
 
 Σ [a] (b :: S(c) = { }) { }
 

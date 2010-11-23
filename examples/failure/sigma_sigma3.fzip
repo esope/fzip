@@ -1,6 +1,4 @@
-export type b :: ⋆
-
-%%
+export { type b :: ⋆ }
 
 sigma [b] (a :: ⋆ = {})
 sigma [b] (a :: ⋆ = {})

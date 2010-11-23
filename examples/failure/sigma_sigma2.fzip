@@ -1,6 +1,4 @@
-export type b :: ⋆
-
-%%
+export { type b :: ⋆ }
 
 let x1 = sigma [b] (a :: ⋆ = {}) {} in
 let x2 = sigma [b] (a :: ⋆ = {}) {} in

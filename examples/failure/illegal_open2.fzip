@@ -1,6 +1,6 @@
-export type a :: ⋆
-
-%%
+export {
+  type a :: ⋆
+}
 
 let f (x:a) = x in
 open[a] (exists (b :: ⋆ = {})

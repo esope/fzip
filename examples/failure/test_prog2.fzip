@@ -1,6 +1,5 @@
-require val x : ∃ (a :: ⋆), a
+import { val x : ∃ (a :: ⋆), a }
 
-%%
 
 open [a] x
 

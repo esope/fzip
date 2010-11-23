@@ -1,6 +1,4 @@
-export type a :: ⋆
-
-%%
+export { type a :: ⋆ }
 
 open[a] (exists (b :: ⋆ = {})
 (fun (x:a) -> x : a -> a))
