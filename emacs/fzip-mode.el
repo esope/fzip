@@ -23,9 +23,11 @@
     "λ"
     "Fun"
     "Λ")
-  '(("=" . 'font-lock-operator)     ;; '=' is an operator
-    ("::" . 'font-lock-builtin)
-    (":" . 'font-lock-builtin)
+  '(("=" . 'font-lock-builtin)
+    ("::" . 'font-lock-operator)
+    (":" . 'font-lock-operator)
+    ("*" . 'font-lock-builtin)
+    ("⋆" . 'font-lock-builtin)
     ("→" . 'font-lock-builtin)
     ("->" . 'font-lock-builtin)
     ("⇒" . 'font-lock-builtin)
