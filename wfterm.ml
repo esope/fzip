@@ -392,15 +392,17 @@ let rec wfterm env term =
                        | Yes ->
                            begin
                              (* checking that e \ x ⊢ t :: k *)
-                             match Wftype.check_wftype env_minus_x t k.content with
+                             match Wftype.check_wftype env_minus_x t k.content
+                             with
                              | Yes ->
                                  let y' = Typ.Var.bfresh y in
-                                 let y_var' =  locate_with (Typ.mkVar y') y_loc in
+                                 let y_var' =
+                                   locate_with (Typ.mkVar y') y_loc in
                                  let (env', t') =
                                    let env = (* (env \ x) ∪ y :: k = t *)
                                      Env.Typ.add_var
-                                       (locate_with (Mode.EQ t) y_loc) y' k.content
-                                       env_minus_x in
+                                       (locate_with (Mode.EQ t) y_loc)
+                                       y' k.content env_minus_x in
                                    wfterm env (bsubst_typ_var e y y_var') in
                                  assert (not (Env.Typ.is_fv y' env')) ;
                                  assert (not (Env.Typ.is_fv x env')) ;
@@ -409,23 +411,31 @@ let rec wfterm env term =
                                    let min_env_for_t_k =
                                      Env.Typ.minimal_env_for_vars env_minus_x
                                        (Ast.Typ.Var.Set.union
-                                          (Ast.Typ.fv t) (Ast.Kind.fv k.content)) in
+                                          (Ast.Typ.fv t)
+                                          (Ast.Kind.fv k.content)) in
                                    let min_env_for_e =
                                      (* (env' \ y) ∪ ∃ x :: k_x *)
-                                     Env.Typ.add_var (locate_with Mode.E x_loc) x k_x
+                                     Env.Typ.add_var
+                                       (locate_with Mode.E x_loc) x k_x
                                        (Env.Typ.remove_var
                                           ~track:false ~recursive:false
-                                          y' (Location.locate_with () y_loc) env')
+                                          y' (Location.locate_with () y_loc)
+                                          env')
                                    in
-                                   match Env.zip min_env_for_e min_env_for_t_k with
+                                   match Env.zip min_env_for_e min_env_for_t_k
+                                   with
                                    | WithValue.Yes env -> env
                                    | WithValue.No _ -> assert false
                                  in
                                  (env,
-                                  Typ.subst t' y' x_loc.content) (* t' [y' ← x] *)
+                                  Typ.subst t' y' x_loc.content)
+                                   (* t' [y' ← x] *)
                              | No reasons ->
-                                 Error.raise_error Error.term_wf t.startpos t.endpos
-                                   (error_msg reasons)
+                                 Error.raise_error Error.type_wf
+                                   t.startpos t.endpos
+                                   (Printf.sprintf
+                                      "This type has not the required kind.\n%s"
+                                      (error_msg reasons))
                            end
                        | No reason ->
                            Error.raise_error Error.subkind
