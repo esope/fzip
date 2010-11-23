@@ -64,6 +64,7 @@ let regexp alpha_greek = alpha | greek
 let regexp digit = ['0'-'9']
 let regexp id =
   alpha_greek+ ((alpha_greek | digit)* | (['_']+ (alpha_greek | digit)+))
+  ['\'']?
 
 let rec token = lexer
 | whitespace -> token lexbuf
