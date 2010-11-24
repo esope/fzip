@@ -39,6 +39,12 @@
     ("=>" . 'font-lock-operator)
     ("\\." . 'font-lock-builtin)
     ("," . 'font-lock-builtin)
+    ("{" . 'font-lock-builtin)
+    ("}" . 'font-lock-builtin)
+    ("<" . 'font-lock-builtin)
+    (">" . 'font-lock-builtin)
+    ("\\[" . 'font-lock-builtin)
+    ("\\]" . 'font-lock-builtin)
     )
   '("\\.fzip$")           
   nil                    
