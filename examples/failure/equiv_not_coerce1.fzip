@@ -1,0 +1,4 @@
+λ (α :: ⋆) (x : α) → ∃ (β :: ⋆ = α)
+  (λ (y : β) → y) x
+
+(* β and α are coercible but not equivalent *)
