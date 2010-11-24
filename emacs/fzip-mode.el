@@ -1,10 +1,9 @@
-(require 'generic-x) ;; we need this
-
 (define-generic-mode 
   'fzip-mode
-  nil
+  nil  ;; limitation: comments cannot start with "("
   '("let"
     "in"
+    "rec"
     "import"
     "export"
     "val"
@@ -22,16 +21,24 @@
     "fun"
     "λ"
     "Fun"
-    "Λ")
-  '(("=" . 'font-lock-builtin)
-    ("::" . 'font-lock-operator)
-    (":" . 'font-lock-operator)
-    ("*" . 'font-lock-builtin)
-    ("⋆" . 'font-lock-builtin)
-    ("→" . 'font-lock-builtin)
-    ("->" . 'font-lock-builtin)
-    ("⇒" . 'font-lock-builtin)
-    ("=>" . 'font-lock-builtin)
+    "Λ"
+    "nu"
+    "ν"
+    "open")
+  '(("\\((\\*\\(.\\|\n\\|\r\\|\r\n\\)*\\*)\\)" (1 'font-lock-comment-face))
+    ;; comments are between "(*" and "*)" and can contain line breaks
+    ("=" . 'font-lock-operator)
+    ("::" . 'font-lock-builtin)
+    (":" . 'font-lock-builtin)
+    ("*" . 'font-lock-operator)
+    ("⋆" . 'font-lock-operator)
+    ("★" . 'font-lock-operator)
+    ("→" . 'font-lock-operator)
+    ("->" . 'font-lock-operator)
+    ("⇒" . 'font-lock-operator)
+    ("=>" . 'font-lock-operator)
+    ("\\." . 'font-lock-builtin)
+    ("," . 'font-lock-builtin)
     )
   '("\\.fzip$")           
   nil                    
