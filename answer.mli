@@ -3,10 +3,16 @@
 open Ast
 
 type reason =
-  | TYPES of Typ.t * Typ.t
-        (** [TYPES(t1,t2)] means that [t1] is not a subtype of [t2]. *)
+  | TYPES_EQ of Typ.t * Typ.t
+        (** [TYPES_EQ(t1,t2)] means that [t1] is not equivalent to [t2]. *)
 
-  | KINDS of Kind.t * Kind.t
+  | TYPES_SUB of Typ.t * Typ.t
+        (** [TYPES_EQ(t1,t2)] means that [t1] is not a subtype of [t2]. *)
+
+  | KINDS_EQ of Kind.t * Kind.t
+        (** [KINDS(k1,k2)] means that [k1] is not equivalent to [k2]. *)
+
+  | KINDS_SUB of Kind.t * Kind.t
         (** [KINDS(k1,k2)] means that [k1] is not a subkind of [k2]. *)
 
   | WF_TYPE of Typ.t * Kind.t

@@ -171,7 +171,7 @@ let rec try_sub_type ~unfold_eq env tau tau' =
               let tau = Label.Map.find lab m in
               sub_type ~unfold_eq env tau tau'
             with Not_found ->
-              No [TYPES
+              No [TYPES_SUB
                     (dummy_locate (mkBaseRecord Label.Map.empty),
                      dummy_locate (mkBaseRecord (Label.Map.singleton lab tau')))
                 ]
@@ -194,7 +194,7 @@ and sub_type ~unfold_eq env tau tau' =
   let open Answer in
   match try_sub_type ~unfold_eq env tau.content tau'.content with
   | Yes -> Yes
-  | No reasons -> No (TYPES (tau, tau') :: reasons)
+  | No reasons -> No (TYPES_SUB (tau, tau') :: reasons)
 
 let sub_type_b ~unfold_eq env k1 k2 =
   Answer.to_bool (sub_type ~unfold_eq env k1 k2)

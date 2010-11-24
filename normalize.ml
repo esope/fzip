@@ -284,7 +284,7 @@ and equiv_typ ~unfold_eq env t1 t2 k =
   let open Answer in
   match try_equiv_typ ~unfold_eq env t1 t2 k with
   | Yes -> Yes
-  | No reasons -> No (TYPES (t1, t2) :: reasons)
+  | No reasons -> No (TYPES_EQ (t1, t2) :: reasons)
 
 
 and equiv_path ~unfold_eq env p1 p2 =
@@ -356,7 +356,7 @@ and equiv_bindings ~unfold_eq env b1 b2 =
   | ([], []) -> WithValue.Yes Kind.mkBase
   | ([], b) | (b, []) ->
       WithValue.No
-        [TYPES
+        [TYPES_EQ
            (dummy_locate (mkBaseRecord Label.Map.empty),
             dummy_locate
               (mkBaseRecord
@@ -365,7 +365,7 @@ and equiv_bindings ~unfold_eq env b1 b2 =
                     Label.Map.empty b)))]
   | ((lab1, t1) :: _, (lab2, t2) :: _) when not (Label.equal lab1 lab2) ->
       WithValue.No
-        [TYPES
+        [TYPES_EQ
            (dummy_locate (mkBaseRecord (Label.Map.singleton lab1 t1)),
             dummy_locate (mkBaseRecord (Label.Map.singleton lab1 t2)))]
   | ((lab1, t1) :: b1, (lab2, t2) :: b2) (* lab1 = lab2 *) ->
@@ -374,7 +374,7 @@ and equiv_bindings ~unfold_eq env b1 b2 =
         | Yes -> equiv_bindings ~unfold_eq env b1 b2
         | No reasons ->
             WithValue.No
-              (TYPES
+              (TYPES_EQ
                  (dummy_locate (mkBaseRecord (Label.Map.singleton lab1 t1)),
                   dummy_locate (mkBaseRecord (Label.Map.singleton lab2 t2)))
                :: reasons)
@@ -424,7 +424,7 @@ and try_check_sub_kind ~unfold_eq env p k k' =
               let (_, k_lab) = Label.Map.find lab projections in
               check_sub_kind ~unfold_eq env p_lab k_lab k'_lab
             with Not_found ->
-              No [KINDS
+              No [KINDS_SUB
                     (Kind.mkSigma
                        [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])]
           )
@@ -436,7 +436,7 @@ and check_sub_kind ~unfold_eq env p k k' =
   let open Answer in
   match try_check_sub_kind ~unfold_eq env p k k' with
   | Yes -> Yes
-  | No reasons -> No (KINDS (k,k') :: reasons)
+  | No reasons -> No (KINDS_SUB (k,k') :: reasons)
 
 
 let equiv_typ_b ~unfold_eq env t1 t2 k =

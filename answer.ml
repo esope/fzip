@@ -2,8 +2,10 @@ open Ast
 open Ast_utils
 
 type reason =
-  | TYPES of Typ.t * Typ.t
-  | KINDS of Kind.t * Kind.t
+  | TYPES_EQ of Typ.t * Typ.t
+  | TYPES_SUB of Typ.t * Typ.t
+  | KINDS_EQ of Kind.t * Kind.t
+  | KINDS_SUB of Kind.t * Kind.t
   | WF_TYPE of Typ.t * Kind.t
   | E_TYP_VAR_PURE of Typ.Var.free Location.located
   | TERM_VAR_DISAGREE_TYP of
@@ -36,10 +38,16 @@ let to_bool = function Yes -> true | No _ -> false
 
 let rec error_msg = function
   | [] -> assert false
-  | [ KINDS (k1, k2)] ->
+  | [ KINDS_EQ (k1, k2)] ->
+      Printf.sprintf "%s\nis not a kind that is equivalent to\n%s\n%!"
+        (PPrint.Kind.string k1) (PPrint.Kind.string k2)
+  | [ KINDS_SUB (k1, k2)] ->
       Printf.sprintf "%s\nis not a subkind of\n%s\n%!"
         (PPrint.Kind.string k1) (PPrint.Kind.string k2)
-  | [ TYPES (t1, t2)] ->
+  | [ TYPES_EQ (t1, t2)] ->
+      Printf.sprintf "%s\nis not a type that is equivalent to\n%s\n%!"
+        (PPrint.Typ.string t1) (PPrint.Typ.string t2)
+  | [ TYPES_SUB (t1, t2)] ->
       Printf.sprintf "%s\nis not a subtype of\n%s\n%!"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
   | [ WF_TYPE (t, k)] ->
@@ -105,11 +113,19 @@ let rec error_msg = function
         (Typ.Var.to_string x)
         (Location.location_msg loc1)
         (Location.location_msg loc2)
-  | (KINDS (k1, k2)) :: l ->
+  | (KINDS_EQ (k1, k2)) :: l ->
+      Printf.sprintf "%s\nis not a kind that is equivalent to\n%s\nbecause\n%a"
+        (PPrint.Kind.string k1) (PPrint.Kind.string k2)
+        (fun _ -> error_msg) l
+  | (KINDS_SUB (k1, k2)) :: l ->
       Printf.sprintf "%s\nis not a subkind of\n%s\nbecause\n%a"
         (PPrint.Kind.string k1) (PPrint.Kind.string k2)
         (fun _ -> error_msg) l
-  | (TYPES (t1, t2)) :: l ->
+  | (TYPES_EQ (t1, t2)) :: l ->
+      Printf.sprintf "%s\nis not a type that is equivalent to\n%s\nbecause\n%a"
+        (PPrint.Typ.string t1) (PPrint.Typ.string t2)
+        (fun _ -> error_msg) l
+  | (TYPES_SUB (t1, t2)) :: l ->
       Printf.sprintf "%s\nis not a subtype of\n%s\nbecause\n%a"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
         (fun _ -> error_msg) l
