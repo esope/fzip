@@ -12,6 +12,12 @@ import_req(kind,typ):
     | Some y -> locate y $startpos(y) $endpos(y)
     in RequireTyp(var, locate k $startpos(k) $endpos(k))
     }
+| TYPE x=ID y=option(preceded(AS,ID)) DBLCOLON k=kind EQ t=typ
+    { let var = match y with
+    | None -> locate x $startpos(x) $endpos(x)
+    | Some y -> locate y $startpos(y) $endpos(y)
+    in RequireTyp(var, locate (Single(t, k)) $startpos(k) $endpos(t))
+    }
 
 export_req(kind,typ):
 | TYPE x=ID y=option(preceded(AS,ID)) DBLCOLON k=kind
@@ -19,6 +25,12 @@ export_req(kind,typ):
     | None -> locate x $startpos(x) $endpos(x)
     | Some y -> locate y $startpos(y) $endpos(y)
     in ExportTyp(var, locate k $startpos(k) $endpos(k))
+    }
+| TYPE x=ID y=option(preceded(AS,ID)) DBLCOLON k=kind EQ t=typ
+    { let var = match y with
+    | None -> locate x $startpos(x) $endpos(x)
+    | Some y -> locate y $startpos(y) $endpos(y)
+    in ExportTyp(var, locate (Single(t, k)) $startpos(k) $endpos(t))
     }
 
 req(kind,typ):

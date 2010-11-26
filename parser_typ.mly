@@ -24,6 +24,13 @@ kind_fields:
     then Error.raise_error Error.kind_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
     else Label.AList.add lab (a, k) f }
+| TYPE lab=ID a=option(preceded(AS,ID)) DBLCOLON k=kind
+  EQ t=typ
+  f=kind_fields
+    { if Label.AList.mem lab f
+    then Error.raise_error Error.kind_wf $startpos(lab) $endpos(lab)
+        (Printf.sprintf "Duplicate record label: %s." lab)
+    else Label.AList.add lab (a, Single(t, k)) f }
 
 simple_kind:
 | STAR { Base }
@@ -83,7 +90,7 @@ app_typ:
     { t }
 
 arrow_typ:
-| t1=app_typ ARROW t2=arrow_typ
+| t1=app_typ ARROW t2=typ
     { locate (BaseArrow(t1, t2)) $startpos $endpos }
 | t=app_typ
     { t }
