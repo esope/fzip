@@ -1,0 +1,11 @@
+(* encoding of unit *)
+
+export {
+  type Unit :: < type t as t :: ⋆ type Sig :: S ({ val unit : t}) >
+}
+
+Σ [Unit] (Unit
+          :: < type t as t :: ⋆ type Sig :: S ({ val unit : t}) >
+          = < type t = {} type Sig = { val unit : {}} > )
+({ val unit = {} } : Unit.Sig)
+

@@ -1,0 +1,43 @@
+(* encoding of lists *)
+
+import {
+  type unit :: ⋆
+  val unit : unit
+
+  type list_sig ::
+  S (λ (elt :: ⋆) (list :: ⋆ ⇒ ⋆) ⇒
+    { val Nil : list elt
+      val Cons : elt → list elt → list elt
+      val match : ∀(β::⋆), list elt →
+                  { val Nil : unit → β
+                    val Cons : elt → list elt → β } → β
+    }
+    :: ⋆ ⇒ (⋆ ⇒ ⋆) ⇒ ⋆)
+}
+
+export {
+  type List :: < type t as t :: ⋆ ⇒ ⋆
+                type Sig :: S(λ(elt::⋆) ⇒ list_sig elt t :: ⋆ ⇒ ⋆) >
+}
+
+let type list_constr (elt::⋆) (list_elt::⋆) :: ⋆ =
+    { val Nil : list_elt val Cons : elt → list_elt → list_elt } in
+let type list (elt :: ⋆) :: ⋆ = ∀(α::⋆), list_constr elt α → α in
+
+Σ [List] (List
+          :: < type t as t :: ⋆ ⇒ ⋆
+               type Sig :: S(λ(elt::⋆) ⇒ list_sig elt t :: ⋆ ⇒ ⋆) >
+          = < type t = list
+              type Sig = λ(elt::⋆) ⇒ list_sig elt list >)
+
+λ(elt :: ⋆) →
+({ val Nil (α :: ⋆) (r : list_constr elt α) = r.Nil
+   val Cons (x : elt) (l : list elt) (α :: ⋆) (r : list_constr elt α) =
+        r.Cons x (l [α] r)
+   val match (β :: ⋆) (l : list elt)
+             (destruct :
+               { val Nil : unit → β val Cons : elt → list elt → β }) =
+             l [β]
+             { val Nil = destruct.Nil unit
+               val Cons (x : elt) (l' : β) = destruct.Cons x l }
+} : list_sig elt List.t)
