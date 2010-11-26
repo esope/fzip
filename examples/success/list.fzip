@@ -31,13 +31,17 @@ let type list (elt :: ⋆) :: ⋆ = ∀(α::⋆), list_constr elt α → α in
               type Sig = λ(elt::⋆) ⇒ list_sig elt list >)
 
 λ(elt :: ⋆) →
-({ val Nil (α :: ⋆) (r : list_constr elt α) = r.Nil
+(let Nil (α :: ⋆) (r : list_constr elt α) = r.Nil in
+{ val Nil = Nil
    val Cons (x : elt) (l : list elt) (α :: ⋆) (r : list_constr elt α) =
         r.Cons x (l [α] r)
    val match (β :: ⋆) (l : list elt)
              (destruct :
                { val Nil : unit → β val Cons : elt → list elt → β }) =
-             l [β]
-             { val Nil = destruct.Nil unit
-               val Cons (x : elt) (l' : β) = destruct.Cons x l }
+             let y =
+             l [{ val list : list elt val res : β }]
+             { val Nil = { val list = Nil val res = destruct.Nil unit }
+               val Cons (x : elt) (r : { val list : list elt val res : β }) =
+                 { val list = r.list val res = destruct.Cons x r.list } } in
+             y.res
 } : list_sig elt List.t)
