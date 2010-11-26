@@ -94,12 +94,12 @@ let rec head_norm ~unfold_eq env t = match t.content with
           head_norm ~unfold_eq env (bsubst t x t2)
       | ((FVar _ | App(_,_) | Proj(_,_)), Some (Pi(x, _, k1))) ->
           begin
-            match Kind.bsubst k1 x t2 with
+            match simplify_kind (Kind.bsubst k1 x t2) with
             | Single (u, Base) ->
                 head_norm ~unfold_eq env u
             | Single (_, _) -> assert false
-            | (Base | Pi(_,_,_) | Sigma _) ->
-                ({ t with content = mkApp t1' t2 } , Some k1)
+            | (Base | Pi(_,_,_) | Sigma _) as k ->
+                ({ t with content = mkApp t1' t2 } , Some k)
           end
       | ((FVar _ | BVar _ | App(_,_) | Proj(_,_) | Lam(_,_,_) |
         Record _ | BaseArrow (_, _) | BaseRecord _ |
