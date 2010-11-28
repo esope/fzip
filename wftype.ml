@@ -120,14 +120,19 @@ and wfkind env = function
         (Env.Typ.add_var (dummy_locate Mode.U) x k1 env)
         (Kind.bsubst k2 y x_var)
   | Single (t, k) ->
-      let k' = wftype env t in
-      let open Answer in
-      match sub_kind ~unfold_eq:false env k' k with
-      | Yes -> true
-      | No reasons ->
-          Error.raise_error Error.kind_wf t.startpos t.endpos
-            (Printf.sprintf "Ill-formed singleton:\n%s%!"
-               (error_msg (WF_TYPE (t, k) :: reasons)))
+      if wfkind env k
+      then
+        let k' = wftype env t in
+        let open Answer in
+        match sub_kind ~unfold_eq:false env k' k with
+        | Yes -> true
+        | No reasons ->
+            Error.raise_error Error.kind_wf t.startpos t.endpos
+              (Printf.sprintf "Ill-formed singleton:\n%s%!"
+                 (error_msg (WF_TYPE (t, k) :: reasons)))
+      else
+        Error.raise_error Error.kind_wf t.startpos t.endpos
+          ("Ill-formed singleton: the given kind is ill-formed.\n")
 
 and wfkind_fields env = function
   | [] -> true
@@ -169,12 +174,17 @@ let rec try_sub_type ~unfold_eq env tau tau' =
         | Yes ->
             begin try
               let tau = Label.Map.find lab m in
-              sub_type ~unfold_eq env tau tau'
+              match sub_type ~unfold_eq env tau tau' with
+              | Yes -> Yes
+              | No reasons ->
+                  No (TYPES_SUB
+                        (dummy_locate
+                           (mkBaseRecord (Label.Map.singleton lab tau)),
+                         dummy_locate
+                           (mkBaseRecord (Label.Map.singleton lab tau')))
+                      :: reasons)
             with Not_found ->
-              No [TYPES_SUB
-                    (dummy_locate (mkBaseRecord Label.Map.empty),
-                     dummy_locate (mkBaseRecord (Label.Map.singleton lab tau')))
-                ]
+              No [TYPES_MISSING_FIELD (lab, tau')]
             end
         | No reasons -> No reasons)
         m' Yes
