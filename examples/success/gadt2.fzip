@@ -1,0 +1,90 @@
+import {
+  (* unit *)
+  type unit :: ⋆
+  val unit : unit
+
+  (* booleans *)
+  type bool :: ⋆
+  val Bool : { val true : bool
+               val false : bool
+               val and : bool → bool → bool
+               val or : bool → bool → bool
+               val if : ∀(α::⋆), bool → (unit → α) → (unit → α) → α
+             }
+
+  (* integers *)
+  type int :: ⋆
+  val Int : { val sum : int → int → int
+              val sub : int → int → int
+              val equal : int → int → bool
+            }
+}
+
+import { (* Leibniz equality *)
+  type Eq :: < type t as eq :: ⋆ ⇒ ⋆ ⇒ ⋆
+               type Sig :: ⋆ =
+                    { val refl : ∀ (a :: ⋆), eq a a
+                      val sym : ∀(a::⋆)(b::⋆), eq a b → eq b a
+                      val trans : ∀(a::⋆)(b::⋆)(c::⋆),
+                          eq a b → eq b c → eq a c
+                      val ctxt : ∀(f::⋆⇒⋆)(a::⋆)(b::⋆),
+                          eq a b → eq (f a) (f b)
+                      val coerce : ∀(α::⋆)(β::⋆), eq α β → α → β
+                    }
+             >
+  val Eq : Eq.Sig
+}
+
+import {
+
+  type expr :: ⋆ ⇒ ⋆
+  val Expr :
+  { val Int : int → expr int
+    val Bool : bool → expr bool
+    val Sum : expr int → expr int → expr int
+    val Sub : expr int → expr int → expr int
+    val Eq_int : expr int → expr int → expr bool
+    val If : ∀(α :: ⋆), expr bool → expr α → expr α → expr α
+    val match : ∀ (β :: ⋆) (α :: ⋆), expr α →
+        { val Int : Eq.t α int → int →  β
+          val Bool : Eq.t α bool → bool → β
+          val Sum : Eq.t α int → expr int → expr int → β
+          val Sub : Eq.t α int → expr int → expr int → β
+          val And : Eq.t α bool → expr bool → expr bool → β
+          val Or : Eq.t α bool → expr bool → expr bool → β
+          val Eq_int : Eq.t α bool → expr int → expr int → β
+          val If : ∀(γ :: ⋆), Eq.t α γ → expr bool → expr γ → expr γ → β
+        } → β
+  }
+}
+
+
+let rec eval (α :: ⋆) (e : expr α) : α =
+  Expr.match [α] [α] e
+  { val Int (eq : Eq.t α int) (x : int) =
+      Eq.coerce [int] [α] (Eq.sym [α] [int] eq) x
+    val Bool (eq : Eq.t α bool) (x : bool) =
+      Eq.coerce [bool] [α] (Eq.sym [α] [bool] eq) x
+    val Sum (eq : Eq.t α int) (e1 : expr int) (e2 : expr int) =
+      Eq.coerce [int] [α] (Eq.sym [α] [int] eq)
+        (Int.sum (eval [int] e1) (eval [int] e2))
+    val Sub (eq : Eq.t α int) (e1 : expr int) (e2 : expr int) =
+      Eq.coerce [int] [α] (Eq.sym [α] [int] eq)
+        (Int.sub (eval [int] e1) (eval [int] e2))
+    val And (eq : Eq.t α bool) (e1 : expr bool) (e2 : expr bool) =
+      Eq.coerce [bool] [α] (Eq.sym [α] [bool] eq)
+        (Bool.and (eval [bool] e1) (eval [bool] e2))
+    val Or (eq : Eq.t α bool) (e1 : expr bool) (e2 : expr bool) =
+      Eq.coerce [bool] [α] (Eq.sym [α] [bool] eq)
+        (Bool.or (eval [bool] e1) (eval [bool] e2))
+    val Eq_int (eq : Eq.t α bool) (e1 : expr int) (e2 : expr int) =
+      Eq.coerce [bool] [α] (Eq.sym [α] [bool] eq)
+        (Int.equal (eval [int] e1) (eval [int] e2))
+    val If (γ :: ⋆) (eq : Eq.t α γ) (b: expr bool) (e1 : expr γ) (e2 : expr γ)=
+      Eq.coerce [γ] [α] (Eq.sym [α] [γ] eq)
+      (Bool.if [γ] (eval [bool] b)
+         (λ (x : unit) → eval [γ] e1)
+         (λ (x : unit) → eval [γ] e2))
+  }
+
+in eval

@@ -1,0 +1,55 @@
+export {
+
+type Eq ::
+      < type t as eq :: ⋆ ⇒ ⋆ ⇒ ⋆
+        type Sig :: ⋆ =
+             { val refl : ∀ (a :: ⋆), eq a a
+               val sym : ∀(a::⋆)(b::⋆), eq a b → eq b a
+               val trans : ∀(a::⋆)(b::⋆)(c::⋆),
+                   eq a b → eq b c → eq a c
+               val ctxt : ∀(f::⋆⇒⋆)(a::⋆)(b::⋆),
+                   eq a b → eq (f a) (f b)
+               val coerce : ∀(α::⋆)(β::⋆), eq α β → α → β
+             }
+      >
+}
+
+let type eq (a :: ⋆) (b :: ⋆) :: ⋆ =
+    ∀ (f :: ⋆ ⇒ ⋆), f a → f b
+in
+
+Σ [Eq] (Eq :: < type t as eq :: ⋆ ⇒ ⋆ ⇒ ⋆
+                 type Sig :: ⋆ =
+                      { val refl : ∀ (a :: ⋆), eq a a
+                        val sym : ∀(a::⋆)(b::⋆), eq a b → eq b a
+                        val trans : ∀(a::⋆)(b::⋆)(c::⋆),
+                            eq a b → eq b c → eq a c
+                        val ctxt : ∀(f::⋆⇒⋆)(a::⋆)(b::⋆),
+                            eq a b → eq (f a) (f b)
+                        val coerce : ∀(α::⋆)(β::⋆), eq α β → α → β
+                      }
+               >
+             = < type t = eq
+                 type Sig =
+                      { val refl : ∀ (a :: ⋆), eq a a
+                        val sym : ∀(a::⋆)(b::⋆), eq a b → eq b a
+                        val trans : ∀(a::⋆)(b::⋆)(c::⋆),
+                            eq a b → eq b c → eq a c
+                        val ctxt : ∀(f::⋆⇒⋆)(a::⋆)(b::⋆),
+                            eq a b → eq (f a) (f b)
+                        val coerce : ∀(α::⋆)(β::⋆), eq α β → α → β
+                      }
+               > )
+
+({ val refl (a :: ⋆) : eq a a =
+      λ (f :: ⋆ ⇒ ⋆) (x : f a) → x
+  val sym (a :: ⋆) (b :: ⋆) (eq_ab : eq a b) : eq b a =
+      eq_ab [λ(c::⋆) ⇒ eq c a] (λ(f::⋆ ⇒ ⋆) (x : f a) → x)
+  val trans (a :: ⋆) (b :: ⋆) (c :: ⋆)
+            (eq_ab : eq a b) (eq_bc : eq b c) : eq a c =
+      λ(f :: ⋆ ⇒ ⋆) (x : f a) → eq_bc [f] (eq_ab [f] x)
+  val ctxt (f :: ⋆ ⇒ ⋆) (a :: ⋆) (b :: ⋆) (eq_ab : eq a b) : eq (f a) (f b) =
+      λ (g :: ⋆ ⇒ ⋆) (x : g (f a)) → eq_ab [λ(x::⋆) ⇒ g (f x)] x
+  val coerce (α::⋆) (β::⋆) (eq: eq α β) (x:α) : β =
+      eq [λ(γ::⋆) ⇒ γ] x
+} : Eq.Sig)
