@@ -422,11 +422,16 @@ and try_check_sub_kind ~unfold_eq env p k k' =
           (fun () ->
             try
               let (_, k_lab) = Label.Map.find lab projections in
-              check_sub_kind ~unfold_eq env p_lab k_lab k'_lab
+              match check_sub_kind ~unfold_eq env p_lab k_lab k'_lab with
+              | Yes -> Yes
+              | No reasons ->
+                  let var = Var.fresh () in
+                  No (KINDS_SUB
+                        (Kind.mkSigma [lab, (var, k_lab)],
+                         Kind.mkSigma [lab, (var, k'_lab)])
+                      :: reasons)
             with Not_found ->
-              No [KINDS_SUB
-                    (Kind.mkSigma
-                       [(lab, (Var.fresh (), k'_lab))], Kind.mkSigma [])]
+              No [KINDS_MISSING_FIELD (lab, k'_lab)]
           )
         )
         projections' Yes
