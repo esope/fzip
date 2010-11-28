@@ -7,13 +7,21 @@ type reason =
         (** [TYPES_EQ(t1,t2)] means that [t1] is not equivalent to [t2]. *)
 
   | TYPES_SUB of Typ.t * Typ.t
-        (** [TYPES_EQ(t1,t2)] means that [t1] is not a subtype of [t2]. *)
+        (** [TYPES_SUB(t1,t2)] means that [t1] is not a subtype of [t2]. *)
+
+  | TYPES_MISSING_FIELD of Label.t * Typ.t
+        (** [TYPES_MISSING_FIELD(l,t)] means that the field [l] of type [t] is
+            not provided. *)
 
   | KINDS_EQ of Kind.t * Kind.t
-        (** [KINDS(k1,k2)] means that [k1] is not equivalent to [k2]. *)
+        (** [KINDS_EQ(k1,k2)] means that [k1] is not equivalent to [k2]. *)
 
   | KINDS_SUB of Kind.t * Kind.t
-        (** [KINDS(k1,k2)] means that [k1] is not a subkind of [k2]. *)
+        (** [KINDS_SUB(k1,k2)] means that [k1] is not a subkind of [k2]. *)
+
+  | KINDS_MISSING_FIELD of Label.t * Kind.t
+        (** [KINDS_MISSING_FIELD(l,k)] means that the field [l] of kind [k] is
+            not provided. *)
 
   | WF_TYPE of Typ.t * Kind.t
         (** [WF_TYPE(t,k)] means that [t] cannot be given the kind [k]. *)

@@ -4,8 +4,10 @@ open Ast_utils
 type reason =
   | TYPES_EQ of Typ.t * Typ.t
   | TYPES_SUB of Typ.t * Typ.t
+  | TYPES_MISSING_FIELD of Label.t * Typ.t
   | KINDS_EQ of Kind.t * Kind.t
   | KINDS_SUB of Kind.t * Kind.t
+  | KINDS_MISSING_FIELD of Label.t * Kind.t
   | WF_TYPE of Typ.t * Kind.t
   | E_TYP_VAR_PURE of Typ.Var.free Location.located
   | TERM_VAR_DISAGREE_TYP of
@@ -44,12 +46,18 @@ let rec error_msg = function
   | [ KINDS_SUB (k1, k2)] ->
       Printf.sprintf "%s\nis not a subkind of\n%s\n%!"
         (PPrint.Kind.string k1) (PPrint.Kind.string k2)
+  | [ KINDS_MISSING_FIELD (lab, k)] ->
+      Printf.sprintf "The field\n  %s :: %s\nis required but not provided.\n%!"
+        lab (PPrint.Kind.string k)
   | [ TYPES_EQ (t1, t2)] ->
       Printf.sprintf "%s\nis not a type that is equivalent to\n%s\n%!"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
   | [ TYPES_SUB (t1, t2)] ->
       Printf.sprintf "%s\nis not a subtype of\n%s\n%!"
         (PPrint.Typ.string t1) (PPrint.Typ.string t2)
+  | [ TYPES_MISSING_FIELD (lab, t)] ->
+      Printf.sprintf "The field\n  %s : %s\nis required but not provided.\n%!"
+        lab (PPrint.Typ.string t)
   | [ WF_TYPE (t, k)] ->
       Printf.sprintf "%s\n cannot be given the kind\n%s\n%!"
         (PPrint.Typ.string t) (PPrint.Kind.string k)
@@ -137,7 +145,8 @@ let rec error_msg = function
     TYP_VAR_DISAGREE_KIND _ | TYP_VAR_DISAGREE_EQU _ |
     TYP_VAR_DISAGREE_UEQ _ | TYP_VAR_DISAGREE_EQE _ |
     TYP_VAR_DISAGREE_EEQ _ | TYP_VAR_DISAGREE_EQEQ _ |
-    TYP_VAR_DISAGREE_UE _ | TYP_VAR_DISAGREE_EE _) :: _ ->
+    TYP_VAR_DISAGREE_UE _ | TYP_VAR_DISAGREE_EE _ |
+    TYPES_MISSING_FIELD _ | KINDS_MISSING_FIELD _) :: _ ->
       assert false
 
 module WithValue = struct
