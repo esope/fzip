@@ -161,4 +161,4 @@ let string_of_token = function
   | ARROW -> "→"
   | EXPORT -> "export"
   | IMPORT -> "import"
-  | EOF -> "\n"
+  | EOF -> "EOF"
