@@ -45,22 +45,24 @@ import {
     val Sub : expr int → expr int → expr int
     val Eq_int : expr int → expr int → expr bool
     val If : ∀(α :: ⋆), expr bool → expr α → expr α → expr α
-    val match : ∀ (β :: ⋆) (α :: ⋆), expr α →
-        { val Int : Eq.t α int → int →  β
-          val Bool : Eq.t α bool → bool → β
-          val Sum : Eq.t α int → expr int → expr int → β
-          val Sub : Eq.t α int → expr int → expr int → β
-          val And : Eq.t α bool → expr bool → expr bool → β
-          val Or : Eq.t α bool → expr bool → expr bool → β
-          val Eq_int : Eq.t α bool → expr int → expr int → β
-          val If : ∀(γ :: ⋆), Eq.t α γ → expr bool → expr γ → expr γ → β
-        } → β
+    val match : ∀ (β :: ⋆ ⇒ ⋆) (α :: ⋆), expr α →
+        (∀(α::⋆),
+        { val Int : Eq.t α int → int →  β α
+          val Bool : Eq.t α bool → bool → β α
+          val Sum : Eq.t α int → expr int → expr int → β α
+          val Sub : Eq.t α int → expr int → expr int → β α
+          val And : Eq.t α bool → expr bool → expr bool → β α
+          val Or : Eq.t α bool → expr bool → expr bool → β α
+          val Eq_int : Eq.t α bool → expr int → expr int → β α
+          val If : ∀(γ :: ⋆), Eq.t α γ → expr bool → expr γ → expr γ → β α
+        }) → β α
   }
 }
 
 
 let rec eval (α :: ⋆) (e : expr α) : α =
-  Expr.match [α] [α] e
+  Expr.match [λ(α::⋆) ⇒ α] [α] e
+  (Λ(α::⋆) →
   { val Int (eq : Eq.t α int) (x : int) =
       Eq.coerce [int] [α] (Eq.sym [α] [int] eq) x
     val Bool (eq : Eq.t α bool) (x : bool) =
@@ -85,6 +87,6 @@ let rec eval (α :: ⋆) (e : expr α) : α =
       (Bool.if [γ] (eval [bool] b)
          (λ (x : unit) → eval [γ] e1)
          (λ (x : unit) → eval [γ] e2))
-  }
+  })
 
 in eval
