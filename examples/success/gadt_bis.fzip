@@ -1,0 +1,179 @@
+import {
+  (* unit *)
+  type unit :: ⋆
+  val unit : unit
+
+  (* booleans *)
+  type bool :: ⋆
+  val Bool : { val true : bool
+               val false : bool
+               val and : bool → bool → bool
+               val or : bool → bool → bool
+               val if : ∀(α::⋆), bool → (unit → α) → (unit → α) → α
+             }
+
+  (* integers *)
+  type int :: ⋆
+  val Int : { val sum : int → int → int
+              val sub : int → int → int
+              val equal : int → int → bool
+            }
+
+  (* definition for the constructors of expressions *)
+  type expr_constr :: (⋆ ⇒ ⋆) ⇒ ⋆ =
+    λ (expr :: ⋆ ⇒ ⋆) ⇒
+      { val Int : int → expr int
+        val Bool : bool → expr bool
+        val Sum : expr int → expr int → expr int
+        val Sub : expr int → expr int → expr int
+        val Eq_int : expr int → expr int → expr bool
+        val Or : expr bool → expr bool → expr bool
+        val And : expr bool → expr bool → expr bool
+        val If : ∀(α :: ⋆), expr bool → expr α → expr α → expr α
+      }
+
+  (* definition the Chruch encoding of the type of expressions *)
+  type expr_impl :: ⋆ ⇒ ⋆ =
+    λ(typ :: ⋆) ⇒
+    ∀(expr :: ⋆ ⇒ ⋆), expr_constr expr → expr typ
+
+  (* definition of the constructors and match *)
+  type expr_sig :: (⋆ ⇒ ⋆) ⇒ ⋆ = λ(expr :: ⋆ ⇒ ⋆) ⇒
+  { val Int : int → expr int
+    val Bool : bool → expr bool
+    val Sum : expr int → expr int → expr int
+    val Sub : expr int → expr int → expr int
+    val And : expr bool → expr bool → expr bool
+    val Or : expr bool → expr bool → expr bool
+    val Eq_int : expr int → expr int → expr bool
+    val If : ∀(α :: ⋆), expr bool → expr α → expr α → expr α
+    val match : ∀ (β :: ⋆ ⇒ ⋆) (α :: ⋆), expr α →
+        { val Int : int → β int
+          val Bool : bool → β bool
+          val Sum : expr int → expr int → β int
+          val Sub : expr int → expr int → β int
+          val And : expr bool → expr bool → β bool
+          val Or : expr bool → expr bool → β bool
+          val Eq_int : expr int → expr int → β bool
+          val If : ∀(γ :: ⋆), expr bool → expr γ → expr γ → β γ
+        } → β α
+    val eval : ∀(α::⋆), expr α → α
+  }
+
+}
+
+export {
+  type Expr :: < type t as t :: ⋆ ⇒ ⋆ type Sig :: ⋆ = expr_sig t >
+}
+
+
+let Expr =
+
+Σ [Expr] (expr
+          :: < type t as t :: ⋆ ⇒ ⋆ type Sig :: ⋆ = expr_sig t >
+          =  < type t = expr_impl type Sig = expr_sig expr_impl >)
+
+(let mkInt : int → expr_impl int =
+  λ (x : int) (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) → r.Int x
+in
+let mkBool : bool → expr_impl bool =
+  λ (x : bool) (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) → r.Bool x
+in
+let mkSum (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.Sum (e1 [expr] r) (e2 [expr] r)
+in
+let mkSub (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.Sub (e1 [expr] r) (e2 [expr] r)
+in
+let mkEq_int (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl bool =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.Eq_int (e1 [expr] r) (e2 [expr] r)
+in
+let mkAnd (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.And (e1 [expr] r) (e2 [expr] r)
+in
+let mkOr (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.Or (e1 [expr] r) (e2 [expr] r)
+in
+let mkIf (α :: ⋆) (e : expr_impl bool)
+         (e1 : expr_impl α) (e2 : expr_impl α) : expr_impl α =
+      λ (expr :: ⋆ ⇒ ⋆) (r : expr_constr expr) →
+      r.If [α] (e [expr] r) (e1 [expr] r) (e2 [expr] r)
+in
+{ val Int = mkInt
+  val Bool = mkBool
+  val Sum = mkSum
+  val Sub = mkSub
+  val Eq_int = mkEq_int
+  val And = mkAnd
+  val Or = mkOr
+  val If = mkIf
+  val match (β :: ⋆ ⇒ ⋆) (α :: ⋆) (e : expr_impl α)
+      (case :
+        { val Int : int → β int
+          val Bool : bool → β bool
+          val Sum : expr_impl int → expr_impl int → β int
+          val Sub : expr_impl int → expr_impl int → β int
+          val And : expr_impl bool → expr_impl bool → β bool
+          val Or : expr_impl bool → expr_impl bool → β bool
+          val Eq_int : expr_impl int → expr_impl int → β bool
+          val If : ∀(γ :: ⋆), expr_impl bool → expr_impl γ → expr_impl γ →
+                   β γ
+        }
+      ) : β α =
+      let type res (γ :: ⋆) :: ⋆ = { val expr : expr_impl γ  val res : β γ } in
+      let y =
+        e [res]
+        { val Int (x : int) : res int =
+           { val expr = mkInt x
+             val res = case.Int x }
+         val Bool (x : bool) : res bool =
+           { val expr = mkBool x
+             val res = case.Bool x }
+         val Sum (e1 : res int) (e2 : res int) : res int =
+           { val expr = mkSum e1.expr e2.expr
+             val res = case.Sum e1.expr e2.expr }
+         val Sub (e1 : res int) (e2 : res int) : res int =
+           { val expr = mkSub e1.expr e2.expr
+             val res = case.Sub e1.expr e2.expr }
+         val Eq_int (e1 : res int) (e2 : res int) : res bool =
+           { val expr = mkEq_int e1.expr e2.expr
+             val res = case.Eq_int e1.expr e2.expr }
+         val And (e1 : res bool) (e2 : res bool) : res bool =
+           { val expr = mkAnd e1.expr e2.expr
+             val res = case.And e1.expr e2.expr }
+         val Or (e1 : res bool) (e2 : res bool) : res bool =
+           { val expr = mkOr e1.expr e2.expr
+             val res = case.Or e1.expr e2.expr }
+         val If (γ :: ⋆) (e : res bool) (e1 : res γ) (e2 : res γ) : res γ =
+           { val expr = e1.expr
+             val res = case.If [γ] e.expr e1.expr e2.expr }
+      }
+      in y.res
+
+  val eval (α :: ⋆) (e : expr_impl α) : α =
+      let id (α::⋆) (x : α) = x in
+      e [λ(α::⋆) ⇒ α]
+      { val Int = id [int]
+        val Bool = id [bool]
+        val Sum = Int.sum
+        val Sub = Int.sub
+        val And = Bool.and
+        val Or = Bool.or
+        val Eq_int = Int.equal
+        val If (β :: ⋆) (b : bool) (e1 : β) (e2 : β) : β =
+            Bool.if [β] b (λ(x:unit) → e1) (λ(x:unit) → e2)
+       }
+} : expr.Sig)
+in
+
+let bool_expr = Expr.If [bool] (Expr.Bool Bool.false)
+  (Expr.Or  (Expr.Bool Bool.true)  (Expr.Bool Bool.false))
+  (Expr.And (Expr.Bool Bool.false) (Expr.Bool Bool.true)) in
+
+(Expr.eval [bool] bool_expr : bool)
+
