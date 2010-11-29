@@ -92,27 +92,39 @@ let mkBool : bool → expr_impl bool =
   λ (x : bool) (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
   (r [bool]).Bool (Eq.refl [bool]) x
 in
-{ val Int = mkInt
-  val Bool = mkBool
-  val Sum (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
+let mkSum (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [int]).Sum (Eq.refl [int]) (e1 [expr] r) (e2 [expr] r)
-  val Sub (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
+in
+let mkSub (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl int =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [int]).Sub (Eq.refl [int]) (e1 [expr] r) (e2 [expr] r)
-  val Eq_int (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl bool =
+in
+let mkEq_int (e1 : expr_impl int) (e2 : expr_impl int) : expr_impl bool =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [bool]).Eq_int (Eq.refl [bool]) (e1 [expr] r) (e2 [expr] r)
-  val And (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
+in
+let mkAnd (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [bool]).And (Eq.refl [bool]) (e1 [expr] r) (e2 [expr] r)
-  val Or (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
+in
+let mkOr (e1 : expr_impl bool) (e2 : expr_impl bool) : expr_impl bool =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [bool]).Or (Eq.refl [bool]) (e1 [expr] r) (e2 [expr] r)
-  val If (α :: ⋆) (e : expr_impl bool)
+in
+let mkIf (α :: ⋆) (e : expr_impl bool)
          (e1 : expr_impl α) (e2 : expr_impl α) : expr_impl α =
       λ (expr :: ⋆ ⇒ ⋆) (r : ∀(α::⋆), expr_constr expr α) →
       (r [α]).If [α] (Eq.refl [α]) (e [expr] r) (e1 [expr] r) (e2 [expr] r)
+in
+{ val Int = mkInt
+  val Bool = mkBool
+  val Sum = mkSum
+  val Sub = mkSub
+  val Eq_int = mkEq_int
+  val And = mkAnd
+  val Or = mkOr
+  val If = mkIf
   val match (β :: ⋆ ⇒ ⋆) (α :: ⋆) (e : expr_impl α)
       (case : ∀(α::⋆),
         { val Int : Eq.t α int → int → β α
@@ -143,33 +155,33 @@ in
          val Sum (eq : Eq.t α int) (e1 : res int) (e2 : res int) : res α =
            { val expr = Eq.coerce [expr_impl int] [expr_impl α]
                         (Eq.ctxt [expr_impl] [int] [α] (Eq.sym [α] [int] eq))
-                        e1.expr
+                        (mkSum e1.expr e2.expr)
              val res = (case [α]).Sum eq e1.expr e2.expr }
          val Sub (eq : Eq.t α int) (e1 : res int) (e2 : res int) : res α =
            { val expr = Eq.coerce [expr_impl int] [expr_impl α]
                         (Eq.ctxt [expr_impl] [int] [α] (Eq.sym [α] [int] eq))
-                        e1.expr
+                        (mkSub e1.expr e2.expr)
              val res = (case [α]).Sub eq e1.expr e2.expr }
          val Eq_int (eq : Eq.t α bool) (e1 : res int) (e2 : res int) : res α =
            { val expr = Eq.coerce [expr_impl bool] [expr_impl α]
                         (Eq.ctxt [expr_impl] [bool] [α] (Eq.sym [α] [bool] eq))
-                        (mkBool Bool.true)
+                        (mkEq_int e1.expr e2.expr)
              val res = (case [α]).Eq_int eq e1.expr e2.expr }
          val And (eq : Eq.t α bool) (e1 : res bool) (e2 : res bool) : res α =
            { val expr = Eq.coerce [expr_impl bool] [expr_impl α]
                         (Eq.ctxt [expr_impl] [bool] [α] (Eq.sym [α] [bool] eq))
-                        e1.expr
+                        (mkAnd e1.expr e2.expr)
              val res = (case [α]).And eq e1.expr e2.expr }
          val Or (eq : Eq.t α bool) (e1 : res bool) (e2 : res bool) : res α =
            { val expr = Eq.coerce [expr_impl bool] [expr_impl α]
                         (Eq.ctxt [expr_impl] [bool] [α] (Eq.sym [α] [bool] eq))
-                        e1.expr
+                        (mkOr e1.expr e2.expr)
              val res = (case [α]).Or eq e1.expr e2.expr }
          val If (γ :: ⋆) (eq : Eq.t α γ)
                 (e : res bool) (e1 : res γ) (e2 : res γ) : res α =
            { val expr = Eq.coerce [expr_impl γ] [expr_impl α]
                         (Eq.ctxt [expr_impl] [γ] [α] (Eq.sym [α] [γ] eq))
-                        e1.expr
+                        (mkIf [γ] e.expr e1.expr e2.expr)
              val res = (case [α]).If [γ] eq e.expr e1.expr e2.expr }
       })
       in y.res

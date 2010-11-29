@@ -25,15 +25,16 @@ let type nat :: ⋆ = ∀(α::⋆), nat_constr α → α in
 Σ [Nat] (Nat
           :: < type t as t :: ⋆ type Sig :: S(nat_sig t) >
           = < type t = nat type Sig = nat_sig nat >)
-(let Zero (α :: ⋆) (r : nat_constr α) = r.Zero in
-{ val Zero = Zero
-  val Succ (n : nat) (α :: ⋆) (r : nat_constr α) =
-    n [α] { val Zero = r.Succ r.Zero val Succ = r.Succ }
+(let mkZero (α :: ⋆) (r : nat_constr α) = r.Zero in
+let mkSucc (n : nat) (α :: ⋆) (r : nat_constr α) =
+    n [α] { val Zero = r.Succ r.Zero val Succ = r.Succ } in
+{ val Zero = mkZero
+  val Succ = mkSucc
   val match (β :: ⋆) (n : nat)
              (destruct : { val Zero : unit → β val Succ : nat → β }) =
              let y = n [{ val int: nat val res: β }]
-             { val Zero = { val int = Zero val res = destruct.Zero unit }
+             { val Zero = { val int = mkZero val res = destruct.Zero unit }
                val Succ (x : { val int: nat val res: β }) = 
-                  { val int = x.int val res = destruct.Succ x.int }  } in
+                  { val int = mkSucc x.int val res = destruct.Succ x.int }  } in
              y.res
 } : nat_sig Nat.t)
