@@ -1,0 +1,9 @@
+import { type int :: ⋆ }
+
+λ(X :: < type t as t :: ⋆  type u :: ⋆ = t >)
+ (X : { val x : X.t val y : int }) →
+( ∃(α ::
+    S(X :: < type t as t :: ⋆  type u :: ⋆ = t >)
+    = X)
+    X
+: ∃(α :: < type u :: ⋆ >), { val x : α.u })

@@ -1,0 +1,37 @@
+import {
+  type unit :: ⋆
+  val unit : unit
+}
+
+import {
+  type Bool :: < type t :: ⋆ >
+  val  Bool :
+    { val true : Bool.t
+      val false : Bool.t
+      val match : ∀(a :: ⋆), Bool.t →
+                    { val true : unit → a   val false : unit → a } → a
+    }
+
+}
+
+import {
+  type Set :: < type t as set :: < type t :: ⋆> ⇒ ⋆
+                type Ordered ::
+                     S(λ(α :: < type t :: ⋆ >) ⇒
+                       { val compare : α.t → α.t → Bool.t }
+                      :: < type t :: ⋆ > ⇒ ⋆)
+                type Sig ::
+                     S(λ(α :: < type t :: ⋆ >) ⇒
+                       { val empty : set α
+                         val singleton : α.t → set α
+                         val add : α.t → set α → set α
+                         val compare : set α → set α → Bool.t
+                       }
+                       :: < type t :: ⋆ > ⇒ ⋆ )
+              >
+  val Set : { val Make : ∀(α :: < type t :: ⋆ >), Set.Ordered α → Set.Sig α }
+}
+
+λ(X :: < type t :: ⋆ >)(X : Set.Ordered X) →
+let SetX = Set.Make [X] X in
+Set.Make [< type t = Set.t X >] SetX
