@@ -10,6 +10,10 @@ import {
                     { val true : unit → a   val false : unit → a } → a
     }
 
+  type Int :: < type t :: ⋆ >
+  val Int : { val compare : Int.t → Int.t → Bool.t }
+  
+
   type List :: < type t :: ⋆ ⇒ ⋆ >
   val  List : ∀(α :: ⋆),
     { val empty : List.t α
@@ -36,6 +40,10 @@ export {
               >
 }
 
+export {
+  type IntSet :: < type t :: ⋆ type elt :: ⋆ = Int.t >
+}
+
 
 Σ [Set] (Set :: < type Ordered :: < type t :: ⋆ > ⇒ ⋆ =
                        λ(α :: < type t :: ⋆ >) ⇒
@@ -59,10 +67,13 @@ export {
                 >
          )
 
-{ val Set =
+let Set =
+  (* The functor Make *)
   { val Make (X :: < type t :: ⋆ >) (X :  Set.Ordered X)
-    : ∃(α :: ⋆), Set.Sig < type elt = X.t type t = α > =
-    ∃(α :: S(List.t X.t) = List.t X.t)
+    : ∃(α :: < type t :: ⋆ type elt :: ⋆ = X.t >), Set.Sig α =
+    (* Implementation *)
+    ∃(α :: < type t :: ⋆ = List.t X.t type elt :: ⋆ = X.t >
+     = < type t = List.t X.t  type elt = X.t >)
     { val empty = (List [X.t]).empty
    
       val singleton (x : X.t) =
@@ -83,6 +94,13 @@ export {
         }
     }
   }
+in
+
+{ (* Exportinf the Make functor *)
+  val Set = Set
+
+  (* Instance of Make on integers *)
+  val IntSet = open [IntSet] (Set.Make [Int] Int)
 }
 
 
