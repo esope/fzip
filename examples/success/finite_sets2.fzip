@@ -1,0 +1,106 @@
+import {
+  type unit :: ⋆
+  val  unit :  unit
+
+  type Bool :: < type t :: ⋆ >
+  val  Bool :
+    { val true : Bool.t
+      val false : Bool.t
+      val match : ∀(a :: ⋆), Bool.t →
+                    { val true : unit → a   val false : unit → a } → a
+    }
+
+  type Int :: < type t :: ⋆ >
+  val Int : { val compare : Int.t → Int.t → Bool.t }
+  
+
+  type List :: < type t :: ⋆ ⇒ ⋆ >
+  val  List : ∀(α :: ⋆),
+    { val empty : List.t α
+      val cons : α → List.t α → List.t α
+      val match : ∀(β :: ⋆),
+                    List.t α →
+                    { val empty : unit → β
+                      val cons : α → List.t α → β } → β
+    }
+
+}
+
+export {
+  type Set :: < type Ordered :: < type t :: ⋆ > ⇒ ⋆ =
+                     λ(α :: < type t :: ⋆ >) ⇒
+                       { val compare : α.t → α.t → Bool.t }
+                type Sig ::
+                     S(λ(α :: < type elt :: ⋆ type t :: ⋆ >) ⇒
+                       { val empty : α.t
+                         val singleton : α.elt → α.t
+                         val add : α.elt → α.t → α.t
+                       }
+                       :: < type elt :: ⋆ type t :: ⋆ > ⇒ ⋆ )
+              >
+}
+
+export {
+  type IntSet :: < type t :: ⋆ type elt :: ⋆ = Int.t >
+}
+
+
+Σ [Set] (Set :: < type Ordered :: < type t :: ⋆ > ⇒ ⋆ =
+                       λ(α :: < type t :: ⋆ >) ⇒
+                         { val compare : α.t → α.t → Bool.t }
+                  type Sig ::
+                       S(λ(α :: < type elt :: ⋆ type t :: ⋆ >) ⇒
+                         { val empty : α.t
+                           val singleton : α.elt → α.t
+                           val add : α.elt → α.t → α.t
+                         }
+                         :: < type elt :: ⋆ type t :: ⋆ > ⇒ ⋆ )
+                > 
+              = < type Ordered =
+                       λ(α :: < type t :: ⋆ >) ⇒
+                       { val compare : α.t → α.t → Bool.t }
+                  type Sig (α:: < type elt :: ⋆  type t :: ⋆ >) =
+                       { val empty : α.t
+                         val singleton : α.elt → α.t
+                         val add : α.elt → α.t → α.t
+                       }
+                >
+         )
+
+let Set =
+  (* The functor Make *)
+  { val Make (X :: < type t :: ⋆ >) (X :  Set.Ordered X)
+    : ∃(α :: < type t :: ⋆ type elt :: ⋆ = X.t >), Set.Sig α =
+    (* Implementation *)
+    ∃(α :: < type t :: ⋆ = List.t X.t type elt :: ⋆ = X.t >
+     = < type t = List.t X.t  type elt = X.t >)
+    { val empty = (List [X.t]).empty
+   
+      val singleton (x : X.t) =
+        (List [X.t]).cons x (List [X.t]).empty
+   
+      val rec add (x : X.t) (l : List.t X.t)
+       : List.t X.t =
+        (List [X.t]).match [List.t X.t] l
+        { val empty (y : unit) =
+              (List [X.t]).cons x (List [X.t]).empty
+          val cons (y : X.t) (l' : List.t X.t) =
+              Bool.match [List.t X.t] (X.compare x y)
+              { val true (z : unit) =
+                    (List [X.t]).cons x l
+                val false (z : unit) =
+                    (List [X.t]).cons y (add x l')
+              }
+        }
+    }
+  }
+in
+
+{ (* Exportinf the Make functor *)
+  val Set = Set
+
+  (* Instance of Make on integers *)
+  val IntSet = open [IntSet] (Set.Make [Int] Int)
+}
+
+
