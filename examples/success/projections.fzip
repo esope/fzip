@@ -1,0 +1,10 @@
+import {
+  type type_example :: ⋆ = ∀ (β :: ⋆), (∃ (α :: ⋆), { val f : α → β val a : α }) -> β
+}
+
+{ val example : type_example =
+    fun (β :: ⋆) (x : ∃ (α :: ⋆), { val f : α → β val a : α }) ->
+      ν (α :: ⋆) let y = open [α] x in
+        y.f y.a
+}
+
