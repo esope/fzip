@@ -1,7 +1,4 @@
-open Ast
 open Location
-
-let string_of_token = Lexer.string_of_token
 
 module Encode = struct
   open Ast
@@ -240,26 +237,12 @@ module PPrint = struct
   | BaseArrow(_,_) -> true
   | Var _ | BaseRecord _ | BaseForall (_, _, _) | Proj (_, _) |
     BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _)-> false
-  let is_base_record t = match t.content with
-  | BaseRecord _ -> true
-  | Var _ | BaseArrow (_, _) | BaseForall (_, _, _) | Proj (_, _) |
-    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _) -> false
   let tights_more_than_app x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
       Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_record x =
-    match x.content with
-    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) | App(_,_) -> false
   let tights_more_than_proj x =
-    match x.content with
-    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_base_record x =
     match x.content with
     | Var _ | Record _ | Proj _ | BaseRecord _ -> true
     | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |

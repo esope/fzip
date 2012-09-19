@@ -141,9 +141,8 @@ let rec wfterm env term =
                 (Env.Term.add_var x' (Location.relocate_with t x_loc) env)
                 (bsubst_term_var e x x_var') in
             begin
-              let open Answer in
               match Env.is_pure env' with
-              | Yes ->
+              | Answer.Yes ->
                   let env =
                     let min_env_for_t =
                       Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
@@ -151,16 +150,16 @@ let rec wfterm env term =
                       Env.Term.remove_var ~track:false
                         x' (Location.locate_with () x_loc) env'
                     in match Env.zip min_env_for_e min_env_for_t with
-                    | WithValue.Yes env -> env
-                    | WithValue.No _ -> assert false
+                    | Answer.WithValue.Yes env -> env
+                    | Answer.WithValue.No _ -> assert false
                   in
                   (env,
                    dummy_locate (Typ.mkBaseArrow t t'))
-              | No reason ->
+              | Answer.No reason ->
                   Error.raise_error Error.purity e.startpos e.endpos
                     (Printf.sprintf
                        "This term is a body of a function and is not pure.\n%s%!"
-                       (error_msg reason))
+                       (Answer.error_msg reason))
             end
         | KIND k ->
             Error.raise_error Error.term_wf t.startpos t.endpos
@@ -624,7 +623,6 @@ let rec wfterm env term =
         Error.raise_error Error.kind_wf k.startpos k.endpos
           "Ill-formed kind at the bound of an existential closure."
   | Fix ({ content = x ; _ } as x_loc, t, e) ->
-      let open Answer in
       match wfbasetype env t with
       | OK ->
           begin
@@ -636,7 +634,7 @@ let rec wfterm env term =
                 (bsubst_term_var e x x_var') in
             let open Answer in
             match Wftype.sub_type ~unfold_eq:false env t' t with
-            | Yes ->
+            | Answer.Yes ->
                 let env =
                   let min_env_for_t =
                     Env.Typ.minimal_env_for_vars env (Ast.Typ.fv t)
@@ -648,7 +646,7 @@ let rec wfterm env term =
                   | WithValue.No _ -> assert false
                 in
                 (env, t)
-            | No reasons ->
+            | Answer.No reasons ->
                 Error.raise_error Error.subtype term.startpos term.endpos
                   (Printf.sprintf
                      "Ill-formed fixpoint:\

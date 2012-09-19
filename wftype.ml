@@ -1,6 +1,5 @@
 open Ast
 open Ast.Typ
-open Ast_utils
 open Location
 
 let sub_kind = Normalize.sub_kind

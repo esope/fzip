@@ -128,12 +128,6 @@ let rec remove_assoc equal x = function
   | (y, _) :: l when equal x y -> l
   | b :: l -> b :: remove_assoc equal x l
 
-let rec remove_many_assocs mini_set vars = function
-  | [] -> []
-  | (y, _) :: l when mini_set.Set.mem y vars ->
-      remove_many_assocs mini_set vars l
-  | b :: l -> b :: remove_many_assocs mini_set vars l
-
 let rec remove_many_assocs_map mini_set vars = function
   | [] -> []
   | (y, _) :: l when mini_set.Map.mem y vars ->
@@ -286,11 +280,6 @@ let filter p_te p_ty e =
     typ_vars = List.filter (fun (x, _) -> p_ty x) e.typ_vars ;
     removed_typ_vars =
       Ast.Typ.Var.Map.filter (fun x _ -> p_ty x) e.removed_typ_vars }
-
-let free_vars mini_map fv e =
-  List.fold_left
-    (fun acc (x, t) -> mini_map.Map.add x (fv t) acc)
-    mini_map.Map.empty e
 
 (* Fixpoint of an increasing function, à la Tarski. *)
 (* [fixpoint leq bottom f] computes the least fixpoint of [f] that is
