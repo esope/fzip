@@ -1,3 +1,9 @@
+Fzip
+====
+
+Description
+-----------
+
 This project implements the language that is described in the last
 part of Benoît Montagu's PhD thesis. It is an extension of System F
 with subtyping, singleton kinds and open existential types. This
@@ -11,20 +17,35 @@ read the file lexer.ml to get more info.
 
 Requirements:
 -------------
+
 * Objective Caml >= 3.12
 * ocamlfind
 * ULex
 * menhir
 * OUnit (for running tests)
 
-To build, type in a terminal
-  make
+How to build:
+-------------
 
-To build a native version, type
-  make native
+To build, type in a terminal:
 
-To run tests, type
-  make test
-or (in native mode)
-  make test.native
+``  make
+``
 
+To build a native version, type:
+
+``  make native
+``
+
+How to run tests:
+-----------------
+
+To run tests, type:
+
+``  make test
+``
+
+or to run them in native mode:
+
+``  make test.native
+``
