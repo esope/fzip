@@ -10,6 +10,9 @@ import {
                   val match : ∀(β::⋆), α →
                       { val Zero : unit → β
                         val Succ : α → β    } → β
+                  val fold : ∀ (β :: ⋆),
+                      { val Zero : β val Succ : β → β } →
+                      α → β
                  }
     :: ⋆ ⇒ ⋆)
 }
@@ -36,4 +39,8 @@ let mkSucc (n : nat) (α :: ⋆) (r : nat_constr α) = r.Succ (n [α] r) in
                val Succ (x : { val int: nat val res: β }) = 
                   { val int = mkSucc x.int val res = destruct.Succ x.int }  } in
              y.res
+  val fold (β :: ⋆)
+           (r : { val Zero : β val Succ : β → β })
+           (n : nat) : β =
+        n [β] r
 } : nat_sig Nat.t)

@@ -11,6 +11,9 @@ import {
                   val match : ∀(β::⋆), α →
                       { val Zero : unit → β
                         val Succ : α → β    } → β
+                  val fold : ∀ (β :: ⋆),
+                      { val Zero : β val Succ : β → β } →
+                      α → β
                  }
                >
   val Nat : Nat.Sig
@@ -23,6 +26,11 @@ import {
           { val Zero : unit → β
             val Succ : α → β
             val Lim  : (Nat.t → α) → β } → β
+      val fold : ∀(β::⋆),
+          { val Zero : β
+            val Succ : β → β
+            val Lim  : (Nat.t → β) → β } →
+          α → β
     }
 
 }
@@ -61,4 +69,10 @@ let mkLim (f : Nat.t → ord) (α :: ⋆) (r : Ord_Constr α) : α =
                     val res = destruct.Lim (λ (n : Nat.t) → (f n).ord) }
              } in
              y.res
+  val fold (β :: ⋆)
+           (r : { val Zero : β
+                  val Succ : β → β
+                  val Lim  : (Nat.t → β) → β })
+           (O: ord) : β =
+      O [β] r
 } : Ord_Sig Ord.t)
