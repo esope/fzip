@@ -26,8 +26,7 @@ let type nat :: ⋆ = ∀(α::⋆), nat_constr α → α in
           :: < type t as t :: ⋆ type Sig :: S(nat_sig t) >
           = < type t = nat type Sig = nat_sig nat >)
 (let mkZero (α :: ⋆) (r : nat_constr α) = r.Zero in
-let mkSucc (n : nat) (α :: ⋆) (r : nat_constr α) =
-    n [α] { val Zero = r.Succ r.Zero val Succ = r.Succ } in
+let mkSucc (n : nat) (α :: ⋆) (r : nat_constr α) = r.Succ (n [α] r) in
 { val Zero = mkZero
   val Succ = mkSucc
   val match (β :: ⋆) (n : nat)
