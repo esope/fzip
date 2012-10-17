@@ -69,8 +69,6 @@ simple_term(kind,typ):
     { locate (TeRecord (fst f)) $startpos $endpos }
 | t=simple_term(kind,typ) DOT x=ID
     { locate (TeProj(t, locate x ($startpos(x)) ($endpos(x)))) $startpos $endpos }
-| t=simple_term(kind,typ) LBRACKET tau=typ RBRACKET
-    { locate (TeInst(t, tau)) $startpos $endpos }
 | LPAR t=term(kind,typ) COLON tau=typ RPAR
     { locate (TeAnnot(t, tau)) $startpos $endpos }
 | LPAR t=term(kind,typ) RPAR
@@ -85,6 +83,8 @@ open_term(kind,typ):
 app_term(kind,typ):
 | t1=app_term(kind,typ) t2=simple_term(kind,typ)
     { locate (TeApp(t1, t2)) $startpos $endpos }
+| t=app_term(kind,typ) LBRACKET tau=typ RBRACKET
+    { locate (TeInst(t, tau)) $startpos $endpos }
 | t=open_term(kind,typ)
     { t }
 

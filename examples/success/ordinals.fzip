@@ -51,7 +51,7 @@ let type ord :: ⋆ = ∀ (α :: ⋆), Ord_Constr α → α in
 (let mkZero (α :: ⋆) (r : Ord_Constr α) : α = r.Zero in
 let mkSucc (O : ord) (α :: ⋆) (r : Ord_Constr α) : α = r.Succ (O [α] r) in
 let mkLim (f : Nat.t → ord) (α :: ⋆) (r : Ord_Constr α) : α =
-  r.Lim (λ (n : Nat.t) → (f n) [α] r) in
+  r.Lim (λ (n : Nat.t) → f n [α] r) in
 { val Zero = mkZero
   val Succ = mkSucc
   val Lim  = mkLim
