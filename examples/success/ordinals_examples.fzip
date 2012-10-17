@@ -1,0 +1,85 @@
+import {
+
+  type Unit :: ⋆
+  val unit : Unit
+
+  type Nat :: < type t as α :: ⋆
+                type Sig :: ⋆ =
+                { val Zero : α
+                  val Succ : α → α
+                  val match : ∀(β::⋆), α →
+                      { val Zero : Unit → β
+                        val Succ : α → β    } → β
+                  val fold : ∀ (β :: ⋆),
+                      { val Zero : β val Succ : β → β } →
+                      α → β
+                 }
+               >
+  val Nat : Nat.Sig
+
+  type Ord :: < type t as α :: ⋆
+                type Sig :: ⋆ =
+                { val Zero : α
+                  val Succ : α → α
+                  val Lim  : (Nat.t → α) → α
+                  val match : ∀(β::⋆), α →
+                      { val Zero : Unit → β
+                        val Succ : α → β
+                        val Lim  : (Nat.t → α) → β } → β
+                  val fold : ∀(β::⋆),
+                      { val Zero : β
+                        val Succ : β → β
+                        val Lim  : (Nat.t → β) → β } →
+                      α → β
+                }
+              >
+  val Ord : Ord.Sig
+
+}
+
+let inj : Nat.t → Ord.t =
+  Nat.fold [Ord.t]
+  { val Zero = Ord.Zero
+    val Succ = Ord.Succ
+  }
+in
+
+let plus (a: Ord.t) : Ord.t → Ord.t =
+  Ord.fold [Ord.t]
+  { val Zero = a
+    val Succ (b: Ord.t) = Ord.Succ b
+    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+  }
+in
+
+let mult (a: Ord.t) : Ord.t → Ord.t =
+  Ord.fold [Ord.t]
+  { val Zero = Ord.Zero
+    val Succ (b: Ord.t) = plus b a
+    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+  }
+in
+
+let exp (a: Ord.t) : Ord.t → Ord.t =
+  Ord.fold [Ord.t]
+  { val Zero = Ord.Succ Ord.Zero
+    val Succ (b: Ord.t) = mult b a
+    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+  }
+in
+
+let tower (a: Ord.t) : Ord.t → Ord.t =
+  Ord.fold [Ord.t]
+  { val Zero = a
+    val Succ (b: Ord.t) = exp b a
+    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+  }
+in
+
+let omega = Ord.Lim inj in
+
+{ val omega : Ord.t = omega
+  val omega_squared : Ord.t = mult omega omega
+  val omega_to_omega : Ord.t = exp omega omega
+  val epsilon0 : Ord.t = tower omega omega
+}
