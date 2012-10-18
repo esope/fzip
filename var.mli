@@ -16,6 +16,9 @@ module type S = sig
   (** equality test *)
   val equal: free -> free -> bool
 
+  (** comparison *)
+  val compare: free -> free -> int
+
   (** creation of a free variable from a base name *)
   val make: string -> free
 
@@ -41,14 +44,18 @@ module type S = sig
   val bsucc: bound -> bound
   val bequal: bound -> bound -> bool
   val bequal_bzero: bound -> bool
+  (** comparison *)
+  val bcompare: bound -> bound -> int
   (** [bmax] computes the maximem of two bound variables.
       The string representation of the result is the one of
       the first argument. *)
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
 
+  module BSet: Set.S with type elt = bound
+  module BMap: Map.S with type key = bound
   module Set : Set.S with type elt = free
-  module Map: Map.S with type key = free
+  module Map : Map.S with type key = free
 end
 
 module Make (Default: CONFIG) : S
