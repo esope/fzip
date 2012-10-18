@@ -51,7 +51,7 @@ module Encode = struct
 (* closing recursion *)
     let rec typ t = typ_rec kind t
     and kind k = kind_rec typ k
-        
+
   end
 
   module Term = struct
@@ -196,7 +196,7 @@ module PPrint = struct
     | Base -> text "⋆"
     | Pi(Some x, k1, k2) ->
         (prefix "Π"
-           (parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^ 
+           (parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
          string "⇒") ^^
            break1 ^^
            (kind_rec typ k2)

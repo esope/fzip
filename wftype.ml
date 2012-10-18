@@ -21,7 +21,7 @@ let rec wftype env t =
                  (Var.to_string x) (location_msg loc))
       end
   | App(t1, t2) ->
-      let k1 = wftype env t1 and k2 = wftype env t2 in 
+      let k1 = wftype env t1 and k2 = wftype env t2 in
       begin
         match Normalize.simplify_kind k1 with
         | Pi(x, k2', k1') ->
@@ -81,7 +81,7 @@ let rec wftype env t =
           Env.Typ.add_var (locate_with Mode.U x_loc) x' k.content env in
         let k' = wftype env' u' in
         let open Kind in
-        if sub_kind_b ~unfold_eq:false env' k' mkBase 
+        if sub_kind_b ~unfold_eq:false env' k' mkBase
         then mkSingle t mkBase
         else Error.raise_error Error.type_wf k.startpos k.endpos
             "Ill-formed universal type: this kind is not a base kind."

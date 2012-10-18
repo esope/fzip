@@ -10,4 +10,3 @@ type reqs = Prog.reqs
 val wfreqs: reqs -> Env.t * (Mode.mode Location.located) Typ.Var.Map.t
 
 val wfprog: t -> Typ.t
-

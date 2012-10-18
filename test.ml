@@ -119,7 +119,7 @@ let mknum_string n =
 
 let nat_string = "(⋆ => ⋆) => ⋆ => ⋆"
 
-let add_string = 
+let add_string =
   ("(λ (n :: " ^ nat_string ^ ") ⇒" ^
    " λ (m :: " ^ nat_string ^ ") ⇒ " ^
    " λ (f :: ⋆ ⇒ ⋆) ⇒ λ (x :: ⋆) ⇒ n f (m f x))")
@@ -540,7 +540,7 @@ let test_file (mode: [`Positive | `Negative]) file =
 
 let get_files dir =
   let dir = Filename.(concat current_dir_name dir) in
-  List.filter 
+  List.filter
     (fun file -> Filename.check_suffix file ".fzip")
     (Array.fold_left (fun acc file -> (Filename.concat dir file) :: acc)
        [] (Sys.readdir dir))

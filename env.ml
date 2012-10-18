@@ -360,7 +360,7 @@ module Typ = struct
     let (ty_vars_to_remove, te_vars_to_remove) =
       (* variables that come from the term variable environment *)
       if recursive
-      then 
+      then
         List.fold_left
           (fun ((ty_vars, te_vars) as vars) (y, tau) ->
             let fv_tau = Ast.Typ.fv tau in
@@ -415,7 +415,7 @@ module Typ = struct
             | (_, _) -> y)
             e.removed_typ_vars
             ty_vars_to_remove
-        else e.removed_typ_vars 
+        else e.removed_typ_vars
     }
 
   let is_fv y e =

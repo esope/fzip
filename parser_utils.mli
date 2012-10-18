@@ -28,8 +28,8 @@ module Channel : sig
   end
 
   module Typ:  sig val parse: in_channel -> string -> Typ.t  end
-  module Kind: sig val parse: in_channel -> string -> Kind.t end 
-  module Term: sig val parse: in_channel -> string -> Term.t end 
-  module Prog: sig val parse: in_channel -> string -> Prog.t end 
+  module Kind: sig val parse: in_channel -> string -> Kind.t end
+  module Term: sig val parse: in_channel -> string -> Term.t end
+  module Prog: sig val parse: in_channel -> string -> Prog.t end
 
 end

@@ -16,4 +16,3 @@ val check_wftype_b: Env.t -> Typ.t -> Kind.t -> bool
 (** Decides subtyping. *)
 val sub_type: unfold_eq:bool -> Env.t -> Typ.t -> Typ.t -> Answer.t
 val sub_type_b: unfold_eq:bool -> Env.t -> Typ.t -> Typ.t -> bool
-

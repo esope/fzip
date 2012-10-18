@@ -94,14 +94,14 @@ module Channel =  struct
           kind_expr_parser (fun () -> Lexer.token file lexbuf)
     end
 
-    module Term = struct   
+    module Term = struct
       let parse chan file =
         let lexbuf = Ulexing.from_utf8_channel chan in
         parser_error_handle
           term_expr_parser (fun () -> Lexer.token file lexbuf)
     end
 
-    module Prog = struct   
+    module Prog = struct
       let parse chan file =
         let lexbuf = Ulexing.from_utf8_channel chan in
         parser_error_handle

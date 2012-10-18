@@ -459,7 +459,7 @@ let rec wfterm env term =
                     assert (not (Env.Typ.mem_var x env')) ;
                     (* checking env ⊢ k ≡ k_x *)
                     let open Answer in
-                    match 
+                    match
                       Normalize.equiv_kind ~unfold_eq:false env k_x k.content
                     with
                     | Yes ->
@@ -533,7 +533,7 @@ let rec wfterm env term =
                           x' (Location.locate_with () x_loc) env'
                       in match Env.zip min_env_for_e min_env_for_k with
                       | Answer.WithValue.Yes env -> env
-                      | Answer.WithValue.No _ -> assert false 
+                      | Answer.WithValue.No _ -> assert false
                     in
                     (env, t')
                 | None ->
@@ -585,7 +585,7 @@ let rec wfterm env term =
                     x' (Location.locate_with () x_loc) env'
                 in match Env.zip min_env_for_e min_env_for_k with
                 | Answer.WithValue.Yes env -> env
-                | Answer.WithValue.No _ -> assert false 
+                | Answer.WithValue.No _ -> assert false
               in
               (env,
                dummy_locate (Typ.mkBaseExists (locate_with x' x_loc) k t'))
@@ -659,7 +659,7 @@ let wfterm env e =
   else
     Error.raise_error Error.term_wf e.startpos e.endpos
       "Ill-formed fixpoint: this term should be an extended result."
-      
+
 
 let check_wfterm env e t =
   let (_, t_min) = wfterm env e in

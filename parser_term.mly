@@ -25,7 +25,7 @@ mixed_bindings(typ,kind):
     { l }
 
 term_fields(kind,typ):
-| 
+|
     { (Label.AList.empty, Label.Set.empty) }
 | VAL lab=ID
     inner=option(preceded(AS,ID))

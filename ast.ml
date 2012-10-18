@@ -35,7 +35,7 @@ module Raw = struct
     | TeEx of string located * 'kind located * ('kind, 'typ) term
     | TeNu of string located * 'kind located * ('kind, 'typ) term
     | TeOpen of string located * ('kind, 'typ) term
-    | TeSigma of string located * 
+    | TeSigma of string located *
           string located * 'kind located * 'typ * ('kind, 'typ) term
     | TeFix of string located * 'typ * ('kind, 'typ) term
 
@@ -296,7 +296,7 @@ function
       union (fv_typ_rec fv_kind t1) (fv_typ_rec fv_kind t2)
   | Proj(t, _lab) -> fv_typ_rec fv_kind t
   | Record m | BaseRecord m ->
-      Label.Map.fold 
+      Label.Map.fold
         (fun _lab t acc -> union (fv_typ_rec fv_kind t) acc)
         m empty
 
@@ -413,11 +413,11 @@ module Kind = struct
     let y = Typ.h_kind x k2 in
     Pi (y, k1, subst k2 x (Typ.BVar y))
 
-  let mkArrow k1 k2 = 
+  let mkArrow k1 k2 =
     let x = Typ.Var.fresh () in
     mkPi x k1 k2
 
-  let mkSigma = 
+  let mkSigma =
     let rec aux : (Typ.Var.free * Typ.t kind) Label.AList.t
       -> (Typ.Var.bound * Typ.t kind) Label.AList.t = function
       | [] -> []
@@ -518,8 +518,8 @@ module Term = struct
     | Open (y, t) ->
         Typ.Var.bmax
           (Typ.h_typ x y)
-          (h_typ_var x t) 
-          
+          (h_typ_var x t)
+
   and h_typ_var (x : Typ.Var.free) t =
     pre_h_typ_var x t.content
 

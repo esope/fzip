@@ -37,4 +37,3 @@ val equiv_kind_b: unfold_eq:bool -> Env.t -> Kind.t -> Kind.t -> bool
 (** Decides subkinding. *)
 val sub_kind: unfold_eq:bool -> Env.t -> Kind.t -> Kind.t -> Answer.t
 val sub_kind_b: unfold_eq:bool -> Env.t -> Kind.t -> Kind.t -> bool
-

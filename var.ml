@@ -9,7 +9,7 @@ module type S = sig
         (** bound variables *)
   type bound
         (** equality test *)
-  val equal: free -> free -> bool 
+  val equal: free -> free -> bool
       (** creation of a free variable from a base name *)
   val make: string -> free
       (** for pretty printing purposes only, gets the base name *)

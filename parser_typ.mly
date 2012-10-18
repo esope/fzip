@@ -17,7 +17,7 @@
     { l }
 
 kind_fields:
-| 
+|
   { Label.AList.empty }
 | TYPE lab=ID a=option(preceded(AS,ID)) DBLCOLON k=kind f=kind_fields
     { if Label.AList.mem lab f
@@ -53,7 +53,7 @@ kind_expr:
 | k=kind EOF { k }
 
 typ_base_fields:
-| 
+|
     { Label.Map.empty }
 | VAL lab=ID COLON t=typ f=typ_base_fields
     { if Label.Map.mem lab f
@@ -62,7 +62,7 @@ typ_base_fields:
     else Label.Map.add lab t f }
 
 typ_fields:
-| 
+|
     { Label.Map.empty }
 | TYPE lab=ID params=list(typ_binding(kind))
   EQ t=typ f=typ_fields
@@ -109,4 +109,3 @@ typ_expr:
 | t=typ EOF { t }
 
 %%
-

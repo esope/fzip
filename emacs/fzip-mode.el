@@ -1,4 +1,4 @@
-(define-generic-mode 
+(define-generic-mode
   'fzip-mode
   nil  ;; limitation: comments cannot start with "("
   '("let"
@@ -7,7 +7,7 @@
     "import"
     "export"
     "val"
-    "type" 
+    "type"
     "as"
     "S"
     "Pi"
@@ -46,7 +46,6 @@
     ("\\[" . 'font-lock-builtin)
     ("\\]" . 'font-lock-builtin)
     )
-  '("\\.fzip$")           
-  nil                    
+  '("\\.fzip$")
+  nil
   "A mode for Fzip files")
-

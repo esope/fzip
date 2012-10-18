@@ -80,5 +80,3 @@ let wfprog { reqs ; code } =
             "This type variable is exported by the program, but was not required to be exported."
         with Not_found ->
           t
-
-

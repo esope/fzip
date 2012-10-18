@@ -45,7 +45,7 @@ module Term: sig
 
 (** [remove_var x loc env] returns [env] from which the first binding of [x]
     has been removed, if any. Otherwise, it returns [env]. If [track] is
-    set to [true], then the removal of the variable is recorded with 
+    set to [true], then the removal of the variable is recorded with
     the location [loc]. *)
   val remove_var: track:bool -> var -> unit Location.located -> t -> t
 
