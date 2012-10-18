@@ -1,0 +1,51 @@
+import {
+
+  (* The fixpoint combinator. *)
+  type μ :: (⋆ ⇒ ⋆) ⇒ ⋆
+
+  (* The types of the two recursive isomorphisms. *)
+  type Iso :: (⋆ ⇒ ⋆) ⇒ ⋆ = λ (f :: ⋆ ⇒ ⋆) ⇒
+  { val fold : f (μ f) → μ f
+    val unfold : μ f → f (μ f)
+  }
+
+  (* A witness of the isomorphism types. *)
+  val Iso : ∀ (f :: ⋆ ⇒ ⋆), Iso f
+
+}
+
+export {
+  type Sum :: ⋆ ⇒ ⋆ ⇒ ⋆
+  type Nat :: ⋆
+}
+
+{ (* The usual Church encoding of sums, with constructors 'left' and 'right'
+     and destructor 'match'. *)
+  val Sum as Sum =
+    let type sum_def :: ⋆ ⇒ ⋆ ⇒ ⋆ =
+      λ (α :: ⋆) (β :: ⋆) ⇒
+        ∀ (γ :: ⋆), { val left : α → γ val right : β → γ} → γ in
+    Σ [Sum] (Sum :: ⋆ ⇒ ⋆ ⇒ ⋆ = sum_def)
+    { val left (α :: ⋆) (β :: ⋆) (x : α) : Sum α β =
+        λ (γ :: ⋆) (r : { val left : α → γ val right : β → γ}) → r.left x
+      val right (α :: ⋆) (β :: ⋆) (x : β) : Sum α β =
+        λ (γ :: ⋆) (r : { val left : α → γ val right : β → γ}) → r.right x
+      val match (α :: ⋆) (β :: ⋆) (x : Sum α β) (γ :: ⋆)
+                (r : { val left : α → γ val right : β → γ}) : γ =
+            (x : sum_def α β) [γ] r
+    }
+
+  (* The recursive encoding of Nats: Nat ≈ 1 + Nat, with constructors
+     'Zero' and 'Succ' and destructor 'match'. *)
+  val Nat =
+    let type fNat :: ⋆ ⇒ ⋆ = λ (nat :: ⋆) ⇒ Sum {} nat in
+    Σ [Nat] (Nat :: ⋆ = μ fNat)
+    { val Zero : Nat = (Iso [fNat]).fold (Sum.left [{}] [μ fNat] {})
+      val Succ (n : Nat) : Nat =
+        (Iso [fNat]).fold (Sum.right [{}] [μ fNat] (n : μ fNat))
+      val match (n: Nat) : ∀ (α :: ⋆),
+                { val left : {} → α val right : Nat → α} → α =
+            Sum.match [{}] [μ fNat] ((Iso [fNat]).unfold (n : μ fNat))
+    }
+
+}
