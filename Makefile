@@ -19,10 +19,16 @@ doc:
 view_doc:	doc
 	xdg-open project.docdir/index.html
 
-dot:	ocamldot bin
+full_dot:	ocamldot bin
 	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.byte -fullgraph > _build/$(DOTFILE)
 
+dot:	ocamldot bin
+	ocamldep -I _build _build/*.ml _build/*.mli | _build/tools/ocamldot/ocamldot.byte > _build/$(DOTFILE)
+
 view_dot:	dot
+	dot -T xlib _build/$(DOTFILE) &
+
+view_full_dot:	full_dot
 	dot -T xlib _build/$(DOTFILE) &
 
 all:	bin doc dot
@@ -39,3 +45,5 @@ archive:
 
 ocamldot:
 	$(OCB) tools/ocamldot/ocamldot.byte
+
+.PHONY: bin native test test.native doc view_doc full_dot dot view_dot view_full_dot all clean distclean archive ocamldot
