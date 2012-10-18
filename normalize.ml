@@ -2,6 +2,14 @@ open Ast
 open Ast.Typ
 open Location
 
+(* Picks a clever name that is fresh for t: if t begins with a binder,
+   keep the same string representation. *)
+let clever_fresh t default = match t.content with
+| Lam(x, _, _) | BaseForall(x, _, _) | BaseExists(x, _, _) ->
+    Var.bfresh x.content
+| FVar _ | BVar _ | App _ | Record _ | Proj _ |
+    BaseRecord _ | BaseArrow _ -> default
+
 let option_map f = function
   | None -> None
   | Some x -> Some (f x)
@@ -40,7 +48,7 @@ let rec hd_norm_singleton k t = let open Kind in match k with
 | Single(t', k') ->
     hd_norm_singleton (hd_norm_singleton k' t') t
 | Pi(y, k1, k2) ->
-    let x = Var.bfresh y in
+    let x = clever_fresh t (Var.bfresh y) in
     let x_var = dummy_locate (mkVar x) in
     let t' = dummy_locate (mkApp t x_var)
     and k' = Kind.bsubst k2 y x_var in
@@ -208,7 +216,7 @@ and typ_norm ~unfold_eq env t k = match simplify_kind k with
 | Single (_, _) -> assert false
 | Pi(y, k1, k2) ->
     let k1' = dummy_locate (kind_norm ~unfold_eq env k1) in
-    let x = Var.bfresh y in
+    let x = clever_fresh t (Var.bfresh y) in
     let x_var = dummy_locate (mkVar x) in
     let t_ext = dummy_locate (mkApp t x_var) in
     let t' =
@@ -263,7 +271,7 @@ let rec try_equiv_typ ~unfold_eq env t1 t2 k =
       end
   | Single (_,_) -> Yes (* used to be on Single(_,Base) only *)
   | Pi(x, k1, k2) ->
-      let y = Var.bfresh x in
+      let y = clever_fresh t1 (clever_fresh t2 (Var.bfresh x)) in
       let y_var = dummy_locate (mkVar y) in
       equiv_typ ~unfold_eq
         (Env.Typ.add_var (dummy_locate Mode.U) y k1 env)
