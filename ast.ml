@@ -80,8 +80,8 @@ module Typ = struct
     if Var.bequal_bzero h then h else Var.bmax h (Var.bsucc y)
 
   (* computes the maximum of all the elements of the range of a map *)
-  let h_max f m =
-    Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero_default
+  let h_max x f m =
+    Label.Map.fold (fun _lab x acc -> Var.bmax (f x) acc) m (Var.bzero x)
 
   (* computes the height of a variable in a list of kind fields *)
   let rec h_sigmas h_kind (x: Var.free) = function
@@ -106,7 +106,7 @@ module Typ = struct
         Var.bmax (h_kind x k.content)
           (h_binder y.content (h_typ_rec h_kind x t))
     | Proj(t, _) -> h_typ_rec h_kind x t
-    | BaseRecord m | Record m -> h_max (h_typ_rec h_kind x) m
+    | BaseRecord m | Record m -> h_max x (h_typ_rec h_kind x) m
   and h_typ_rec h_kind (x : Var.free) t =
     pre_h_typ_rec h_kind x t.content
 
@@ -481,7 +481,7 @@ module Term = struct
   let h_typ_fields f (x: Typ.Var.free) m =
     Label.AList.fold
       (fun _lab (_, e) acc -> Typ.Var.bmax (f x e) acc)
-      m Typ.Var.bzero_default
+      m (Typ.Var.bzero x)
 
   let rec pre_h_term_var (x : Var.free) = function
     | FVar y -> if Var.equal x y then Var.bone x else Var.bzero x
