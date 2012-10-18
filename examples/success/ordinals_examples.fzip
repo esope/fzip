@@ -37,48 +37,36 @@ import {
 
 }
 
-let inj : Nat.t → Ord.t =
-  Nat.fold [Ord.t]
-  { val Zero = Ord.Zero
-    val Succ = Ord.Succ
-  }
-in
-
-let plus (a: Ord.t) : Ord.t → Ord.t =
-  Ord.fold [Ord.t]
-  { val Zero = a
-    val Succ (b: Ord.t) = Ord.Succ b
-    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
-  }
-in
-
-let mult (a: Ord.t) : Ord.t → Ord.t =
-  Ord.fold [Ord.t]
-  { val Zero = Ord.Zero
-    val Succ (b: Ord.t) = plus b a
-    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
-  }
-in
-
-let exp (a: Ord.t) : Ord.t → Ord.t =
-  Ord.fold [Ord.t]
-  { val Zero = Ord.Succ Ord.Zero
-    val Succ (b: Ord.t) = mult b a
-    val Lim (f: Nat.t → Ord.t) = Ord.Lim f
-  }
-in
-
-let tower (a: Ord.t) : Ord.t → Ord.t =
+{ val inj as inj : Nat.t → Ord.t =
+    Nat.fold [Ord.t]
+    { val Zero = Ord.Zero
+      val Succ = Ord.Succ
+    }
+  val plus as plus (a: Ord.t) : Ord.t → Ord.t =
+    Ord.fold [Ord.t]
+    { val Zero = a
+      val Succ (b: Ord.t) = Ord.Succ b
+      val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+    }
+  val mult as mult (a: Ord.t) : Ord.t → Ord.t =
+    Ord.fold [Ord.t]
+    { val Zero = Ord.Zero
+      val Succ (b: Ord.t) = plus b a
+      val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+    }
+  val exp as exp (a: Ord.t) : Ord.t → Ord.t =
+    Ord.fold [Ord.t]
+    { val Zero = Ord.Succ Ord.Zero
+      val Succ (b: Ord.t) = mult b a
+      val Lim (f: Nat.t → Ord.t) = Ord.Lim f
+    }
+  val tower as tower (a: Ord.t) : Ord.t → Ord.t =
   Ord.fold [Ord.t]
   { val Zero = a
     val Succ (b: Ord.t) = exp b a
     val Lim (f: Nat.t → Ord.t) = Ord.Lim f
   }
-in
-
-let omega = Ord.Lim inj in
-
-{ val omega : Ord.t = omega
+  val omega as omega : Ord.t = Ord.Lim inj
   val omega_squared : Ord.t = mult omega omega
   val omega_to_omega : Ord.t = exp omega omega
   val epsilon0 : Ord.t = tower omega omega

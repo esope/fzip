@@ -27,7 +27,9 @@ mixed_bindings(typ,kind):
 term_fields(kind,typ):
 | 
     { (Label.AList.empty, Label.Set.empty) }
-| VAL lab=ID params=list(mixed_binding(typ,kind))
+| VAL lab=ID
+    inner=option(preceded(AS,ID))
+    params=list(mixed_binding(typ,kind))
     tau=option(preceded(COLON,typ))
     EQ t=term(kind,typ) f=term_fields(kind,typ)
     { let (fields, labels) = f in
@@ -35,19 +37,28 @@ term_fields(kind,typ):
     then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
     else
-      let t = match tau with
+      let inner = match inner with
+      | Some x -> Some (locate x $startpos(inner) $endpos(inner))
+      | None ->   None
+      and t = match tau with
       | Some tau -> locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t)
       | None -> t
       in
-      (Label.AList.add lab (mkTe_mixed_bindings params t $endpos(t)) fields,
-          Label.Set.add lab labels) }
-| VAL REC lab=ID b=list(mixed_binding(typ,kind)) COLON tau=typ
+      (Label.AList.add lab
+         (inner, mkTe_mixed_bindings params t $endpos(t)) fields,
+       Label.Set.add lab labels) }
+| VAL REC lab=ID
+    inner=option(preceded(AS,ID))
+    b=list(mixed_binding(typ,kind)) COLON tau=typ
     EQ t=term(kind,typ) f=term_fields(kind,typ)
     { let (fields, labels) = f in
     if Label.Set.mem lab labels
     then Error.raise_error Error.term_wf $startpos(lab) $endpos(lab)
         (Printf.sprintf "Duplicate record label: %s." lab)
     else
+      let inner = match inner with
+      | Some x -> Some (locate x $startpos(inner) $endpos(inner))
+      | None ->   None in
       let tau_fix = mkTy_mixed_bindings b tau $endpos(tau) in
       let t_tau = locate (TeAnnot(t, tau)) $startpos(tau) $endpos(t) in
       let t_with_bindings =
@@ -57,7 +68,7 @@ term_fields(kind,typ):
           (TeFix(locate lab $startpos(lab) $endpos(lab),
                  tau_fix, t_with_bindings))
           $startpos(lab) t_with_bindings.Location.endpos in
-      (Label.AList.add lab t_fix fields,
+      (Label.AList.add lab (inner, t_fix) fields,
        Label.Set.add lab labels)
     }
 

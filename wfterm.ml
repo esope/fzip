@@ -5,12 +5,11 @@ open Location
 open Ast_utils
 
 let rec is_extended_result e = match e.content with
-| FVar _ -> true
-| BVar _ -> false
+| FVar _ | BVar _ -> true
 | Proj(e, _) | Annot(e, _) -> is_extended_result e
 | Record m ->
     Label.AList.for_all
-      (fun _lab -> is_extended_result)
+      (fun _lab (_x, e) -> is_extended_result e)
       m
 | App(_,_) | Inst(_,_) | Open(_,_) -> false
 | Fix({ content = x ; _ }, _, e) ->
@@ -39,12 +38,11 @@ and is_result e = match e.content with
   Let _ | Lam _ | App _ | BVar _ | FVar _ -> is_value e
 
 and is_value t = match t.content with
-| BVar _ -> assert false
 | Gen(_,_,_) | Lam(_,_,_) -> true
 | Annot(e, _) -> is_value e
 | Record m ->
     Label.AList.for_all
-      (fun _lab -> is_value)
+      (fun _lab (_x, e) -> is_value e)
       m
 | Ex({ content = x ; _ }, _,
      { content = Sigma({ content = Typ.BVar x' ; _ }, y, _, _, e) ; _ })
@@ -52,7 +50,7 @@ and is_value t = match t.content with
     let y' = Typ.Var.bfresh y.content in
     let y_var' = dummy_locate (Typ.mkVar y') in
     is_value (bsubst_typ_var e y.content y_var')
-| Let _ | App _ | FVar _ | Inst _ | Proj _ | Fix _ |
+| Let _ | App _ | FVar _ | BVar _ | Inst _ | Proj _ | Fix _ |
   Open _ | Nu _ | Sigma _
 | Ex(_,_,
      { content =
@@ -68,8 +66,7 @@ and is_value t = match t.content with
     Lam (_, _, _)|App (_, _)|BVar _|FVar _) ; _ }) -> false
 
 let rec check_fixpoint_syntax e = match e.content with
-| FVar _ -> true
-| BVar _ -> assert false
+| FVar _ | BVar _ -> true
 | Sigma (_, x, _, _, e) | Nu (x, _, e) | Ex (x, _, e) | Gen (x, _, e) ->
     let x' = Typ.Var.bfresh x.content in
     let x_var' = dummy_locate (Typ.mkVar x') in
@@ -82,7 +79,7 @@ let rec check_fixpoint_syntax e = match e.content with
     let e' = bsubst_term_var e x.content x_var' in
     is_extended_result e' && check_fixpoint_syntax e'
 | Record m ->
-    Label.AList.for_all (fun _lab -> check_fixpoint_syntax) m
+    Label.AList.for_all (fun _lab (_x, e) -> check_fixpoint_syntax e) m
 | Let (x, _, e) | Lam (x, _, e) ->
     let x' = Var.bfresh x.content in
     let x_var' = dummy_locate (mkVar x') in
@@ -293,22 +290,23 @@ let rec wfterm env term =
                  (PPrint.Typ.string (dummy_locate tau')))
       end
   | Record r ->
-      let (env', m) = Label.AList.fold
-          (fun lab e (env_acc, m) ->
-            let (env', tau) = wfterm env e in
-            let open Answer.WithValue in
-            match Env.zip env' env_acc with
-            | Yes env_zip ->
-                (env_zip, Label.Map.add lab tau m)
-            | No reason ->
-                Error.raise_error Error.zip term.startpos term.endpos
-                  (Printf.sprintf
-                     "Ill-formed record because of inconsistent zip\n%s%!"
-                     (error_msg reason))
-          )
-          r (Env.empty, Label.Map.empty)
-      in
-      (env', dummy_locate (Typ.mkBaseRecord m))
+      (* let (env', m) = Label.AList.fold *)
+      (*     (fun lab (x, e) (env_acc, m) -> (\* TODO: use x !!! *\) *)
+      (*       let (env', tau) = wfterm env e in *)
+      (*       let open Answer.WithValue in *)
+      (*       match Env.zip env' env_acc with *)
+      (*       | Yes env_zip -> *)
+      (*           (env_zip, Label.Map.add lab tau m) *)
+      (*       | No reason -> *)
+      (*           Error.raise_error Error.zip term.startpos term.endpos *)
+      (*             (Printf.sprintf *)
+      (*                "Ill-formed record because of inconsistent zip\n%s%!" *)
+      (*                (error_msg reason)) *)
+      (*     ) *)
+      (*     r (Env.empty, Label.Map.empty) *)
+      (* in *)
+    let (env', m) = wfterm_fields term.endpos env r in
+    (env', dummy_locate (Typ.mkBaseRecord m))
   | Proj(e, lab) ->
       let (env', tau') = wfterm env e in
       let tau' = Normalize.head_norm ~unfold_eq:false env tau' in
@@ -657,6 +655,29 @@ let rec wfterm env term =
           Error.raise_error Error.term_wf t.startpos t.endpos
             (Printf.sprintf "This type should have kind ⋆, but has kind\n%s%!"
                (PPrint.Kind.string k))
+
+and wfterm_fields endpos env = function
+| [] -> (Env.empty, Label.Map.empty)
+| (lab, ({ content = x; _ } as x_loc, e)) :: f ->
+    let (env', tau) = wfterm env e in
+    let x' = Var.bfresh x in
+    let x_var' = locate_with (mkVar x') x_loc in
+    let (env'', m) =
+      wfterm_fields endpos
+        (Env.Term.add_var x' (Location.relocate_with tau x_loc) env)
+        (bsubst_term_fields f x x_var') in
+    let open Answer.WithValue in
+    let env'' =
+      Env.Term.remove_var ~track:false
+        x' (Location.locate_with () x_loc) env'' in
+    match Env.zip env' env'' with
+    | Yes env_zip ->
+      (env_zip, Label.Map.add lab tau m)
+    | No reason ->
+      Error.raise_error Error.zip x_loc.startpos endpos
+        (Printf.sprintf
+           "Ill-formed record because of inconsistent zip\n%s%!"
+           (error_msg reason))
 
 let wfterm env e =
   if check_fixpoint_syntax e

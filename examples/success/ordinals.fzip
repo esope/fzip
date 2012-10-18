@@ -48,31 +48,29 @@ let type ord :: ⋆ = ∀ (α :: ⋆), Ord_Constr α → α in
 
 Σ [Ord] (Ord :: < type t as t :: ⋆ type Sig :: ⋆ = Ord_Sig t >
               = < type t = ord     type Sig = Ord_Sig ord >)
-(let mkZero (α :: ⋆) (r : Ord_Constr α) : α = r.Zero in
-let mkSucc (O : ord) (α :: ⋆) (r : Ord_Constr α) : α = r.Succ (O [α] r) in
-let mkLim (f : Nat.t → ord) (α :: ⋆) (r : Ord_Constr α) : α =
-  r.Lim (λ (n : Nat.t) → f n [α] r) in
-{ val Zero = mkZero
-  val Succ = mkSucc
-  val Lim  = mkLim
-  val match (β :: ⋆) (O : ord)
-             (destruct :
-               { val Zero : unit → β
-                 val Succ : ord → β
-                 val Lim  : (Nat.t → ord) → β }) =
-             let y = O [{ val ord: ord val res: β }]
-             { val Zero = { val ord = mkZero val res = destruct.Zero unit }
-               val Succ (x : { val ord: ord val res: β }) =
-                  { val ord = mkSucc x.ord val res = destruct.Succ x.ord }
-               val Lim (f : Nat.t → { val ord: ord val res: β }) =
-                  { val ord = mkLim (λ (n : Nat.t) → (f n).ord)
-                    val res = destruct.Lim (λ (n : Nat.t) → (f n).ord) }
-             } in
-             y.res
-  val fold (β :: ⋆)
-           (r : { val Zero : β
-                  val Succ : β → β
-                  val Lim  : (Nat.t → β) → β })
-           (O: ord) : β =
-      O [β] r
+({ val Zero as Zero (α :: ⋆) (r : Ord_Constr α) : α = r.Zero
+   val Succ as Succ (O : ord) (α :: ⋆) (r : Ord_Constr α) : α =
+     r.Succ (O [α] r)
+   val Lim as Lim (f : Nat.t → ord) (α :: ⋆) (r : Ord_Constr α) : α =
+     r.Lim (λ (n : Nat.t) → f n [α] r)
+   val match (β :: ⋆) (O : ord)
+              (destruct :
+                { val Zero : unit → β
+                  val Succ : ord → β
+                  val Lim  : (Nat.t → ord) → β }) =
+              let y = O [{ val ord: ord val res: β }]
+              { val Zero = { val ord = Zero val res = destruct.Zero unit }
+                val Succ (x : { val ord: ord val res: β }) =
+                   { val ord = Succ x.ord val res = destruct.Succ x.ord }
+                val Lim (f : Nat.t → { val ord: ord val res: β }) =
+                   { val ord = Lim (λ (n : Nat.t) → (f n).ord)
+                     val res = destruct.Lim (λ (n : Nat.t) → (f n).ord) }
+              } in
+              y.res
+   val fold (β :: ⋆)
+            (r : { val Zero : β
+                   val Succ : β → β
+                   val Lim  : (Nat.t → β) → β })
+            (O: ord) : β =
+       O [β] r
 } : Ord_Sig Ord.t)

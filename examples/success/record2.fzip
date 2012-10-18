@@ -1,0 +1,4 @@
+{ val x as x = {}
+  val y as y = x
+  val z = { val a = x val b = y }
+}

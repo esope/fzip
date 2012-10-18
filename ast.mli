@@ -28,7 +28,7 @@ module Raw : sig
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string located * 'typ * ('kind, 'typ) term
     | TeLet of string located * ('kind, 'typ) term * ('kind, 'typ) term
-    | TeRecord of (('kind, 'typ) term) Label.AList.t
+    | TeRecord of ((string located) option * ('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string located * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
@@ -119,7 +119,7 @@ module Kind : sig
 
 (** decides whether some bound variable occurs. *)
   val bvar_occurs: Typ.Var.bound -> t -> bool
-  val bvar_occurs_field:
+  val bvar_occurs_fields:
       Typ.Var.bound -> (Typ.Var.bound * 'a kind) Label.AList.t -> bool
 
 (** map on free variables *)
@@ -168,7 +168,7 @@ module Term : sig
     | App of term * term
     | Lam of Var.bound located * Typ.t * term
     | Let of Var.bound located * term * term
-    | Record of term Label.AList.t
+    | Record of (Var.bound located * term) Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Kind.t) located * term
     | Inst of term * Typ.t
@@ -195,11 +195,23 @@ module Term : sig
 
 (** substitution of free variables *)
   val subst_term_var: t -> Var.free -> pre_term -> t
+  val subst_term_fields:
+      (Var.bound * t) Label.AList.t -> Var.free -> pre_term
+        -> (Var.bound * t) Label.AList.t
   val subst_typ_var: t -> Typ.Var.free -> Typ.pre_typ -> t
+  val subst_typ_fields:
+      (Var.bound * t) Label.AList.t -> Typ.Var.free -> Typ.pre_typ
+        -> (Var.bound * t) Label.AList.t
 
 (** substitution of bound variables *)
   val bsubst_term_var: t -> Var.bound -> t -> t
+  val bsubst_term_fields:
+      (Var.bound located * t) Label.AList.t -> Var.bound -> t
+        -> (Var.bound located * t) Label.AList.t
   val bsubst_typ_var: t -> Typ.Var.bound -> Typ.typ -> t
+  val bsubst_typ_fields:
+      (Var.bound located * t) Label.AList.t -> Typ.Var.bound -> Typ.typ
+        -> (Var.bound located * t) Label.AList.t
 
 (** equality test *)
   val equal: t -> t -> bool
@@ -221,7 +233,7 @@ module Term : sig
   val mkApp: t -> t -> pre_term
   val mkLam: Var.free located -> Typ.t -> t -> pre_term
   val mkLet: Var.free located -> t -> t -> pre_term
-  val mkRecord: t Label.AList.t -> pre_term
+  val mkRecord: (Var.free located * t) Label.AList.t -> pre_term
   val mkProj: t -> Label.t located -> pre_term
   val mkGen: Typ.Var.free located -> Kind.t located -> t -> pre_term
   val mkInst: t -> Typ.t -> pre_term

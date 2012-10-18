@@ -1,7 +1,0 @@
-* bindings term fields
-* change semantics of 'as'
-* more examples
-* support for datatypes
-* recursive types
-* better syntax for mixing types with terms
-* some form of partial type inference (implicit arguments?)

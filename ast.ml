@@ -27,7 +27,7 @@ module Raw = struct
     | TeApp of ('kind, 'typ) term * ('kind, 'typ) term
     | TeLam of string located * 'typ * ('kind, 'typ) term
     | TeLet of string located * ('kind, 'typ) term * ('kind, 'typ) term
-    | TeRecord of (('kind, 'typ) term) Label.AList.t
+    | TeRecord of ((string located) option * ('kind, 'typ) term) Label.AList.t
     | TeProj of ('kind, 'typ) term * Label.t located
     | TeGen of string located * 'kind located * ('kind, 'typ) term
     | TeInst of ('kind, 'typ) term * 'typ
@@ -377,7 +377,7 @@ module Kind = struct
   let bvar_occurs x _k = not (Typ.Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
 
-  let bvar_occurs_field = bvar_occurs
+  let bvar_occurs_fields = bvar_occurs
 
   let var_map = Typ.var_map_kind
 
@@ -395,7 +395,7 @@ module Kind = struct
     else k
 
   let bsubst_fields f x u =
-    if bvar_occurs_field x f
+    if bvar_occurs_fields x f
     then Typ.bsubst_kind_fields bsubst f x u
     else f
 
@@ -440,7 +440,7 @@ module Term = struct
     | App of term * term
     | Lam of Var.bound located * Typ.typ * term
     | Let of Var.bound located * term * term
-    | Record of term Label.AList.t
+    | Record of (Var.bound located * term) Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Typ.typ Typ.kind) located * term
     | Inst of term * Typ.typ
@@ -457,15 +457,10 @@ module Term = struct
 
   let term_bvar_occurs x _t = not (Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
+  let term_bvar_occurs_fields = term_bvar_occurs
   let typ_bvar_occurs x _t = not (Typ.Var.bequal_bzero x)
       (* from Sato-Pollack, x is free iff it is not 0 *)
-
-  let h_term_max f m =
-    Label.AList.fold (fun _lab x acc -> Var.bmax (f x) acc) m Var.bzero_default
-
-  let h_typ_max f m =
-    Label.AList.fold (fun _lab x acc -> Typ.Var.bmax (f x) acc) m
-      Typ.Var.bzero_default
+  let typ_bvar_occurs_fields = typ_bvar_occurs
 
   let h_ty_binder y h =
     if Typ.Var.bequal_bzero h
@@ -476,6 +471,18 @@ module Term = struct
     if Var.bequal_bzero h
     then h
     else Var.bmax h (Var.bsucc y)
+
+  (* computes the height of term a variable in a list of term fields *)
+  let rec h_term_fields h_term (x: Var.free) = function
+    | [] -> Var.bzero x
+    | (_label, (y, k)) :: l ->
+        Var.bmax (h_term x k) (h_te_binder y.content (h_term_fields h_term x l))
+
+  (* computes the height of a type variable in a list of term fields *)
+  let h_typ_fields f (x: Typ.Var.free) m =
+    Label.AList.fold
+      (fun _lab (_, e) acc -> Typ.Var.bmax (f x e) acc)
+      m Typ.Var.bzero_default
 
   let rec pre_h_term_var (x : Var.free) = function
     | FVar y -> if Var.equal x y then Var.bone x else Var.bzero x
@@ -488,7 +495,7 @@ module Term = struct
     | Proj(t, _) | Inst(t, _) | Gen (_, _, t) | Annot(t, _)
     | Sigma (_, _, _, _, t) | Open (_, t) | Nu (_, _, t) | Ex (_, _, t) ->
         h_term_var x t
-    | Record m -> h_term_max (h_term_var x) m
+    | Record m -> h_term_fields h_term_var x m
   and h_term_var (x : Var.free) t =
     pre_h_term_var x t.content
 
@@ -502,7 +509,7 @@ module Term = struct
         Typ.Var.bmax (Typ.h_kind x k.content)
           (h_ty_binder y.content (h_typ_var x t))
     | Proj(t, _) -> h_typ_var x t
-    | Record m -> h_typ_max (h_typ_var x) m
+    | Record m -> h_typ_fields h_typ_var x m
     | Sigma (y, z, k, tau, t) ->
         Typ.Var.bmax
           (Typ.h_typ x y)
@@ -530,7 +537,8 @@ module Term = struct
     | Let (x, t1, t2) ->
         Let (x, var_map_term_var f_free t1, var_map_term_var f_free t2)
     | Record m ->
-        Record (Label.AList.map (var_map_term_var f_free) m)
+        Record
+          (Label.AList.map (fun (x, e) -> (x, var_map_term_var f_free e)) m)
     | Proj (t, lab) ->
         Proj(var_map_term_var f_free t, lab)
     | Gen (x, k, t) ->
@@ -558,6 +566,9 @@ module Term = struct
       (fun y -> if Var.equal x y then u else FVar y)
       t
 
+  let subst_term_fields f x u =
+    Label.AList.map (fun (y, e) -> (y, subst_term_var e x u)) f
+
   let rec pre_var_map_typ_var f_free = function
     | FVar _ | BVar _ as t -> t
     | App (t1, t2) ->
@@ -568,7 +579,8 @@ module Term = struct
     | Let (x, t1, t2) ->
         Let (x, var_map_typ_var f_free t1, var_map_typ_var f_free t2)
     | Record m ->
-        Record (Label.AList.map (var_map_typ_var f_free) m)
+        Record
+          (Label.AList.map (fun (x, e) -> (x, var_map_typ_var f_free e)) m)
     | Proj (t, lab) ->
         Proj(var_map_typ_var f_free t, lab)
     | Gen (x, k, t) ->
@@ -609,6 +621,17 @@ module Term = struct
       (fun y -> if Typ.Var.equal x y then u else Typ.FVar y)
       t
 
+  let subst_typ_fields f x u =
+    Label.AList.map (fun (y, e) -> (y, subst_typ_var e x u)) f
+
+
+  let rec bsubst_term_fields bsubst_term f x u = match f with
+  | [] -> []
+  | (label, (y, e)) :: f when Var.bequal x y.content ->
+      (label, (y, bsubst_term e x u)) :: f
+  | (label, (y, e)) :: f ->
+      (label, (y, bsubst_term e x u)) :: (bsubst_term_fields bsubst_term f x u)
+
   let rec pre_bsubst_term_var t x u = match t with
   | (FVar _) as v -> v
   | (BVar y) as b -> if Var.bequal x y then u.content else b
@@ -625,7 +648,7 @@ module Term = struct
       then Let (y, t1', t2)
       else Let (y, t1', bsubst_term_var t2 x u)
   | Record m ->
-      Record (Label.AList.map (fun t -> bsubst_term_var t x u) m)
+      Record (bsubst_term_fields bsubst_term_var m x u)
   | Proj (t, lab) ->
       Proj(bsubst_term_var t x u, lab)
   | Gen (y, k, t) ->
@@ -655,6 +678,14 @@ module Term = struct
     then bsubst_term_var t x u
     else t
 
+  let bsubst_term_fields f x u =
+    if term_bvar_occurs_fields x f
+    then bsubst_term_fields bsubst_term_var f x u
+    else f
+
+  let bsubst_typ_fields bsubst_term f x u =
+    Label.AList.map (fun (y, e) -> (y, bsubst_term e x u)) f
+
   let rec pre_bsubst_typ_var t x u = match t with
   | FVar _ | BVar _ -> t
   | App (t1, t2) ->
@@ -665,7 +696,7 @@ module Term = struct
   | Let (y, t1, t2) ->
       Let (y, bsubst_typ_var t1 x u, bsubst_typ_var t2 x u)
   | Record m ->
-      Record (Label.AList.map (fun t -> bsubst_typ_var t x u) m)
+      Record (bsubst_typ_fields bsubst_typ_var m x u)
   | Proj (t, lab) ->
       Proj(bsubst_typ_var t x u, lab)
   | Gen(y, k, t) ->
@@ -706,6 +737,11 @@ module Term = struct
     then bsubst_typ_var t x u
     else t
 
+  let bsubst_typ_fields f x u =
+    if typ_bvar_occurs_fields x f
+    then bsubst_typ_fields bsubst_typ_var f x u
+    else f
+
   let rec equal t1 t2 = pre_equal t1.content t2.content
   and pre_equal t1 t2 = match (t1, t2) with
   | (FVar x, FVar x') -> Var.equal x x'
@@ -717,7 +753,10 @@ module Term = struct
   | (App(t1,t2), App(t1',t2')) ->
       equal t1 t1' && equal t2 t2'
   | (Record m, Record m') ->
-      Label.AList.equal equal m m'
+      Label.AList.equal
+        (fun (x1, e1) (x2, e2) ->
+          Var.bequal x1.content x2.content && equal e1 e2)
+        m m'
   | (Proj(t,lab), Proj(t',lab')) ->
       equal t t' && Label.equal lab.content lab'.content
   | (Gen(x,k,t), Gen(x',k',t')) | (Nu(x,k,t), Nu(x',k',t'))
@@ -752,7 +791,7 @@ module Term = struct
            (union (Typ.fv t) (fv_typ e)))
   | Record m ->
       Label.AList.fold
-        (fun _lab e acc -> union (fv_typ e) acc)
+        (fun _lab (_, e) acc -> union (fv_typ e) acc)
         m empty
 
   let rec is_fv_typ y t = match t.content with
@@ -768,7 +807,7 @@ module Term = struct
       (Typ.is_fv y t) || (is_fv_typ y e)
   | Record m ->
       Label.AList.exists
-        (fun _lab e -> is_fv_typ y e)
+        (fun _lab (_, e) -> is_fv_typ y e)
         m
 
   let rec fv_term t = let open Var.Set in
@@ -782,7 +821,7 @@ module Term = struct
       fv_term e
   | Record m ->
       Label.AList.fold
-        (fun _lab e acc -> union (fv_term e) acc)
+        (fun _lab (_, e) acc -> union (fv_term e) acc)
         m empty
 
   let rec is_fv_term y t = match t.content with
@@ -795,7 +834,7 @@ module Term = struct
       is_fv_term y e
   | Record m ->
       Label.AList.exists
-        (fun _lab e -> is_fv_term y e)
+        (fun _lab (_, e) -> is_fv_term y e)
         m
 
 (* smart constructors *)
@@ -811,7 +850,16 @@ module Term = struct
     let y = h_term_var x.content t2 in
     Let (locate_with y x, t1, subst_term_var t2 x.content (BVar y))
 
-  let mkRecord m = Record m
+  let mkRecord =
+    let rec aux : (Var.free located * term) Label.AList.t
+      -> (Var.bound located * term) Label.AList.t = function
+      | [] -> []
+      | (lab, (x, e)) :: f ->
+          let f = aux f in
+          let y = h_term_fields h_term_var x.content f in
+          (lab,
+           (locate_with y x, e)) :: (subst_term_fields f x.content (BVar y))
+    in fun f -> Record (aux f)
 
   let mkProj t lab = Proj(t, lab)
 

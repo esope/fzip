@@ -1,0 +1,12 @@
+* DONE bindings term fields
+* bindings type fields
+* change semantics of 'as'
+  Currently, 'val x = ...' is treated as 'val x as _fresh = ...'.
+  One wants the same convention as in ML:
+  it should be treated as 'val x as x = ...'.
+* add local fields 'let val x = ...' is a field that is not exported
+* more examples
+* support for datatypes
+* recursive types (iso-recursive)
+* better syntax for mixing types with terms
+* some form of partial type inference (implicit arguments?)

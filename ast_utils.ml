@@ -70,7 +70,14 @@ module Encode = struct
           let t1' = term t1
           and t2' = term t2 in
           mkLet (map Var.make x) t1' t2'
-      | Raw.TeRecord m -> mkRecord (Label.AList.map term m)
+      | Raw.TeRecord m ->
+          let m = Label.AList.map
+              (fun (x, e) ->
+                let x = match x with
+                | None -> dummy_locate (Var.make (Var.to_string (Var.fresh ())))
+                | Some x -> locate_with (Var.make x.content) x
+                in (x, term e)) m in
+          mkRecord m
       | Raw.TeProj (t, lab) -> mkProj (term t) lab
       | Raw.TeGen (x, k, t) ->
           let k' = { k with content = Typ.kind k.content }
@@ -134,7 +141,7 @@ module Decode = struct
           Sigma
             (Label.AList.map
                (fun (x,k) ->
-                 ((if Kind.bvar_occurs_field x f
+                 ((if Kind.bvar_occurs_fields x f
                  then Some (Typ.Var.bto_string x)
                  else None),
                    kind_rec typ k)) f)
