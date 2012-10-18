@@ -167,7 +167,6 @@ module Term : sig
     | BVar of Var.bound
     | App of term * term
     | Lam of Var.bound located * Typ.t * term
-    | Let of Var.bound located * term * term
     | Record of (Var.bound located * term) Label.AList.t
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Kind.t) located * term

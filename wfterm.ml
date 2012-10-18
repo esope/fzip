@@ -16,11 +16,6 @@ let rec is_extended_result e = match e.content with
     let x' = Var.bfresh x in
     let x_var' = dummy_locate (mkVar x') in
     is_extended_result (bsubst_term_var e x x_var')
-| Let({ content = x ; _ }, e1, e2) ->
-    is_extended_result e1 &&
-    let x' = Var.bfresh x in
-    let x_var' = dummy_locate (mkVar x') in
-    is_extended_result (bsubst_term_var e2 x x_var')
 | Sigma(_,{ content = x ; _ },_,_,e)
 | Nu({content = x ; _ }, _ , e) ->
     let x' = Typ.Var.bfresh x in
@@ -35,7 +30,7 @@ and is_result e = match e.content with
     let x_var' = dummy_locate (Typ.mkVar x') in
     is_result (bsubst_typ_var e x x_var')
 | Open _ | Fix _ | Inst _ | Proj _ | Nu _ | Ex _ | Gen _ | Record _ |
-  Let _ | Lam _ | App _ | BVar _ | FVar _ -> is_value e
+  Lam _ | App _ | BVar _ | FVar _ -> is_value e
 
 and is_value t = match t.content with
 | Gen(_,_,_) | Lam(_,_,_) -> true
@@ -50,7 +45,7 @@ and is_value t = match t.content with
     let y' = Typ.Var.bfresh y.content in
     let y_var' = dummy_locate (Typ.mkVar y') in
     is_value (bsubst_typ_var e y.content y_var')
-| Let _ | App _ | FVar _ | BVar _ | Inst _ | Proj _ | Fix _ |
+| App _ | FVar _ | BVar _ | Inst _ | Proj _ | Fix _ |
   Open _ | Nu _ | Sigma _
 | Ex(_,_,
      { content =
@@ -62,7 +57,7 @@ and is_value t = match t.content with
   (_, _,
   { content =
     (Open (_, _)|Nu (_, _, _)|Ex (_, _, _)|Annot (_, _)|Fix (_, _, _)|
-    Inst (_, _)|Gen (_, _, _)|Proj (_, _)|Record _|Let (_, _, _)|
+    Inst (_, _)|Gen (_, _, _)|Proj (_, _)|Record _|
     Lam (_, _, _)|App (_, _)|BVar _|FVar _) ; _ }) -> false
 
 let rec check_fixpoint_syntax e = match e.content with
@@ -80,7 +75,7 @@ let rec check_fixpoint_syntax e = match e.content with
     is_extended_result e' && check_fixpoint_syntax e'
 | Record m ->
     Label.AList.for_all (fun _lab (_x, e) -> check_fixpoint_syntax e) m
-| Let (x, _, e) | Lam (x, _, e) ->
+| Lam (x, _, e) ->
     let x' = Var.bfresh x.content in
     let x_var' = dummy_locate (mkVar x') in
     check_fixpoint_syntax (bsubst_term_var e x.content x_var')
@@ -199,27 +194,6 @@ let rec wfterm env term =
               (Printf.sprintf
                  "Non functional application: this term should have an arrow type,\nbut has type\n%s%!"
                  (PPrint.Typ.string (dummy_locate tau)))
-      end
-  | Let({ content = x ; _ } as x_loc, e1, e2) ->
-      let (env1, t1) = wfterm env e1 in
-      let y = Var.bfresh x in
-      let y_var = dummy_locate (mkVar y) in
-      let (env2, t2) =
-        wfterm
-          (Env.Term.add_var y (Location.relocate_with t1 x_loc) env)
-          (bsubst_term_var e2 x y_var) in
-      begin
-        let open Answer.WithValue in
-        match Env.zip env1
-            (Env.Term.remove_var ~track:false
-               y (Location.locate_with () y_var) env2)
-        with
-        | Yes env12 -> (env12, t2)
-        | No reason ->
-            Error.raise_error Error.zip term.startpos term.endpos
-              (Printf.sprintf
-                 "Ill-formed let binding because of inconsistent zip\n%s%!"
-                 (error_msg reason))
       end
   | Gen ({ content = x ; _ } as x_loc, k, e) ->
       if wfkind env k.content
