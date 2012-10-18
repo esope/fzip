@@ -5,12 +5,10 @@ open Location
 open Ast_utils
 
 let rec is_extended_result e = match e.content with
-| FVar _ | BVar _ -> true
+| FVar _ -> true
+| BVar _ -> assert false
 | Proj(e, _) | Annot(e, _) -> is_extended_result e
-| Record m ->
-    Label.AList.for_all
-      (fun _lab (_x, e) -> is_extended_result e)
-      m
+| Record m -> is_extended_result_fields m
 | App(_,_) | Inst(_,_) | Open(_,_) -> false
 | Fix({ content = x ; _ }, _, e) ->
     let x' = Var.bfresh x in
@@ -23,6 +21,14 @@ let rec is_extended_result e = match e.content with
     is_extended_result (bsubst_typ_var e x x_var')
 | Gen _ | Lam _ | Ex _ -> is_result e
 
+and is_extended_result_fields = function
+| [] -> true
+| (_, ({ content = x; _ }, e)) :: f ->
+    is_extended_result e &&
+      let x' = Var.bfresh x in
+      let x_var' = dummy_locate (mkVar x') in
+      is_extended_result_fields (bsubst_term_fields f x x_var')
+
 and is_result e = match e.content with
 | Annot(e, _) -> is_result e
 | Sigma(_,{ content = x ; _ },_,_,e) ->
@@ -30,22 +36,20 @@ and is_result e = match e.content with
     let x_var' = dummy_locate (Typ.mkVar x') in
     is_result (bsubst_typ_var e x x_var')
 | Open _ | Fix _ | Inst _ | Proj _ | Nu _ | Ex _ | Gen _ | Record _ |
-  Lam _ | App _ | BVar _ | FVar _ -> is_value e
+  Lam _ | App _ | FVar _ -> is_value e
+| BVar _ -> assert false
 
 and is_value t = match t.content with
 | Gen(_,_,_) | Lam(_,_,_) -> true
 | Annot(e, _) -> is_value e
-| Record m ->
-    Label.AList.for_all
-      (fun _lab (_x, e) -> is_value e)
-      m
+| Record m -> is_value_fields m
 | Ex({ content = x ; _ }, _,
      { content = Sigma({ content = Typ.BVar x' ; _ }, y, _, _, e) ; _ })
   when Typ.Var.bequal x x' ->
     let y' = Typ.Var.bfresh y.content in
     let y_var' = dummy_locate (Typ.mkVar y') in
     is_value (bsubst_typ_var e y.content y_var')
-| App _ | FVar _ | BVar _ | Inst _ | Proj _ | Fix _ |
+| App _ | FVar _ | Inst _ | Proj _ | Fix _ |
   Open _ | Nu _ | Sigma _
 | Ex(_,_,
      { content =
@@ -59,9 +63,19 @@ and is_value t = match t.content with
     (Open (_, _)|Nu (_, _, _)|Ex (_, _, _)|Annot (_, _)|Fix (_, _, _)|
     Inst (_, _)|Gen (_, _, _)|Proj (_, _)|Record _|
     Lam (_, _, _)|App (_, _)|BVar _|FVar _) ; _ }) -> false
+| BVar _ -> assert false
+
+and is_value_fields = function
+| [] -> true
+| (_, ({ content = x; _ }, e)) :: f ->
+    is_value e &&
+      let x' = Var.bfresh x in
+      let x_var' = dummy_locate (mkVar x') in
+      is_value_fields (bsubst_term_fields f x x_var')
 
 let rec check_fixpoint_syntax e = match e.content with
-| FVar _ | BVar _ -> true
+| FVar _ -> true
+| BVar _ -> assert false
 | Sigma (_, x, _, _, e) | Nu (x, _, e) | Ex (x, _, e) | Gen (x, _, e) ->
     let x' = Typ.Var.bfresh x.content in
     let x_var' = dummy_locate (Typ.mkVar x') in
@@ -73,14 +87,21 @@ let rec check_fixpoint_syntax e = match e.content with
     let x_var' = dummy_locate (mkVar x') in
     let e' = bsubst_term_var e x.content x_var' in
     is_extended_result e' && check_fixpoint_syntax e'
-| Record m ->
-    Label.AList.for_all (fun _lab (_x, e) -> check_fixpoint_syntax e) m
+| Record m -> check_fixpoint_syntax_fields m
 | Lam (x, _, e) ->
     let x' = Var.bfresh x.content in
     let x_var' = dummy_locate (mkVar x') in
     check_fixpoint_syntax (bsubst_term_var e x.content x_var')
 | App (e1, e2) ->
     check_fixpoint_syntax e1 && check_fixpoint_syntax e2
+
+and check_fixpoint_syntax_fields = function
+| [] -> true
+| (_, (x, e)) :: f ->
+    check_fixpoint_syntax e &&
+      let x' = Var.bfresh x.content in
+      let x_var' = dummy_locate (mkVar x') in
+      check_fixpoint_syntax_fields (bsubst_term_fields f x.content x_var')
 
 type basekind_res = OK | KIND of Typ.typ Typ.kind
 let wfbasetype env t =
@@ -264,23 +285,8 @@ let rec wfterm env term =
                  (PPrint.Typ.string (dummy_locate tau')))
       end
   | Record r ->
-      (* let (env', m) = Label.AList.fold *)
-      (*     (fun lab (x, e) (env_acc, m) -> (\* TODO: use x !!! *\) *)
-      (*       let (env', tau) = wfterm env e in *)
-      (*       let open Answer.WithValue in *)
-      (*       match Env.zip env' env_acc with *)
-      (*       | Yes env_zip -> *)
-      (*           (env_zip, Label.Map.add lab tau m) *)
-      (*       | No reason -> *)
-      (*           Error.raise_error Error.zip term.startpos term.endpos *)
-      (*             (Printf.sprintf *)
-      (*                "Ill-formed record because of inconsistent zip\n%s%!" *)
-      (*                (error_msg reason)) *)
-      (*     ) *)
-      (*     r (Env.empty, Label.Map.empty) *)
-      (* in *)
-    let (env', m) = wfterm_fields term.endpos env r in
-    (env', dummy_locate (Typ.mkBaseRecord m))
+      let (env', m) = wfterm_fields term.endpos env r in
+      (env', dummy_locate (Typ.mkBaseRecord m))
   | Proj(e, lab) ->
       let (env', tau') = wfterm env e in
       let tau' = Normalize.head_norm ~unfold_eq:false env tau' in
