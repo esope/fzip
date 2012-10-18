@@ -68,11 +68,9 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
   let bequal: bound -> bound -> bool = fun x y -> (fst x) = (fst y)
   let bequal_bzero (i, _) = i = 0
   let bmax: bound -> bound -> bound = fun x y ->
-    if (fst x) <= (fst y)
-    then (fst y,
-          if MyString.equal (fst (snd y)) Default.bbase then snd x else snd y)
-    else (fst x,
-          if MyString.equal (fst (snd x)) Default.bbase then snd y else snd x)
+    if (fst x) <= (fst y) (* we keep the name of the first argument *)
+    then (fst y, snd x)
+    else (fst x, snd x)
 
   let bto_string (n, f) = to_string (fst f, if n = 0 then 0 else n-1)
 

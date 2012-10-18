@@ -41,6 +41,9 @@ module type S = sig
   val bsucc: bound -> bound
   val bequal: bound -> bound -> bool
   val bequal_bzero: bound -> bool
+  (** [bmax] computes the maximem of two bound variables.
+      The string representation of the result is the one of
+      the first argument. *)
   val bmax: bound -> bound -> bound
   val bto_string: bound -> string
 
