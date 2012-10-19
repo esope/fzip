@@ -61,10 +61,10 @@ For detail, see `comment-dwim'."
 
   ;; OCaml style comments: “(* ... *)”
   ;; 'n' means "nested comment"
-  (modify-syntax-entry ?( "(. 14n" fzip-mode-syntax-table)
+  (modify-syntax-entry ?( "(). 14n" fzip-mode-syntax-table)
   (modify-syntax-entry ?* ". 23n" fzip-mode-syntax-table)
   (modify-syntax-entry ?) "). 4n" fzip-mode-syntax-table)
-  (modify-syntax-entry ?< "(" fzip-mode-syntax-table)
+  (modify-syntax-entry ?< "(>" fzip-mode-syntax-table)
   (modify-syntax-entry ?> ")" fzip-mode-syntax-table)
 
   (local-set-key (kbd "C-c C-c") 'compile)
