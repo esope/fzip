@@ -50,7 +50,7 @@ module Raw = struct
 end
 
 module Typ = struct
-  module Var : Var.S = Var.Make(struct let fbase = "α" let bbase = "α__" end)
+  module Var : Var.S = Var.Make(struct let fbase = "α" let bbase = "α" end)
 
   type 'a kind =
     | Base
@@ -431,7 +431,7 @@ end
 
 
 module Term = struct
-  module Var : Var.S = Var.Make(struct let fbase = "x" let bbase = "x__" end)
+  module Var : Var.S = Var.Make(struct let fbase = "x" let bbase = "x" end)
 
   type term = pre_term located
   and pre_term =
