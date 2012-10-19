@@ -3,7 +3,7 @@
 (*                                                                        *)
 (*  Authors: François Pottier and Nicolas Pouillard,                      *)
 (*           INRIA Paris-Rocquencourt                                     *)
-(*  Version: 20100311                                                     *)
+(*  Version: 20110207                                                     *)
 (*                                                                        *)
 (*  The copyright to this code is held by Institut National de Recherche  *)
 (*  en Informatique et en Automatique (INRIA). All rights reserved. This  *)
@@ -50,7 +50,9 @@ end
 module FormatterOutput : OUTPUT with type channel = Format.formatter = struct
   type channel = Format.formatter
   let char = Format.pp_print_char
-  let substring fmt = fst (Format.pp_get_formatter_output_functions fmt ())
+  let substring fmt s x y = Format.pp_print_string fmt (String.sub s x y)
+    (* bug fix: do not invoke raw formatter_output_function, it would send
+       the data out on the raw channel while bypassing [Format]'s queue *)
 end
 
 (* ------------------------------------------------------------------------- *)

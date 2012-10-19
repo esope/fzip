@@ -3,7 +3,7 @@
 (*                                                                        *)
 (*  Authors: François Pottier and Nicolas Pouillard,                      *)
 (*           INRIA Paris-Rocquencourt                                     *)
-(*  Version: 20100311                                                     *)
+(*  Version: 20110207                                                     *)
 (*                                                                        *)
 (*  The copyright to this code is held by Institut National de Recherche  *)
 (*  en Informatique et en Automatique (INRIA). All rights reserved. This  *)
