@@ -1,0 +1,70 @@
+import {
+  (* The sum type *)
+  type Sum :: < type t :: ⋆ ⇒ ⋆ ⇒ ⋆ >
+  val Sum : { val left : ∀ (α :: ⋆) (β :: ⋆), α → Sum.t α β
+              val right : ∀ (α :: ⋆) (β :: ⋆), β → Sum.t α β
+              val match : ∀ (α :: ⋆) (β :: ⋆) (γ :: ⋆),
+                Sum.t α β → { val left : α → γ val right : β → γ } → γ
+            }
+
+  (* The product type *)
+  type Prod :: < type t :: ⋆ ⇒ ⋆ ⇒ ⋆ >
+  val Prod : { val pair  : ∀ (α :: ⋆) (β :: ⋆), α → β → Prod.t α β
+               val fst   : ∀ (α :: ⋆) (β :: ⋆), Prod.t α β → α
+               val snd   : ∀ (α :: ⋆) (β :: ⋆), Prod.t α β → β
+               val match : ∀ (α :: ⋆) (β :: ⋆) (γ :: ⋆),
+                 Prod.t α β → { val pair : α → β → γ } → γ
+             }
+
+  (* Isomorphism between recursive types *)
+  type μ :: (⋆ ⇒ ⋆) ⇒ ⋆
+  val Iso : { val fold   : ∀ (f :: ⋆ ⇒ ⋆), f (μ f) → μ f
+              val unfold : ∀ (f :: ⋆ ⇒ ⋆), μ f     → f (μ f) }
+}
+
+export {
+  type Term :: < type t :: ⋆ >
+}
+
+{ (* The Term datatype *)
+  val Term as Term =
+    let type F :: ⋆ ⇒ ⋆ = λ (α :: ⋆) ⇒ Sum.t (Prod.t α α) (α → α) in
+    let type rectype ::⋆ = μ F in
+    Σ [Term] (Term :: < type t :: ⋆ > = < type t = rectype >)
+    { (* The App constructor *)
+      val App (x: Term.t) (y: Term.t) : Term.t =
+        Iso.fold [F]
+        ((Sum.left [Prod.t Term.t Term.t] [Term.t → Term.t]
+            (Prod.pair [Term.t] [Term.t] x y))
+         : Sum.t (Prod.t rectype rectype) (rectype → rectype))
+
+      (* The Lam constructor *)
+      val Lam (f: Term.t → Term.t) : Term.t =
+        Iso.fold [F]
+        ((Sum.right [Prod.t Term.t Term.t] [Term.t → Term.t] f)
+         : Sum.t (Prod.t rectype rectype) (rectype → rectype))
+
+      val match (γ :: ⋆) (t: Term.t)
+           (r: { val App : Term.t → Term.t → γ val Lam : (Term.t → Term.t) → γ }) : γ =
+           Sum.match [Prod.t rectype rectype] [rectype → rectype] [γ]
+           (Iso.unfold [F] (t: rectype))
+           { val left (p: Prod.t rectype rectype) =
+               (r.App: rectype → rectype → γ)
+                 (Prod.fst [rectype] [rectype] p)
+                 (Prod.snd [rectype] [rectype] p)
+             val right (f: rectype → rectype) =
+               (r.Lam: (rectype → rectype) → γ) f   }
+    }
+
+  (* Example: apply = λ f x. f x *)
+  val apply : Term.t =
+    Term.Lam (λ (f: Term.t) → Term.Lam (λ (x: Term.t) → Term.App f x))
+
+  (* Example: delta = λ x. x x *)
+  val Δ as Δ : Term.t =
+    Term.Lam (λ (x: Term.t) → Term.App x x)
+
+  (* Example: delta delta = (λ x. x x) (λ x. x x) *)
+  val ΔΔ : Term.t = Term.App Δ Δ
+
+}
