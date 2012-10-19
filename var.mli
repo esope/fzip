@@ -56,6 +56,18 @@ module type S = sig
   module BMap: Map.S with type key = bound
   module Set : Set.S with type elt = free
   module Map : Map.S with type key = free
+
+  (** Helper module that helps finding the "best" free name for a
+      given bound name. This is useful for pretty printing. *)
+  module Best : sig
+    type t (** The type of datastructure that remember the best names. *)
+    val empty: t (** The structure in which nothing is recorded. *)
+    val get: t -> bound -> free (** Get the best name. *)
+    val remember_get: t -> bound -> t * free
+    (** Get the best name and registers it. Typically, you should call
+        that function when traversing a binder. *)
+  end
+
 end
 
 module Make (Default: CONFIG) : S

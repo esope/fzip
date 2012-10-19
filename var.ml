@@ -41,6 +41,14 @@ module type S = sig
   module BMap: Map.S with type key = bound
   module Set : Set.S with type elt = free
   module Map : Map.S with type key = free
+
+  module Best : sig
+    type t
+    val empty: t
+    val get: t -> bound -> free
+    val remember_get: t -> bound -> t * free
+  end
+
 end
 
 module Make (Default: sig val fbase: string val bbase: string end) : S = struct
@@ -57,7 +65,7 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
     let n_s = String.compare s1 s2 in
     if n_s = 0 then compare i1 i2 else n_s
   let make s = (s,0)
-  let to_string (s,n) = if n = 0 then s else (s ^ (string_of_int n))
+  let to_string (s,n) = if n = 0 then s else (s ^ "/" ^ (string_of_int n))
   module H = Hashtbl.Make(MyString)
   let h = H.create 256
   let sfresh s =
@@ -85,6 +93,8 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
 
   let bto_string (n, f) = to_string (fst f, if n = 0 then 0 else n-1)
 
+  module SMap = Map.Make(MyString)
+
   module Bound = struct
     type t = bound
     let compare = bcompare
@@ -98,5 +108,30 @@ module Make (Default: sig val fbase: string val bbase: string end) : S = struct
   end
   module Set = Set.Make(Free)
   module Map = Map.Make(Free)
+
+  module Best = struct
+
+    type t = int SMap.t * free BMap.t
+
+    let empty = (SMap.empty, BMap.empty)
+
+    let get_smap sm s = try SMap.find s sm with Not_found -> -1
+
+    let upgrade_smap sm s =
+      let n = get_smap sm s in
+      (SMap.add s (n+1) sm, n+1)
+
+    let get_bmap m (b: bound) : free = try BMap.find b m with Not_found -> snd b
+
+    let get (_, m) b = get_bmap m b
+
+    let remember_get (sm, bm) ((_, (s, _)) as b) =
+      let (sm', n) = upgrade_smap sm s in
+      let f = (s, n) in (* the free var *)
+      let bm' = BMap.add b f bm in
+      ((sm', bm'), f)
+
+  end
+
 
 end

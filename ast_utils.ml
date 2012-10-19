@@ -129,50 +129,67 @@ module Decode = struct
   module Typ = struct
     open Raw
 
-    let rec kind_rec typ = function
+    let rec kind_rec best typ = function
       | Typ.Base -> Base
       | Typ.Pi(x, k1, k2) ->
-          let k1' = kind_rec typ k1
-          and k2' = kind_rec typ k2 in
+          let k1' = kind_rec best typ k1 in
           if Kind.bvar_occurs x k2
-          then Pi(Some (Typ.Var.bto_string x), k1', k2')
-          else Pi(None, k1', k2')
-      | Typ.Sigma f ->
-          Sigma
-            (Label.AList.map
-               (fun (x,k) ->
-                 ((if Kind.bvar_occurs_fields x f
-                 then Some (Typ.Var.bto_string x)
-                 else None),
-                   kind_rec typ k)) f)
-      | Typ.Single (t, k) -> Single (typ t, kind_rec typ k)
+          then
+            let (best, x') = Typ.Var.Best.remember_get best x in
+            let k2' = kind_rec best typ k2 in
+            Pi(Some (Typ.Var.to_string x'), k1', k2')
+          else
+            let k2' = kind_rec best typ k2 in
+            Pi(None, k1', k2')
+      | Typ.Sigma f -> Sigma (kind_rec_fields best typ f)
+      | Typ.Single (t, k) -> Single (typ best t, kind_rec best typ k)
 
-    let rec typ_rec kind t =
-      { t with content = pre_typ_rec kind t.content }
-    and pre_typ_rec kind = function
+    and kind_rec_fields best typ = function
+      | [] -> []
+      | (lab, (x, k)) :: f ->
+        let k' = kind_rec best typ k in
+        if Kind.bvar_occurs_fields x f
+        then
+          let (best, x') = Typ.Var.Best.remember_get best x in
+          (lab, (Some (Typ.Var.to_string x'), k')) :: kind_rec_fields best typ f
+        else
+          (lab, (None, k')) :: kind_rec_fields best typ f
+
+    let rec typ_rec best kind t =
+      { t with content = pre_typ_rec best kind t.content }
+    and pre_typ_rec best kind = function
       | Typ.FVar x -> Var (Typ.Var.to_string x)
-      | Typ.BVar x -> Var (Typ.Var.bto_string x)
-      | Typ.App (t, u) -> App (typ_rec kind t, typ_rec kind u)
+      | Typ.BVar x -> Var (Typ.Var.to_string (Typ.Var.Best.get best x))
+      | Typ.App (t, u) -> App (typ_rec best kind t, typ_rec best kind u)
       | Typ.Lam (x, k, t) ->
-          let k' = { k with content = kind k.content }
-          and t' = typ_rec kind t in
-          Lam(map Typ.Var.bto_string x, k', t')
-      | Typ.Record m -> Record (Label.Map.map (typ_rec kind) m)
-      | Typ.Proj (t, lab) -> Proj (typ_rec kind t, lab)
+          let k' = { k with content = kind best k.content } in
+          let (best, x') = Typ.Var.Best.remember_get best x.content in
+          let t' = typ_rec best kind t in
+          Lam(locate_with (Typ.Var.to_string x') x, k', t')
+      | Typ.Record m -> Record (Label.Map.map (typ_rec best kind) m)
+      | Typ.Proj (t, lab) -> Proj (typ_rec best kind t, lab)
       | Typ.BaseForall (x, k, t) ->
-          let k' = { k with content = kind k.content }
-          and t' = typ_rec kind t in
-          BaseForall(map Typ.Var.bto_string x, k', t')
+          let k' = { k with content = kind best k.content } in
+          let (best, x') = Typ.Var.Best.remember_get best x.content in
+          let t' = typ_rec best kind t in
+          BaseForall(locate_with (Typ.Var.to_string x') x, k', t')
       | Typ.BaseExists (x, k, t) ->
-          let k' = { k with content = kind k.content }
-          and t' = typ_rec kind t in
-          BaseExists(map Typ.Var.bto_string x, k', t')
-      | Typ.BaseRecord m -> BaseRecord (Label.Map.map (typ_rec kind) m)
-      | Typ.BaseArrow (t, u) -> BaseArrow (typ_rec kind t, typ_rec kind u)
+          let k' = { k with content = kind best k.content } in
+          let (best, x') = Typ.Var.Best.remember_get best x.content in
+          let t' = typ_rec best kind t in
+          BaseExists(locate_with (Typ.Var.to_string x') x, k', t')
+      | Typ.BaseRecord m ->
+          BaseRecord (Label.Map.map (typ_rec best kind) m)
+      | Typ.BaseArrow (t, u) ->
+          BaseArrow (typ_rec best kind t, typ_rec best kind u)
 
 (* closing recursion *)
-    let rec typ t = typ_rec kind t
-    and kind k = kind_rec typ k
+    let rec typ best t = typ_rec best kind t
+    and kind best k = kind_rec best typ k
+
+(* initialization *)
+    let typ  = typ  Typ.Var.Best.empty
+    let kind = kind Typ.Var.Best.empty
 
   end
 
