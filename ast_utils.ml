@@ -199,151 +199,134 @@ module PPrint = struct
   open Ast.Raw
   type doc = Pprint.document
 
-  let is_delimited = function
-    | Pi(_,_,_) -> false
-    | Base | Sigma _ | Single (_,_) -> true
-
-  let is_non_dep_pi = function
-    | Pi(None, _, _) -> true
-    | Pi(Some _, _, _) | Base | Sigma _ | Single(_,_) -> false
-
   let ident = Pprint.text
 
-  let rec kind_rec typ = let open Pprint in function
-    | Base -> text "⋆"
-    | Pi(Some x, k1, k2) ->
-        (prefix "Π"
-           (parens (infix_com "::" (ident x) (kind_rec typ k1))) ^^
-         string "⇒") ^^
-           break1 ^^
-           (kind_rec typ k2)
-    | Pi(None, k1, k2) ->
+  let sequence s d e l = let open Pprint in match l with
+    | [] -> text s ^^ text e
+    | _ ->
+      soft_surround 1 break1 (text s) (group (sepmap d (fun x -> x) l)) (text e)
+
+
+  type kind_level =
+  | Simple_kind
+  | Arrow_kind
+  | Kind
+
+  let rec kind_rec level typ = let open Pprint in match level with
+    | Simple_kind -> begin function
+      | Base -> text "⋆"
+      | Sigma f ->
+        sequence "<" (break 1) ">"
+          (List.map
+             (fun (lab, (x, k)) ->
+               group
+                 (infix "::"
+                    (string "type " ^^ string lab ^^
+                       (match x with
+                       | Some x -> string " as " ^^ ident x
+                       | None -> empty))
+                    (kind_rec Kind typ k)))
+             f)
+      | Single (t, Base) ->
+        prefix "S" (parens (typ t))
+      | Single (t, k) ->
+        prefix "S" (parens (infix "::" (typ t) (kind_rec Kind typ k)))
+      | (Pi _) as k -> parens (kind_rec Kind typ k)
+    end
+    | Arrow_kind -> begin function
+      | Pi(None, k1, k2) ->
         infix "⇒"
-          (if is_delimited k1 && not (is_non_dep_pi k1)
-          then kind_rec typ k1
-          else parens (kind_rec typ k1))
-          (kind_rec typ k2)
-    | Sigma f ->
-        seq2 "<" " " ">"
-          (Label.AList.fold
-             (fun lab (x, k) acc -> match x with
-             | Some x ->
-                 (infix "::"
-                    (string "type " ^^ string lab ^^ string " as " ^^ ident x)
-                    (kind_rec typ k)) :: acc
-             | None ->
-                 (infix "::"
+          (kind_rec Simple_kind typ k1)
+          (kind_rec Arrow_kind  typ k2)
+      | (Base | Sigma _ | Single _ | Pi (Some _, _, _)) as k ->
+        kind_rec Simple_kind typ k
+    end
+    | Kind -> begin function
+      | Pi(Some x, k1, k2) ->
+        infix "⇒"
+          (prefix "Π"
+             (parens (infix "::" (ident x) (kind_rec Kind typ k1))))
+          (kind_rec Kind typ k2)
+      | (Base | Sigma _ | Single _ | Pi (None, _, _)) as k ->
+        kind_rec Arrow_kind typ k
+    end
+
+  type typ_level =
+  | Simple_typ
+  | App_typ
+  | Arrow_typ
+  | Typ
+
+  let rec pre_typ_rec level kind = let open Pprint in match level with
+    | Simple_typ -> begin function
+      | Var x -> ident x
+      | Record m ->
+        sequence "<" (break 1) ">"
+          (List.map
+             (fun (lab, ty) ->
+               group
+                 (infix "="
                     (string "type " ^^ string lab)
-                    (kind_rec typ k)) :: acc)
-             f [])
-    | Single (t, Base) ->
-        prefix "S"
-          (parens (typ t))
-    | Single (t, k) ->
-        prefix "S"
-          (parens (infix "::" (typ t) (kind_rec typ k)))
-
-  let is_delimited t =
-    match t.content with
-    | BaseArrow (_, _) | Lam(_,_,_) | BaseForall (_, _, _) |
-      BaseExists (_, _, _) -> false
-    | Var _ | Record _ | Proj(_,_) | App(_,_) |
-      BaseRecord _ -> true
-  let is_app t = match t.content with
-  | App(_,_) -> true
-  | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    BaseExists (_,_,_) | Proj (_, _) | Record _ | Lam (_, _, _)-> false
-  let is_proj t = match t.content with
-  | Proj(_,_) -> true
-  | Var _ | BaseArrow (_, _) | BaseRecord _ | BaseForall (_, _, _) |
-    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _)-> false
-  let is_base_arrow t = match t.content with
-  | BaseArrow(_,_) -> true
-  | Var _ | BaseRecord _ | BaseForall (_, _, _) | Proj (_, _) |
-    BaseExists (_,_,_) | Record _ | Lam (_, _, _) | App (_, _)-> false
-  let tights_more_than_app x =
-    match x.content with
-    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_proj x =
-    match x.content with
-    | Var _ | Record _ | Proj _ | BaseRecord _ -> true
-    | BaseArrow (_, _) | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) | App(_,_) -> false
-  let tights_more_than_base_arrow x =
-    match x.content with
-    | Var _ | Record _ | Proj _ | BaseRecord _
-    | BaseArrow(_,_) | App(_,_) -> true
-    | BaseForall (_, _, _) | BaseExists (_,_,_) |
-      Lam (_, _, _) -> false
-
-
-  let rec pre_typ_rec kind = let open Pprint in function
-    | Var x -> ident x
-    | Lam({ content = x ; _ }, k, t) ->
-        (prefix "λ"
-           (parens (infix "::" (ident x) (kind k.content))) ^^ string "⇒") ^^
-        break1 ^^
-        (typ_rec kind t)
-    | App(t1, t2) ->
-        infix_dot " "
-          (if (tights_more_than_app t1 && is_delimited t1) || is_app t1
-          then typ_rec kind t1
-          else parens (typ_rec kind t1))
-          (if tights_more_than_app t2 && is_delimited t2
-          then typ_rec kind t2
-          else parens (typ_rec kind t2))
-    | Record m ->
-        seq2 "<" " " ">"
-          (Label.Map.fold
-             (fun lab ty acc ->
-               (infix "="
-                  (string "type " ^^ string lab)
-                  (typ_rec kind ty))
-               :: acc)
-             m [])
-    | Proj(t, lab) ->
+                    (typ_rec Typ kind ty)))
+             (Label.Map.bindings m))
+      | Proj(t, lab) ->
         infix_dot "."
-          (if is_proj t || (tights_more_than_proj t && is_delimited t)
-          then typ_rec kind t
-          else parens (typ_rec kind t))
+          (typ_rec Simple_typ kind t)
           (text lab.content)
-    | BaseArrow(t1,t2) ->
+      | BaseRecord m ->
+        sequence "{" (break 1) "}"
+          (List.map
+             (fun (lab, ty) ->
+               group
+                 (infix ":"
+                    (string "val " ^^ string lab)
+                    (typ_rec Typ kind ty)))
+             (Label.Map.bindings m))
+      | (App _ | BaseArrow _ | Lam _ | BaseForall _ | BaseExists _) as t ->
+        parens (pre_typ_rec Typ kind t)
+    end
+    | App_typ -> begin function
+      | App(t1, t2) ->
+        (typ_rec App_typ kind t1)
+        ^^ break1
+        ^^ (typ_rec Simple_typ kind t2)
+      | (Var _ | Record _ | Proj _ | BaseRecord _ | BaseArrow _ | Lam _ |
+          BaseForall _ | BaseExists _) as t ->
+        pre_typ_rec Simple_typ kind t
+    end
+    | Arrow_typ -> begin function
+      | BaseArrow(t1,t2) ->
         infix "→"
-          (if is_delimited t1 && tights_more_than_base_arrow t1
-          then typ_rec kind t1
-          else parens (typ_rec kind t1))
-          (if is_base_arrow t2
-         || (is_delimited t2 && tights_more_than_base_arrow t2)
-          then typ_rec kind t2
-          else parens (typ_rec kind t2))
-    | BaseRecord m ->
-        seq2 "{" " " "}"
-          (Label.Map.fold
-             (fun lab ty acc ->
-               (infix ":"
-                  (string "val " ^^ string lab)
-                  (typ_rec kind ty))
-               :: acc)
-             m [])
-    | BaseForall({ content = x ; _ }, k, t) ->
-        (prefix "∀"
-           (parens (infix_com "::" (ident x) (kind k.content))) ^^
-         string ",") ^^
-        break1 ^^
-        (typ_rec kind t)
-    | BaseExists({ content = x ; _ }, k, t) ->
-        (prefix "∃"
-           (parens (infix_com "::" (ident x) (kind k.content))) ^^
-         string ",") ^^
-        break1 ^^
-        (typ_rec kind t)
+          (typ_rec App_typ kind t1)
+          (typ_rec Typ kind t2)
+      | (Var _ | Record _ | Proj _ | BaseRecord _ | App _ | Lam _ |
+          BaseForall _ | BaseExists _) as t ->
+        pre_typ_rec App_typ kind t
+    end
+    | Typ -> begin function
+      | Lam({ content = x ; _ }, k, t) ->
+        infix_com "⇒"
+        (text "λ" ^^ blank 1 ^^
+           (parens (infix "::" (ident x) (kind k.content))))
+        (typ_rec Typ kind t)
+      | BaseForall({ content = x ; _ }, k, t) ->
+        infix_com ","
+        (text "∀" ^^ blank 1 ^^
+           (parens (infix "::" (ident x) (kind k.content))))
+        (typ_rec Typ kind t)
+      | BaseExists({ content = x ; _ }, k, t) ->
+        infix_com ","
+        (text "∃" ^^ blank 1 ^^
+           (parens (infix "::" (ident x) (kind k.content))))
+        (typ_rec Typ kind t)
+      | (Var _ | Record _ | Proj _ | BaseRecord _ | App _ | BaseArrow _) as t ->
+        pre_typ_rec Arrow_typ kind t
+    end
 
-  and typ_rec kind { content ; _ } = Pprint.group1 (pre_typ_rec kind content)
+  and typ_rec level kind { content ; _ } = Pprint.group1 (pre_typ_rec level kind content)
 
-  let rec typ t = typ_rec kind t
-  and kind k = kind_rec typ k
+  let rec typ t = typ_rec Typ kind t
+  and kind k = kind_rec Kind typ k
 
   let string_from_buffer buffer t =
     let buff = Buffer.create 80 in
