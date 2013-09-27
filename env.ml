@@ -82,12 +82,12 @@ module Set = struct
 
   let tyvar =
     let open Ast.Typ.Var.Set in
-    { empty ; is_empty ; singleton ;
+    { empty = Ast.Typ.Var.Set.empty ; is_empty ; singleton ;
       add ; remove ; inter ; union ; diff ; mem ; choose }
 
   let tevar =
     let open Ast.Term.Var.Set in
-    { empty ; is_empty ; singleton ;
+    { empty = Ast.Term.Var.Set.empty ; is_empty ; singleton ;
       add ; remove ; inter ; union ; diff ; mem ; choose }
 end
 
@@ -107,10 +107,12 @@ module Map = struct
 
   let tyvar =
     let open Ast.Typ.Var.Map in
-    { empty ; is_empty ; mem ; add ; equal ; merge ; partition ; find }
+    { empty = Ast.Typ.Var.Map.empty ;
+      is_empty ; mem ; add ; equal ; merge ; partition ; find }
   let tevar =
     let open Ast.Term.Var.Map in
-    { empty ; is_empty ; mem ; add ; equal ; merge ; partition ; find }
+    { empty = Ast.Term.Var.Map.empty ;
+      is_empty ; mem ; add ; equal ; merge ; partition ; find }
 end
 
 (* operations on association lists *)
@@ -346,7 +348,7 @@ module Typ = struct
 
   let binding_fv ({ Location.content = mode ; _ }, k) =
     Ast.Typ.Var.Set.union
-      (let open Mode in match mode with
+      (match mode with
       | U | E -> Ast.Typ.Var.Set.empty
       | EQ tau -> Ast.Typ.fv tau)
       (Ast.Kind.fv k)
@@ -376,14 +378,15 @@ module Typ = struct
       (* variables that come from the type variable environment *)
       if recursive
       then
-        let open Ast.Typ.Var.Set in
-        fixpoint subset ty_vars_to_remove
+        fixpoint Ast.Typ.Var.Set.subset ty_vars_to_remove
           (fun vars ->
-            union vars
+            Ast.Typ.Var.Set.union vars
               (List.fold_left
-                 (fun acc (var, b) -> let fv = binding_fv b in
-                 if is_empty (inter fv vars) then acc else add var acc)
-                 empty e.typ_vars))
+                 (fun acc (var, b) ->
+                   let open Ast.Typ.Var.Set in
+                   let fv = binding_fv b in
+                   if is_empty (inter fv vars) then acc else add var acc)
+                 Ast.Typ.Var.Set.empty e.typ_vars))
       else ty_vars_to_remove
     in
     assert (Ast.Typ.Var.Set.mem x ty_vars_to_remove) ;

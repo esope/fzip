@@ -43,8 +43,8 @@ let rec hd_norm_singleton_fields f t = match f with
     let f' = hd_norm_singleton_fields (Kind.bsubst_fields f x t_lab) t in
     (lab, (y, k')) :: f'
 
-let rec hd_norm_singleton k t = let open Kind in match k with
-| Base | Single (_, Base) -> mkSingle t mkBase
+let rec hd_norm_singleton k t = match k with
+| Base | Single (_, Base) -> Kind.mkSingle t Kind.mkBase
 | Single(t', k') ->
     hd_norm_singleton (hd_norm_singleton k' t') t
 | Pi(y, k1, k2) ->
@@ -52,7 +52,7 @@ let rec hd_norm_singleton k t = let open Kind in match k with
     let x_var = dummy_locate (mkVar x) in
     let t' = dummy_locate (mkApp t x_var)
     and k' = Kind.bsubst k2 y x_var in
-    Kind.mkPi x k1 (mkSingle t' k')
+    Kind.mkPi x k1 (Kind.mkSingle t' k')
 | Sigma f ->
     Kind.mkSigma (hd_norm_singleton_fields f t)
 
@@ -229,9 +229,10 @@ and typ_norm ~unfold_eq env t k = match simplify_kind k with
         (Label.Map.map
            (fun (t_l, k_l) -> typ_norm ~unfold_eq env t_l k_l) projections) }
 
-and kind_norm ~unfold_eq env = let open Kind in function
-  | Base -> mkBase
-  | Single (t, Base) -> mkSingle (typ_norm ~unfold_eq env t mkBase) mkBase
+and kind_norm ~unfold_eq env = function
+  | Base -> Kind.mkBase
+  | Single (t, Base) ->
+      Kind.mkSingle (typ_norm ~unfold_eq env t Kind.mkBase) Kind.mkBase
   | Single (t, k) -> kind_norm ~unfold_eq env (hd_norm_singleton k t)
   | Pi(x, k1, k2) ->
       let k1' = kind_norm ~unfold_eq env k1

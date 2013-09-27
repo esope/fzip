@@ -192,10 +192,9 @@ let rec wfterm env term =
               match Env.zip env1 env2 with
               | Yes env12 ->
                   begin
-                    let open Answer in
                     match sub_type ~unfold_eq:false env tau2 tau2' with
-                    | Yes -> (env12, tau1')
-                    | No reason ->
+                    | Answer.Yes -> (env12, tau1')
+                    | Answer.No reason ->
                         Error.raise_error
                           Error.subtype term.startpos term.endpos
                           (Printf.sprintf "Ill-formed application\n%s%!"

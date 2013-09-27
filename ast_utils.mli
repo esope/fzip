@@ -1,8 +1,5 @@
 (** Useful functions on ASTs. *)
 
-open Ast
-open Location
-
 module Encode : sig
   open Ast
 

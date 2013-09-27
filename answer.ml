@@ -153,13 +153,13 @@ module WithValue = struct
 
   type 'a t = Yes of 'a | No of reason list
 
-  let ( &*& ) r1 r2 = match r1 with
+  let ( &*& ) (r1: 'a t) r2 = match r1 with
   | Yes _ -> r2 ()
   | No _ -> r1
 
-  let to_bool = function Yes _ -> true | No _ -> false
+  let to_bool : 'a t -> bool = function Yes _ -> true | No _ -> false
 
-  let map f = function
+  let map (f: 'a -> 'b) : 'a t -> 'b t = function
     | Yes x -> Yes (f x)
     | No r -> No r
 
