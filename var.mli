@@ -44,8 +44,10 @@ module type S = sig
   val bsucc: bound -> bound
   val bequal: bound -> bound -> bool
   val bequal_bzero: bound -> bool
+
   (** comparison *)
   val bcompare: bound -> bound -> int
+
   (** [bmax] computes the maximem of two bound variables.
       The string representation of the result is the one of
       the first argument. *)
@@ -60,12 +62,18 @@ module type S = sig
   (** Helper module that helps finding the "best" free name for a
       given bound name. This is useful for pretty printing. *)
   module Best : sig
-    type t (** The type of datastructure that remember the best names. *)
-    val empty: t (** The structure in which nothing is recorded. *)
-    val get: t -> bound -> free (** Get the best name. *)
-    val remember_get: t -> bound -> t * free
+    (** The type of datastructure that remember the best names. *)
+    type t
+
+    (** The structure in which nothing is recorded. *)
+    val empty: t
+
+    (** Get the best name. *)
+    val get: t -> bound -> free
+
     (** Get the best name and registers it. Typically, you should call
         that function when traversing a binder. *)
+    val remember_get: t -> bound -> t * free
   end
 
 end

@@ -147,10 +147,12 @@ module Kind : sig
   val is_fv: Typ.Var.free -> t -> bool
 
 (** smart constructors *)
+
   val mkBase: t
   val mkSingle: Typ.t -> t -> t
   val mkPi: Typ.Var.free -> t -> t -> t
-(** non-dependent version of mkPi *)
+
+  (** non-dependent version of mkPi *)
   val mkArrow: t -> t -> t
   val mkSigma: (Typ.Var.free * t) Label.AList.t -> t
 
@@ -162,7 +164,8 @@ module Term : sig
 
   type term = pre_term located
   and pre_term = private
-(** System F with records. *)
+
+    (** System F with records. *)
     | FVar of Var.free
     | BVar of Var.bound
     | App of term * term
@@ -171,9 +174,11 @@ module Term : sig
     | Proj of term * Label.t located
     | Gen of Typ.Var.bound located * (Kind.t) located * term
     | Inst of term * Typ.t
-(** Fixpoint. *)
+
+    (** Fixpoint. *)
     | Fix of Var.bound located * Typ.t * term
-(** Constructs for open existential types. *)
+
+    (** Constructs for open existential types. *)
     | Annot of term * Typ.t
     | Ex of Typ.Var.bound located * Kind.t located * term
     | Nu of Typ.Var.bound located * Kind.t located * term
@@ -184,7 +189,7 @@ module Term : sig
 
   type t = term
 
-(** decides whether some bound variable occurs. *)
+  (** decides whether some bound variable occurs. *)
   val term_bvar_occurs: Var.bound -> t -> bool
   val typ_bvar_occurs: Typ.Var.bound -> t -> bool
 
